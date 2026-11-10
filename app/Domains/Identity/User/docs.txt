@@ -1,0 +1,59 @@
+API
+    GET|HEAD  api/v1/identity/users users.index 
+    POST      api/v1/identity/users users.store 
+    GET|HEAD  api/v1/identity/users/email/{email} 
+    GET|HEAD  api/v1/identity/users/{id} 
+    PUT       api/v1/identity/users/{id} 
+    DELETE    api/v1/identity/users/{id}
+    
+JSON CREATE
+    {
+        "name": "sakjaskj Doe",
+        "email": "akbarr@gmail.nmsahgshj",
+        "password": "12345678",
+        "role_ids": [1, 2],
+        "firebase_uid": "",
+        "avatar": "https://example.com/avatars/johndoe.png",
+        "is_email_verified": true
+    }
+
+DB
+    User
+        CREATE TABLE `users` (
+        `id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+        `firebase_uid` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+        `email` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+        `password` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+        `name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+        `avatar` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+        `is_email_verified` tinyint(1) NOT NULL DEFAULT '0',
+        `created_at` timestamp NULL DEFAULT NULL,
+        `updated_at` timestamp NULL DEFAULT NULL,
+        `deleted_at` timestamp NULL DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `users_email_unique` (`email`),
+        UNIQUE KEY `users_firebase_uid_unique` (`firebase_uid`),
+        KEY `users_deleted_at_index` (`deleted_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+
+    Role
+        CREATE TABLE `roles` (
+        `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+        `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+        `created_at` timestamp NULL DEFAULT NULL,
+        PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+
+    User Role
+        CREATE TABLE `user_roles` (
+        `user_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `role_id` bigint unsigned NOT NULL,
+        `created_at` timestamp NULL DEFAULT NULL,
+        `updated_at` timestamp NULL DEFAULT NULL,
+        PRIMARY KEY (`user_id`,`role_id`),
+        KEY `fk_user_roles_role_id` (`role_id`),
+        CONSTRAINT `fk_user_roles_role_id` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+
+
+        

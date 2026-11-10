@@ -1,0 +1,45 @@
+API
+  GET|HEAD  api/v1/order/vouchers 
+  POST      api/v1/order/vouchers 
+  GET|HEAD  api/v1/order/vouchers/{id}
+  PUT       api/v1/order/vouchers/{id}
+  DELETE    api/v1/order/vouchers/{id}
+
+Json
+{
+  "code": "DISKON2026",
+  "name": "Promo Seru Pertengahan Tahun",
+  "discount_type": "percentage",
+  "discount_value": 10.00,
+  "min_spend": 50000.00,
+  "max_discount": 15000.00,
+  "starts_at": "2026-06-30 00:00:00",
+  "ends_at": "2026-07-07 23:59:59",
+  "usage_limit": 150,
+  "store_id": null,
+  "is_active": true
+}
+
+DB
+CREATE TABLE `vouchers` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `code` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `discount_type` enum('fixed','percentage') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'fixed',
+  `discount_value` decimal(10,2) NOT NULL,
+  `min_spend` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `max_discount` decimal(10,2) DEFAULT NULL,
+  `starts_at` datetime NOT NULL,
+  `ends_at` datetime NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `usage_limit` int unsigned NOT NULL DEFAULT '0',
+  `used_count` int unsigned NOT NULL DEFAULT '0',
+  `store_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `code` (`code`),
+  KEY `vouchers_store_id_index` (`store_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+
+aku ingin membuat sebuah kode untuk voucher gratis ongkir atau diskon ongkir. apakah sudah bisa? atau perlu di kembangkan lagi? btw sepertinya order tabel database dan juga kode ku masih belum melakukan kalkulasi ongkir deh

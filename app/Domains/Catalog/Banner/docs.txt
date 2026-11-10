@@ -1,0 +1,22 @@
+API
+
+
+JSON
+    {
+    "image_url": "https://cdn.marketplace.com/stores/store-1/dekorasi-banner-1.jpg",
+    "sort_order": 1,
+    "is_active": true
+    }
+
+DB
+    CREATE TABLE `banners` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `store_id` bigint unsigned NOT NULL, -- Diperlukan untuk memfilter banner milik toko mana
+    `image_url` varchar(255) NOT NULL,
+    `sort_order` int NOT NULL DEFAULT '0',
+    `is_active` tinyint(1) NOT NULL DEFAULT '1',
+    `created_at` timestamp NULL DEFAULT NULL,
+    `updated_at` timestamp NULL DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    KEY `idx_shop_banners_store` (`store_id`, `is_active`, `sort_order`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

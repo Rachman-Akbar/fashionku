@@ -1,0 +1,65 @@
+API
+  POST      api/v1/catalog/categories 
+  GET|HEAD  api/v1/catalog/categories/menu 
+  GET|HEAD  api/v1/catalog/categories/path/{path}
+  GET|HEAD  api/v1/catalog/categories/path/{path}/products 
+  GET|HEAD  api/v1/catalog/categories/{id} 
+  PUT       api/v1/catalog/categories/{id} 
+  DELETE    api/v1/catalog/categories/{id} 
+
+JSON CREATE
+    level 1
+        {
+            "catalog_group_id": 1,
+            "name": "Audio, Kamera & Elektronik Lainnya",
+            "slug": "audio-kamera-elektronik-lainnya",
+            "sort_order": 1,
+            "is_active": true,
+            "is_visible_in_menu": true
+        }
+
+        level 2
+            {
+                "parent_id": 1,
+                "name": "Aksesoris Kamera",
+                "sort_order": 1,
+                "is_active": true,
+                "is_visible_in_menu": true
+            }
+
+            level 3
+            {
+                "parent_id": 2,
+                "name": "Baterai & Charger Kamera",
+                "sort_order": 1,
+                "is_active": true,
+                "is_visible_in_menu": true
+            }
+
+    NB: parent_id adalah kolom id pada table categories.
+        jika parent_id null maka level 1
+        level otomatis terhitung dari 1-3 berdasarkan parent_id yg di isi 
+
+DB
+    CREATE TABLE `categories` (
+        `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+        `catalog_group_id` bigint unsigned NOT NULL,
+        `parent_id` bigint unsigned DEFAULT NULL,
+        `level` int NOT NULL DEFAULT '1',
+        `sort_order` int NOT NULL DEFAULT '0',
+        `is_active` tinyint(1) NOT NULL DEFAULT '1',
+        `is_visible_in_menu` tinyint(1) NOT NULL DEFAULT '1',
+        `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+        `slug` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+        `full_slug` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+        `image_url` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+        `icon_url` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+        `created_at` timestamp NULL DEFAULT NULL,
+        `updated_at` timestamp NULL DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `fk_categories_catalog_group` (`catalog_group_id`),
+        KEY `fk_categories_parent` (`parent_id`),
+        CONSTRAINT `fk_categories_catalog_group` FOREIGN KEY (`catalog_group_id`) REFERENCES `catalog_groups` (`id`) ON DELETE CASCADE,
+        CONSTRAINT `fk_categories_parent` FOREIGN KEY (`parent_id`) REFERENCES `categories` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB AUTO_INCREMENT=69 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+

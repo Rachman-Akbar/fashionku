@@ -1,0 +1,40 @@
+FIGMA
+    Cara menggunakan:
+    1. Restart OpenCode (jika sedang berjalan)
+    2. Gunakan prompt seperti:
+    use figma to get design from https://www.figma.com/file/xxxxx
+    ⚠️ Peringatan keamanan:
+    Anda baru saja membagikan Personal Access Token di chat ini. Sebaiknya:
+    1. Revoke token lama di Figma Settings > Security > Personal access tokens
+    2. Buat token baru untuk penggunaan berikutnya
+    3. Jangan pernah bagikan token di tempat publik
+    Token yang sudah bocor bisa disalahgunakan untuk mengakses semua file Figma Anda.
+    ▣  Build · Big Pickle · 19.5s
+    btw nanti aku tinggal mengganti di file mana jika kau generate opencode to figma?
+    + Thought: 467ms
+    File yang perlu diubah ada di:
+    /home/akbar/Projects/Marketplace/opencode.json
+    Bagian yang perlu diganti:
+    "command": ["npx", "-y", "figma-developer-mcp", "--figma-api-key", "GANTI_DENGAN_TOKEN_BARU"]
+    Ganti GANTI_DENGAN_TOKEN_BARU dengan token Figma baru yang sudah dibuat di Figma Settings > Security.
+    ▣  Build · Big Pickle · 5.6s
+
+
+RUN 
+    # Terminal 1 - Backend
+    cd ~/Projects/maket-api
+    php artisan serve --host=127.0.0.1 --port=8000
+
+    # Terminal 2 - Reverb
+    cd ~/Projects/maket-api
+    php artisan reverb:start --host=127.0.0.1 --port=8080
+
+    # Terminal 3 - Frontend Vite
+    cd ~/Projects/market-frontend
+    npm run dev
+
+    # Terminal 4 - ADB Reverse
+    adb reverse tcp:8000 tcp:8000
+    adb reverse tcp:8080 tcp:8080
+
+

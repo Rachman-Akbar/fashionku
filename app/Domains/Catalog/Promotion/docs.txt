@@ -1,0 +1,17 @@
+API
+
+
+JSON
+    {
+    "image_url": "https://cdn.marketplace.com/promotions/promo-gajian-juni.jpg",
+    "mobile_image_url": "https://cdn.marketplace.com/promotions/promo-gajian-juni-mobile.jpg",
+    "click_action": "category",
+    "target_id": 69,
+    "target_url": null,
+    "sort_order": 1,
+    "is_active": true
+}
+
+DB
+
+

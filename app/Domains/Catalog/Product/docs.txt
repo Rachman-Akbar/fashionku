@@ -1,0 +1,290 @@
+API
+    GET|HEAD  api/v1/catalog/products/attributes
+    POST      api/v1/catalog/products/attributes
+    GET|HEAD  api/v1/catalog/products/attributes/{id}
+    PUT       api/v1/catalog/products/attributes/{id}
+    DELETE    api/v1/catalog/products/attributes/{id}
+    GET|HEAD  api/v1/catalog/products
+    GET|HEAD  api/v1/catalog/products/slug/{slug}
+    GET|HEAD  api/v1/catalog/products/{id}
+    GET|HEAD  api/v1/catalog/products/{productId}/variants
+
+    GET|HEAD  api/v1/catalog/seller/products seller.products.index › App\Domains\Catalog\Product\Presentatio…
+    POST      api/v1/catalog/seller/products seller.products.store › App\Domains\Catalog\Product\Presentatio…
+    PUT       api/v1/catalog/seller/products/{id} seller.products.update › App\Domains\Catalog\Product\Prese…
+    DELETE    api/v1/catalog/seller/products/{id} seller.products.destroy › App\Domains\Catalog\Product\Pres…
+    GET|HEAD  api/v1/catalog/seller/products/{productId}/variants seller.products.variants.index › App\Domai…
+    POST      api/v1/catalog/seller/products/{productId}/variants seller.products.variants.store › App\Domai…
+    GET|HEAD  api/v1/catalog/seller/products/{productId}/variants/{variantId} seller.products.variants.show …
+    PUT       api/v1/catalog/seller/products/{productId}/variants/{variantId} seller.products.variants.updat…
+    DELETE    api/v1/catalog/seller/products/{productId}/variants/{variantId} seller.products.variants.destr…
+
+JSON 
+    {
+    "primary_category_id": 69,
+    "name": "Kemeja Flanel dwcsqkjswkjjsbjkjkjdw", "description": "Kemejshshka flanel berkualitas tinggi dengan bahan katun 100% yang nyaman digunakan sehari-hari.",
+    "brand": "OxCloth",
+    "status": "published",
+    "is_active": true,
+    "category_ids": [69],
+    "price": 700000,
+    "stock": 90
+    }
+
+    {
+    "price": 195000.00,
+    "stock": 20,
+    "is_default": false,
+    "values": [
+        {
+        "attribute_id": 3,
+        "value": "XL"
+        },
+        {
+        "attribute_id": 4,
+        "value": "Merah"
+        }
+    ]
+    }
+
+    1. Payload Pembuatan Produk Baru (Flat Payload / Varian Otomatis)
+
+    Gunakan payload ini untuk melakukan pengujian pada endpoint `POST /api/seller/products`. Payload ini tidak mengirimkan array `variants`, sehingga sistem akan membuat satu varian default secara otomatis menggunakan data utama produk.
+
+    ```json
+    {
+    "primary_category_id": 5,
+    "name": "Kemeja Flanel Premium",
+    "slug": "kemeja-flanel-premium-unisex",
+    "description": "Kemeja flanel berkualitas tinggi dengan bahan katun 100% yang nyaman digunakan sehari-hari.",
+    "brand": "OxCloth",
+    "status": "published",
+    "is_active": true,
+    "category_ids": [5, 12],
+    "images": [
+        {
+        "url": "https://cdn.example.com/images/flanel-1.jpg",
+        "alt_text": "Tampak Depan Kemeja Flanel",
+        "is_primary": true,
+        "sort_order": 1
+        },
+        {
+        "url": "https://cdn.example.com/images/flanel-2.jpg",
+        "alt_text": "Detail Bahan Kemeja Flanel",
+        "is_primary": false,
+        "sort_order": 2
+        }
+    ],
+    "attribute_values": [
+        {
+        "attribute_id": 1,
+        "value": "Katun Flanel 100%"
+        },
+        {
+        "attribute_id": 2,
+        "value": "Lengan Panjang"
+        }
+    ]
+    }
+
+    ```
+
+    ---
+
+    ### 2. Payload Pembuatan Produk Baru dengan Multi-Varian
+
+    Gunakan payload ini jika ingin langsung mendaftarkan produk beserta beberapa variasi (misal: perbedaan ukuran atau warna) secara sekaligus.
+
+    ```json
+    {
+    "primary_category_id": 3,
+    "name": "Sepatu Running Aero",
+    "brand": "AeroStride",
+    "status": "draft",
+    "category_ids": [3],
+    "variants": [
+        {
+        "sku": "AERO-RUN-RED-41",
+        "name": "Sepatu Running Aero - Merah - Ukuran 41",
+        "price": 450000.00,
+        "stock": 25,
+        "is_default": true
+        },
+        {
+        "sku": "AERO-RUN-RED-42",
+        "name": "Sepatu Running Aero - Merah - Ukuran 42",
+        "price": 450000.00,
+        "stock": 15,
+        "is_default": false
+        },
+        {
+        "sku": "AERO-RUN-BLK-41",
+        "name": "Sepatu Running Aero - Hitam - Ukuran 41",
+        "price": 475000.00,
+        "stock": 10,
+        "is_default": false
+        }
+    ]
+    }
+
+    ```
+
+    ---
+
+    ### 3. Payload Pembaruan Produk (Update Product)
+
+    Gunakan payload ini untuk endpoint `PUT /api/seller/products/{id}`. Ini menguji pembaruan data parsial beserta pembaharuan data varian yang sudah ada menggunakan pencocokan ID.
+
+    ```json
+    {
+    "name": "Kemeja Flanel Premium V2",
+    "status": "published",
+    "attribute_values": [
+        {
+        "attribute_id": 1,
+        "value": "Katun Flanel Premium Import"
+        }
+    ],
+    "variants": [
+        {
+        "id": 101,
+        "sku": "FLNL-PRM-001",
+        "name": "Kemeja Flanel Premium V2 - Regular Fit",
+        "price": 185000.00,
+        "stock": 50,
+        "is_default": true
+        }
+    ]
+    }
+
+    ```
+
+    ---
+
+    ### 4. Payload Pembuatan Varian Tunggal (Create Variant)
+
+    Gunakan payload ini untuk melakukan pengujian langsung pada endpoint spesifik manajemen varian, yaitu `POST /api/seller/products/{productId}/variants`.
+
+    ```json
+    {
+    "sku": "FLNL-PRM-XL",
+    "name": "Kemeja Flanel Premium - Ukuran XL",
+    "price": 195000.00,
+    "stock": 20,
+    "is_default": false,
+    "values": [
+        {
+        "attribute_id": 3,
+        "value": "XL"
+        }
+    ]
+    }
+
+    ```
+
+DB
+    -- 1. Tabel Atribut (Global)
+    CREATE TABLE `product_attributes` (
+        `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+        `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `slug` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'select',
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `attributes_slug_unique` (`slug`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    -- 2. Tabel Produk (Menghapus seller_id, menambahkan Unique Name per Toko)
+    CREATE TABLE `products` (
+        `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+        `store_id` bigint unsigned NOT NULL,
+        `primary_category_id` bigint unsigned DEFAULT NULL,
+        `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `slug` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+        `brand` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+        `thumbnail` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+        `status` enum('draft','published','archived') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'published',
+        `is_active` tinyint(1) NOT NULL DEFAULT '1',
+        `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+        `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `products_slug_unique` (`slug`),
+        UNIQUE KEY `products_store_name_unique` (`store_id`, `name`), -- Mencegah nama produk kembar di toko yang sama
+        KEY `fk_products_category` (`primary_category_id`),
+        CONSTRAINT `fk_products_category` FOREIGN KEY (`primary_category_id`) REFERENCES `categories` (`id`) ON DELETE SET NULL,
+        CONSTRAINT `fk_products_store` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    -- 3. Tabel Atribut Produk (Karakteristik statis produk, misal: Bahan = Katun)
+    CREATE TABLE `product_attribute_values` (
+        `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+        `product_id` bigint unsigned NOT NULL,
+        `attribute_id` bigint unsigned NOT NULL,
+        `value` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        PRIMARY KEY (`id`),
+        KEY `fk_pav_product` (`product_id`),
+        KEY `fk_pav_attribute` (`attribute_id`),
+        CONSTRAINT `fk_pav_attribute` FOREIGN KEY (`attribute_id`) REFERENCES `product_attributes` (`id`) ON DELETE CASCADE,
+        CONSTRAINT `fk_pav_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    -- 4. Tabel Varian Produk (Menambahkan store_id agar SKU bisa divalidasi unik per toko)
+    CREATE TABLE `product_variants` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `product_id` bigint unsigned NOT NULL,
+    `store_id` bigint unsigned NOT NULL,
+    `sku` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    `price` decimal(15,2) NOT NULL DEFAULT '0.00',
+    `stock` int NOT NULL DEFAULT '0',
+    `is_default` tinyint(1) NOT NULL DEFAULT '0',
+    `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `variants_store_sku_unique` (`store_id`,`sku`),
+    UNIQUE KEY `variants_product_name_unique` (`product_id`,`name`),
+    UNIQUE KEY `product_variants_store_id_sku_unique` (`store_id`,`sku`),
+    KEY `fk_variants_product` (`product_id`),
+    CONSTRAINT `fk_variants_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_variants_store` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+
+    -- 5. Tabel Nilai Pilihan Varian (Misal: Ukuran = XL, Warna = Merah)
+    CREATE TABLE `product_variant_values` (
+        `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+        `variant_id` bigint unsigned NOT NULL,
+        `attribute_id` bigint unsigned NOT NULL,
+        `value` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        PRIMARY KEY (`id`),
+        KEY `fk_pvv_variant` (`variant_id`),
+        KEY `fk_pvv_attribute` (`attribute_id`),
+        CONSTRAINT `fk_pvv_attribute` FOREIGN KEY (`attribute_id`) REFERENCES `product_attributes` (`id`) ON DELETE CASCADE,
+        CONSTRAINT `fk_pvv_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    -- 6. Tabel Gambar Produk
+    CREATE TABLE `product_images` (
+        `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+        `product_id` bigint unsigned NOT NULL,
+        `url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `alt_text` varchar(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+        `is_primary` tinyint(1) NOT NULL DEFAULT '0',
+        `sort_order` int NOT NULL DEFAULT '0',
+        `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+        `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        KEY `product_images_product_id_is_primary_index` (`product_id`,`is_primary`),
+        KEY `idx_product_images_sort_order` (`product_id`,`sort_order`),
+        CONSTRAINT `product_images_product_id_foreign` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    -- 7. Tabel Relasi Banyak-ke-Banyak Kategori Produk
+    CREATE TABLE `product_categories` (
+        `product_id` bigint unsigned NOT NULL,
+        `category_id` bigint unsigned NOT NULL,
+        `is_primary` tinyint(1) NOT NULL DEFAULT '0',
+        PRIMARY KEY (`product_id`,`category_id`),
+        KEY `fk_pc_category` (`category_id`),
+        CONSTRAINT `fk_pc_category` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE CASCADE,
+        CONSTRAINT `fk_pc_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

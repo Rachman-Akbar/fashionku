@@ -1,0 +1,28 @@
+API
+    GET    api/v1/catalog/catalog-groups
+    POST   api/v1/catalog/catalog-groups
+    GET    api/v1/catalog/catalog-groups/{id}
+    PUT    api/v1/catalog/catalog-groups/{id}
+    DELETE api/v1/catalog/catalog-groups/{id}
+    GET    api/v1/catalog/catalog-groups/{id}/categories
+    GET    api/v1/catalog/catalog-groups/slug/{slug}
+
+
+JSON CREATE
+    {
+    "name": "Elektronik & Gadget",
+    "slug": "elektronik-gadget"
+    }
+
+
+DB
+    CREATE TABLE `catalog_groups` (
+        `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+        `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+        `slug` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+        `is_active` tinyint(1) NOT NULL DEFAULT '1',
+        `created_at` timestamp NULL DEFAULT NULL,
+        `updated_at` timestamp NULL DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `catalog_groups_slug_unique` (`slug`)
+    ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci

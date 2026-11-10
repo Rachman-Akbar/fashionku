@@ -1,0 +1,90 @@
+API
+    POST      api/v1/order/payments/midtrans/notification 
+
+DB
+    CREATE TABLE `payments` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `order_number` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    `transaction_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    `payment_method` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    `amount` decimal(12,2) NOT NULL,
+    `status` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+    `payload` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+    `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `fk_payments_order_number` (`order_number`),
+    CONSTRAINT `fk_payments_order_number` FOREIGN KEY (`order_number`) REFERENCES `orders` (`order_number`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+
+
+Pengembangan Lanjutan MIdtrans untuk bagi bagi komisi! 
+    Selamat karena *checkout* dan *pop-up* Midtrans-nya sudah berhasil berjalan lancar.
+
+    Untuk mendemokan dan melihat pembagian komisi secara riil antara **Admin Midtrans, Admin Marketplace, dan Seller**, cara terbaiknya adalah dengan melakukan simulasi transaksi di lingkungan **Sandbox Midtrans**, lalu mengecek perubahan datanya di database atau *dashboard*.
+
+    Berikut adalah langkah-langkah detail untuk melakukan demonya:
+
+    ---
+
+    ### 1. Gunakan Simulator Pembayaran Midtrans (Sandbox)
+
+    Saat *pop-up* Midtrans muncul di aplikasi kamu, pilih metode pembayaran **Virtual Account (VA)** (misal: Bank Mandiri, BCA, atau BNI).
+
+    * Salin (*copy*) nomor VA yang muncul di layar.
+    * Buka situs **[Midtrans Sandbox Simulator](https://simulator.sandbox.midtrans.com/)**.
+    * Pilih menu simulator sesuai bank yang kamu pilih (misal: *Mandiri VA / Bill Payment* atau *BCA VA*).
+    * Masukkan nomor VA tadi, lalu klik **Pay / Bayar**. Status transaksi di *pop-up* tokomu otomatis akan berubah menjadi *Success*.
+
+    ---
+
+    ### 2. Cara Melihat Hasil Pembagian Uang (Simulasi Logika)
+
+    Di lingkungan Sandbox, Midtrans tidak benar-benar mengirim uang asli ke rekening bank *seller* atau *marketplace* secara otomatis lewat sistem *split payment* otomatis (kecuali kamu sudah mendaftar fitur komersial khusus seperti *Midtrans Iris*).
+
+    Oleh karena itu, demonya dilakukan dengan melihat **catatan keuangan di database** setelah Webhook/Notification Handler dari Midtrans berhasil menerima status `settlement`.
+
+    Biasanya, di dalam listener atau handler `PaymentNotificationUseCase`, kamu menjalankan rumus pembagian seperti ini:
+
+    ```
+    [Total Bayar Buyer] 
+        │
+        ├─► Fee Admin Midtrans (Misal: Rp4.000 flat untuk VA, atau 2% untuk CC)
+        │
+        └─► Sisa Bersih Masuk ke Marketplace
+                    │
+                    ├─► Komisi Admin Marketplace (Misal: 5% dari harga produk)
+                    │
+                    └─► Penghasilan Bersih Seller (Sisa uang dikurangi komisi)
+
+    ```
+
+    ---
+
+    ### 3. Cek di Database / Dashboard Setelah Sukses
+
+    Setelah kamu klik *Bayar* di simulator, lakukan pengecekan pada 3 tempat ini untuk membuktikan demonya berhasil:
+
+    #### A. Cek Manfaat bagi Admin Midtrans
+
+    Buka **Dashboard Midtrans Sandbox** kamu, masuk ke menu **Transactions**.
+
+    * Klik pada ID Order yang baru saja kamu bayar.
+    * Lihat bagian **Payment Fee**. Di sana akan tertulis biaya yang dipotong oleh Midtrans (misal: Rp4.000 atau Rp4.440 termasuk PPN). Itu adalah jatah **Admin Midtrans**.
+
+    #### B. Cek Manfaat bagi Admin Marketplace & Seller (Di Database-mu)
+
+    Buka database-mu (bisa pakai phpMyAdmin atau TablePlus), jalankan query atau cek tabel terkait keuangan/saldo (misal: `store_balances`, `transactions`, atau `sub_orders`).
+
+    Pastikan data yang masuk sesuai dengan skenario Split Order, contohnya:
+
+    * **Tabel `sub_orders` (atau `seller_balances`):** Pastikan saldo yang bertambah ke *Store A* dan *Store B* sudah terpotong komisi aplikasi.
+    > *Contoh:* Produk Rp100.000, komisi marketplace 5%. Saldo yang masuk ke akun seller harus tertulis **Rp95.000**, bukan Rp100.000 full.
+
+
+    * **Tabel `marketplace_earnings` (Pendapatan Admin):** Pastikan ada baris baru yang mencatat keuntungan admin marketplace dari komisi pesanan tersebut.
+    > *Contoh:* Mencatat pendapatan senilai **Rp5.000** dari transaksi tersebut.
+
+
+
+    Jika angka-angka di database kamu sudah terpecah dan terhitung secara otomatis dengan benar setelah pembayaran disimulasikan, maka demo sistem *Split Order & Revenue Sharing* kamu sudah dinyatakan **100% Berhasil**!

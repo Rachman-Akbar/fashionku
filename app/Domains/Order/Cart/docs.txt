@@ -1,0 +1,50 @@
+API
+    GET|HEAD  api/v1/Order/carts carts.show › App\Domains\Order\Cart\Presentation\Http\Controllers\CartContr…
+    DELETE    api/v1/Order/carts carts.clear › App\Domains\Order\Cart\Presentation\Http\Controllers\CartCont…
+    POST      api/v1/Order/carts/items carts.items.store › App\Domains\Order\Cart\Presentation\Http\Controll…
+    PATCH     api/v1/Order/carts/items/{productId} carts.items.update › App\Domains\Order\Cart\Presentation\…
+    DELETE    api/v1/Order/carts/items/{productId}
+
+JSON
+    {
+        "items": [
+            {
+                "product_variant_id": 105,
+                "quantity": 2
+            },
+            {
+                "product_variant_id": 106,
+                "quantity": 3
+            }
+        ]
+    }
+
+    PATCH
+        {
+            "quantity": 5
+        }
+
+DB
+    CREATE TABLE `carts` (
+        `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        `user_id` VARCHAR(255) NOT NULL,
+        `created_at` TIMESTAMP NULL DEFAULT NULL,
+        `updated_at` TIMESTAMP NULL DEFAULT NULL,
+        UNIQUE KEY `carts_user_id_unique` (`user_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    CREATE TABLE `cart_items` (
+        `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        `cart_id` BIGINT UNSIGNED NOT NULL,
+        `product_id` BIGINT UNSIGNED NOT NULL,
+        `quantity` INT NOT NULL DEFAULT 1,
+        `created_at` TIMESTAMP NULL DEFAULT NULL,
+        `updated_at` TIMESTAMP NULL DEFAULT NULL,
+        -- Unique constraint agar satu produk tidak double baris di cart yang sama
+        UNIQUE KEY `cart_items_cart_id_product_id_unique` (`cart_id`, `product_id`),
+        -- Indexing untuk optimasi query pencarian product
+        INDEX `cart_items_product_id_index` (`product_id`),
+        -- Foreign Key: Jika data di tabel carts dihapus, item di dalamnya otomatis ikut terhapus
+        CONSTRAINT `cart_items_cart_id_foreign` FOREIGN KEY (`cart_id`)
+            REFERENCES `carts` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=UTF8MB4_UNICODE_CI;
