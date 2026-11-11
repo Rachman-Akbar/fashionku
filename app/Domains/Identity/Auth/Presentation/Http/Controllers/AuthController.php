@@ -136,11 +136,43 @@ final class AuthController extends Controller
             'device_name' => ['nullable', 'string', 'max:100'],
         ]);
 
-        return response()->json($useCase->execute(
+        return response()->json($useCase->initiate(
             email: $validated['email'],
             password: $validated['password'],
             deviceName: $validated['device_name'] ?? 'marketplace-web',
-            requestedRole: $validated['role'] ?? 'buyer'
+            requestedRole: $validated['role'] ?? 'buyer',
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+        ), 202);
+    }
+
+    public function verifyPasswordLogin(Request $request, LoginUserUseCase $useCase): JsonResponse
+    {
+        $validated = $request->validate([
+            'challenge_id' => ['required', 'string', 'uuid'],
+            'code' => ['required', 'string', 'digits:6'],
+            'device_name' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        return response()->json($useCase->complete(
+            challengeId: $validated['challenge_id'],
+            code: $validated['code'],
+            deviceName: $validated['device_name'] ?? null,
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+        ));
+    }
+
+    public function resendPasswordLogin(Request $request, LoginUserUseCase $useCase): JsonResponse
+    {
+        $validated = $request->validate([
+            'challenge_id' => ['required', 'string', 'uuid'],
+        ]);
+
+        return response()->json($useCase->resend(
+            challengeId: $validated['challenge_id'],
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
         ));
     }
 
@@ -156,10 +188,42 @@ final class AuthController extends Controller
             return response()->json(['message' => 'Firebase user payload is missing.'], 401);
         }
 
-        return response()->json($useCase->execute(
+        return response()->json($useCase->initiate(
             firebaseUser: $firebaseUser,
             deviceName: $validated['device_name'] ?? 'marketplace-web',
-            requestedRole: $validated['role'] ?? 'buyer'
+            requestedRole: $validated['role'] ?? 'buyer',
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+        ), 202);
+    }
+
+    public function verifyFirebaseLogin(Request $request, LoginWithFirebaseUseCase $useCase): JsonResponse
+    {
+        $validated = $request->validate([
+            'challenge_id' => ['required', 'string', 'uuid'],
+            'code' => ['required', 'string', 'digits:6'],
+            'device_name' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        return response()->json($useCase->complete(
+            challengeId: $validated['challenge_id'],
+            code: $validated['code'],
+            deviceName: $validated['device_name'] ?? null,
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+        ));
+    }
+
+    public function resendFirebaseLogin(Request $request, LoginWithFirebaseUseCase $useCase): JsonResponse
+    {
+        $validated = $request->validate([
+            'challenge_id' => ['required', 'string', 'uuid'],
+        ]);
+
+        return response()->json($useCase->resend(
+            challengeId: $validated['challenge_id'],
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
         ));
     }
 
@@ -191,7 +255,6 @@ final class AuthController extends Controller
             }
         }
 
-        // Always return the same message to prevent email enumeration
         return response()->json([
             'message' => 'Jika email terdaftar, link reset password akan dikirim dalam beberapa menit.',
         ]);
@@ -260,7 +323,6 @@ final class AuthController extends Controller
             }
         }
 
-        // Always return the same message to prevent email enumeration
         return response()->json([
             'message' => 'Jika email terdaftar, kode verifikasi 6 digit akan dikirim dalam beberapa menit.',
         ]);
@@ -391,7 +453,6 @@ final class AuthController extends Controller
         ]);
     }
 
-    // Device Management Endpoints
     public function getDevices(Request $request, DeviceManagementUseCase $useCase): JsonResponse
     {
         $devices = $useCase->getDevices($request->user());
@@ -439,7 +500,6 @@ final class AuthController extends Controller
         return response()->json($result);
     }
 
-    // Account Deletion Endpoints
     public function requestAccountDeletionOtp(Request $request, AccountDeletionUseCase $useCase): JsonResponse
     {
         $ipAddress = $request->ip();
@@ -469,7 +529,6 @@ final class AuthController extends Controller
             userAgent: $userAgent,
         );
 
-        // Clear session after successful deletion
         $request->user()->tokens()->delete();
 
         return response()->json($result);

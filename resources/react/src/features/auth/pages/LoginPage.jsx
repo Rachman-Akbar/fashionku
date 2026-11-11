@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
-import { handleGoogleRedirect } from "@/features/auth/services/authService";
+import { getApiErrorMessage, handleGoogleRedirect } from "@/features/auth/services/authService";
 
 const PORTALS = {
   buyer: {
@@ -100,7 +100,6 @@ export default function LoginPage({ portal = "buyer" }) {
     redirectHandledRef.current = true;
 
     (async () => {
-      setGoogleBusy(true);
       try {
         const session = await handleGoogleRedirect({
           role: config.role,
@@ -117,11 +116,7 @@ export default function LoginPage({ portal = "buyer" }) {
         navigate(getRedirectPath(), { replace: true });
       } catch (err) {
         if (!mounted) return;
-        setLocalError(err?.message || "Login Google gagal. Silakan coba lagi.");
-      } finally {
-        if (mounted) {
-          setGoogleBusy(false);
-        }
+        setLocalError(getApiErrorMessage(err, "Login Google gagal. Silakan coba lagi."));
       }
     })();
 
@@ -169,7 +164,7 @@ export default function LoginPage({ portal = "buyer" }) {
       await ensurePortalAccess(session);
       navigate(getRedirectPath(), { replace: true });
     } catch (submitError) {
-      setLocalError(submitError.message);
+      setLocalError(getApiErrorMessage(submitError, submitError.message));
     }
   };
 
@@ -192,7 +187,8 @@ export default function LoginPage({ portal = "buyer" }) {
       await ensurePortalAccess(result);
       navigate(getRedirectPath(), { replace: true });
     } catch (submitError) {
-      setLocalError(submitError.message);
+      setLocalError(getApiErrorMessage(submitError, "Login Google gagal. Silakan coba lagi."));
+    } finally {
       setGoogleBusy(false);
     }
   };

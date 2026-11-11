@@ -22,13 +22,26 @@ Route::prefix('auth')->name('auth.')->group(function (): void {
         ->middleware('throttle:3,1')
         ->name('resend-registration-otp');
 
-    // Login
+    // Login (2-step with OTP)
     Route::post('/password-login', [AuthController::class, 'passwordLogin'])
-        ->middleware('throttle:30,1')
+        ->middleware('throttle:15,1')
         ->name('password-login');
+    Route::post('/password-login/verify', [AuthController::class, 'verifyPasswordLogin'])
+        ->middleware('throttle:15,1')
+        ->name('password-login.verify');
+    Route::post('/password-login/resend', [AuthController::class, 'resendPasswordLogin'])
+        ->middleware('throttle:5,1')
+        ->name('password-login.resend');
+
     Route::post('/firebase-login', [AuthController::class, 'firebaseLogin'])
         ->middleware([ValidateFirebaseToken::class, 'throttle:10,1'])
         ->name('firebase-login');
+    Route::post('/firebase-login/verify', [AuthController::class, 'verifyFirebaseLogin'])
+        ->middleware('throttle:15,1')
+        ->name('firebase-login.verify');
+    Route::post('/firebase-login/resend', [AuthController::class, 'resendFirebaseLogin'])
+        ->middleware('throttle:5,1')
+        ->name('firebase-login.resend');
 
     // Password Reset
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])

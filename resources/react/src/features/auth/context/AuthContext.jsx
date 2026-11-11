@@ -127,6 +127,10 @@ export function AuthProvider({ children }) {
     try {
       const nextSession = await action();
 
+      if (nextSession?.redirected) {
+        return nextSession;
+      }
+
       if (!nextSession?.token) {
         throw new Error("Backend tidak mengembalikan token Sanctum.");
       }

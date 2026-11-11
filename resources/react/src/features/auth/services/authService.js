@@ -260,6 +260,27 @@ export function normalizeAuthPayload(payload = {}, fallbackSession = null) {
   };
 }
 
+function normalizeFirebaseAuthError(error) {
+  const code = String(error?.code || "");
+  const messages = {
+    "auth/popup-closed-by-user": "Popup login Google ditutup. Silakan coba lagi.",
+    "auth/cancelled-popup-request": "Permintaan login Google dibatalkan. Silakan coba lagi.",
+    "auth/popup-blocked": "Popup login Google diblokir browser. Izinkan popup lalu coba lagi.",
+    "auth/unauthorized-domain": "Domain aplikasi belum diizinkan di Firebase Authentication (Authorized domains).",
+    "auth/operation-not-allowed": "Login Google belum diaktifkan di Firebase Authentication.",
+    "auth/invalid-api-key": "Konfigurasi Firebase (API key) tidak valid.",
+    "auth/network-request-failed": "Gagal terhubung ke Firebase. Periksa koneksi internet Anda.",
+    "auth/too-many-requests": "Terlalu banyak percobaan. Coba lagi beberapa saat.",
+    "auth/user-disabled": "Akun Google ini dinonaktifkan.",
+    "auth/account-exists-with-different-credential": "Email ini sudah terdaftar dengan metode login lain.",
+  };
+  if (messages[code]) return new Error(messages[code]);
+  if (typeof error?.message === "string" && error.message.trim()) {
+    return new Error(error.message.replace(/^Firebase:\s*/i, ""));
+  }
+  return new Error("Login Google gagal. Silakan coba lagi.");
+}
+
 export function getApiErrorMessage(error, fallback = "Terjadi kesalahan. Silakan coba lagi.") {
   const responseData = error?.response?.data;
 
@@ -273,6 +294,10 @@ export function getApiErrorMessage(error, fallback = "Terjadi kesalahan. Silakan
     if (firstError) {
       return String(firstError);
     }
+  }
+
+  if (String(error?.code || "").startsWith("auth/")) {
+    return normalizeFirebaseAuthError(error).message;
   }
 
   if (typeof error?.message === "string" && error.message.trim()) {
@@ -377,7 +402,11 @@ async function ensureFirebaseReady() {
 
   const { firebaseAuth } = await getFirebase();
   const { setPersistence, browserSessionPersistence } = await import("firebase/auth");
-  await setPersistence(firebaseAuth, browserSessionPersistence);
+  try {
+    await setPersistence(firebaseAuth, browserSessionPersistence);
+  } catch {
+    // Fallback: keep default persistence if session persistence is unavailable.
+  }
 }
 
 export async function loginBackendWithFirebaseUser(firebaseUser, options = {}) {
@@ -538,14 +567,31 @@ export async function loginWithGoogle(options = {}) {
   await ensureFirebaseReady();
 
   const { firebaseAuth, googleProvider } = await getFirebase();
+  googleProvider.setCustomParameters({ prompt: "select_account" });
 
-  googleProvider.setCustomParameters({
-    prompt: "select_account",
-  });
+  const { signInWithPopup, signInWithRedirect } = await import("firebase/auth");
 
-  const { signInWithRedirect } = await import("firebase/auth");
-  await signInWithRedirect(firebaseAuth, googleProvider);
-  return { redirected: true };
+  try {
+    const result = await signInWithPopup(firebaseAuth, googleProvider);
+    if (!result?.user) {
+      throw new Error("Login Google dibatalkan atau gagal.");
+    }
+    return loginBackendWithFirebaseUser(result.user, options);
+  } catch (err) {
+    const code = String(err?.code || "");
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+      throw normalizeFirebaseAuthError(err);
+    }
+    if (
+      code === "auth/popup-blocked" ||
+      code === "auth/operation-not-supported-in-this-environment" ||
+      code === "auth/web-storage-unsupported"
+    ) {
+      await signInWithRedirect(firebaseAuth, googleProvider);
+      return { redirected: true };
+    }
+    throw normalizeFirebaseAuthError(err);
+  }
 }
 
 export async function handleGoogleRedirect(options = {}) {
@@ -554,18 +600,25 @@ export async function handleGoogleRedirect(options = {}) {
   }
 
   googleRedirectPromise = (async () => {
-    await ensureFirebaseReady();
+    try {
+      await ensureFirebaseReady();
 
-    const { firebaseAuth } = await getFirebase();
-    const { getRedirectResult } = await import("firebase/auth");
+      const { firebaseAuth } = await getFirebase();
+      const { getRedirectResult } = await import("firebase/auth");
 
-    const result = await getRedirectResult(firebaseAuth);
+      const result = await getRedirectResult(firebaseAuth);
 
-    if (!result?.user) {
-      return null;
+      if (!result?.user) {
+        return null;
+      }
+
+      return loginBackendWithFirebaseUser(result.user, options);
+    } catch (err) {
+      if (String(err?.code || "").startsWith("auth/")) {
+        throw normalizeFirebaseAuthError(err);
+      }
+      throw err;
     }
-
-    return loginBackendWithFirebaseUser(result.user, options);
   })();
 
   try {
