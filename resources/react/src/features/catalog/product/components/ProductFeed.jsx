@@ -2,33 +2,37 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ProductCard } from "@/features/catalog/product/components/ProductCard";
 import { Skeleton, SkeletonProductGrid } from "@/shared/components/feedback/Skeleton";
 import { flattenProductPages, useInfiniteProducts } from "@/features/catalog/product/services/productService";
-import { useCatalogGroups } from "@/features/catalog/cataloggroup/services/catalogGroupService";
+import { useCategoriesMenu } from "@/features/catalog/category/services/categoryService";
 
 export function ProductFeed() {
   const [activeTab, setActiveTab] = useState(0);
   const loadMoreRef = useRef(null);
-  const groupsQuery = useCatalogGroups({
-    is_active: 1,
-    include_categories: 0,
-  });
-  const groups = useMemo(
-    () => groupsQuery.data?.data || [],
-    [groupsQuery.data],
+  const categoriesQuery = useCategoriesMenu();
+  const rootCategories = useMemo(
+    () =>
+      (categoriesQuery.data?.data || [])
+        .filter((c) => Number(c.level || 1) === 1)
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || String(a.name).localeCompare(String(b.name))),
+    [categoriesQuery.data],
   );
-  const selectedGroup = activeTab > 0 ? groups[activeTab - 1] || null : null;
+  const selectedCategory = activeTab > 0 ? rootCategories[activeTab - 1] || null : null;
   const tabs = useMemo(
-    () => ["For You", ...groups.map((group) => group.name)],
-    [groups],
+    () => ["Untuk Kamu", ...rootCategories.map((c) => c.name)],
+    [rootCategories],
   );
   const productsQuery = useInfiniteProducts({
     per_page: 24,
-    catalog_group_id: selectedGroup?.id,
-    catalog_group_slug: selectedGroup?.slug,
+    ...(selectedCategory?.id ? { category_id: selectedCategory.id } : {}),
+    ...(selectedCategory?.full_slug ? { category: selectedCategory.full_slug } : {}),
   });
   const products = useMemo(
     () => flattenProductPages(productsQuery.data),
     [productsQuery.data],
   );
+
+  useEffect(() => {
+    if (activeTab > rootCategories.length) setActiveTab(0);
+  }, [activeTab, rootCategories.length]);
 
   useEffect(() => {
     const target = loadMoreRef.current;
@@ -52,23 +56,28 @@ export function ProductFeed() {
 
   return (
     <section className="space-y-6">
-      <div className="hide-scrollbar flex items-center gap-8 overflow-x-auto border-b border-[#bccbb4] pb-2">
-        {tabs.map((tab, index) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => handleTabClick(index)}
-            className={`whitespace-nowrap pb-2 text-base transition-colors ${
-              index === activeTab
-                ? "border-b-2 border-[#047857] font-bold text-[#047857]"
-                : "text-[#3e4a39] hover:text-[#047857]"
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+      <div id="product-feed-sentinel" className="h-px w-full" />
+      <div
+        className="sticky z-[70] -mx-6 bg-white px-6 pt-1 transition-[top] duration-300 ease-in-out"
+        style={{ top: "var(--main-nav-offset, 96px)" }}
+      >
+        <div className="hide-scrollbar flex items-center gap-8 overflow-x-auto border-b border-[#bccbb4] pb-2">
+          {tabs.map((tab, index) => (
+            <button
+              key={`${tab}-${index}`}
+              type="button"
+              onClick={() => handleTabClick(index)}
+              className={`whitespace-nowrap pb-2 text-base transition-colors ${
+                index === activeTab
+                  ? "border-b-2 border-[#047857] font-bold text-[#047857]"
+                  : "text-[#3e4a39] hover:text-[#047857]"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
       </div>
-
 
       {productsQuery.error ? (
         <div className="py-8 text-sm text-red-500">
@@ -99,7 +108,7 @@ export function ProductFeed() {
 
       <div ref={loadMoreRef} className="flex min-h-10 items-center justify-center py-2 text-xs font-semibold text-slate-400">
         {productsQuery.isFetchingNextPage
-          ? "Lihat produk berikutnya"
+          ? "Memuat produk berikutnya..."
           : productsQuery.hasNextPage
             ? "Geser ke bawah untuk melihat produk berikutnya"
             : products.length

@@ -1,12 +1,10 @@
-import { PromotionCarousel } from "@/features/catalog/category/components/PromotionCarousel";
-import { CategorySection } from "@/features/catalog/category/components/CategorySection";
+import HomePromoSection from "@/features/catalog/components/HomePromoSection";
 import { ProductFeed } from "@/features/catalog/product/components/ProductFeed";
 
 export default function HomePage() {
   return (
-    <div className="w-full max-w-[1200px] mx-auto px-6 py-6 space-y-6">
-      <PromotionCarousel />
-      <CategorySection />
+    <div className="mx-auto w-full max-w-[1200px] space-y-8 px-6 py-6">
+      <HomePromoSection />
       <ProductFeed />
     </div>
   );

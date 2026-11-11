@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domains\Catalog;
 
-use App\Domains\Catalog\Banner\Domain\Repositories\BannerRepositoryInterface;
-use App\Domains\Catalog\Banner\Infrastructure\Persistence\Repositories\EloquentBannerRepository;
 use App\Domains\Catalog\CatalogGroup\Domain\Repositories\CatalogGroupRepositoryInterface;
 use App\Domains\Catalog\CatalogGroup\Infrastructure\Persistence\Repositories\EloquentCatalogGroupRepository;
 use App\Domains\Catalog\Category\Domain\Repositories\CategoryRepositoryInterface;
@@ -50,6 +48,5 @@ final class CatalogServiceProvider extends ServiceProvider
         $this->app->bind(ProductVariantRepositoryInterface::class, EloquentProductVariantRepository::class);
         $this->app->bind(PromotionRepositoryInterface::class, EloquentPromotionRepository::class);
         $this->app->bind(PromotionPaymentRepositoryInterface::class, EloquentPromotionPaymentRepository::class);
-        $this->app->bind(BannerRepositoryInterface::class, EloquentBannerRepository::class);
     }
 }

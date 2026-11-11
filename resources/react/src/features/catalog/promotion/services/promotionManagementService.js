@@ -115,6 +115,7 @@ export function usePublicPromotions() {
     queryKey: promotionManagementKeys.public,
     queryFn: getPublicPromotions,
     ...publicQueryOptions,
+    refetchInterval: 30000,
     retry: 1,
   });
 }

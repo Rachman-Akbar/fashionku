@@ -1,35 +1,17 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { useCart } from "@/features/order/cart/context/CartContext";
 import { CategoryDropdown } from "@/features/catalog/category/components/CategoryDropdown";
 import { confirmLogout } from "@/shared/utils/userFeedback";
 
-function openIndependentPortal(path, windowName) {
-  window.open(path, windowName, "noopener,noreferrer");
-}
-
-function ProfileTooltip({ onClose, onLogout, roles, loading }) {
+function ProfileTooltip({ onClose, onLogout, loading }) {
   const sharedItems = [
     { icon: "person", label: "Profil Saya", path: "/profile" },
     { icon: "location_on", label: "Alamat Saya", path: "/profile/addresses" },
     { icon: "history", label: "Riwayat Transaksi", path: "/cart?tab=order" },
     { icon: "chat", label: "Chat", path: "/chat" },
-  ];
-
-  const normalizedRoles = Array.isArray(roles)
-    ? roles.map((role) => String(role || "").trim().toLowerCase())
-    : [];
-  const independentItems = [
-    {
-      icon: "storefront",
-      label: "Panel Penjual",
-      path: normalizedRoles.includes("seller")
-        ? "/auth/role-switch?role=seller&redirect=%2Fseller"
-        : "/auth/seller/onboarding",
-      windowName: "fashionku-seller",
-    },
   ];
 
   return (
@@ -50,23 +32,6 @@ function ProfileTooltip({ onClose, onLogout, roles, loading }) {
         </Link>
       ))}
 
-      {independentItems.map((item) => (
-        <button
-          key={item.label}
-          type="button"
-          onClick={() => {
-            openIndependentPortal(item.path, item.windowName);
-            onClose();
-          }}
-          className="flex w-full items-center gap-[5px] px-4 py-2.5 text-left text-sm text-slate-700 transition hover:bg-emerald-50 hover:text-[#047857]"
-        >
-          <span className="material-symbols-outlined text-[18px] text-slate-500">
-            {item.icon}
-          </span>
-          {item.label}
-        </button>
-      ))}
-
       <hr className="my-1 border-slate-100" />
       <button
         type="button"
@@ -84,12 +49,39 @@ function ProfileTooltip({ onClose, onLogout, roles, loading }) {
 export function Navbar() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, roles, logout, loading } = useAuth();
+  const { user, logout, loading } = useAuth();
   const { totalItems } = useCart();
   const [query, setQuery] = useState("");
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [profileHover, setProfileHover] = useState(false);
   const [logoutPending, setLogoutPending] = useState(false);
+  const [navHidden, setNavHidden] = useState(false);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const currentY = window.scrollY || 0;
+      const sentinel = document.getElementById("product-feed-sentinel");
+      const reached = sentinel ? sentinel.getBoundingClientRect().top <= 96 : false;
+      const scrollingDown = currentY > lastScrollY.current;
+
+      if (scrollingDown && reached) {
+        setNavHidden(true);
+      } else if (!scrollingDown) {
+        setNavHidden(false);
+      }
+
+      lastScrollY.current = currentY;
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--main-nav-offset", navHidden ? "0px" : "96px");
+  }, [navHidden]);
 
   function handleSearch(event) {
     event.preventDefault();
@@ -117,20 +109,6 @@ export function Navbar() {
     }
   }
 
-  function handleOpenSellerPanel() {
-    setCategoryOpen(false);
-    setProfileHover(false);
-
-    const normalizedRoles = Array.isArray(roles)
-      ? roles.map((role) => String(role || "").trim().toLowerCase())
-      : [];
-    const path = normalizedRoles.includes("seller")
-      ? "/auth/role-switch?role=seller&redirect=%2Fseller"
-      : "/auth/seller/onboarding";
-
-    openIndependentPortal(path, "fashionku-seller");
-  }
-
   function toggleCategory(event) {
     event.preventDefault();
     event.stopPropagation();
@@ -140,7 +118,7 @@ export function Navbar() {
 
   return (
     <>
-      <header className="relative sticky top-0 z-[80] border-b border-slate-100 bg-white">
+      <header className={`relative sticky top-0 z-[80] border-b border-slate-100 bg-white transition-transform duration-300 ease-in-out ${navHidden ? "-translate-y-full" : "translate-y-0"}`}>
       <div className="border-b border-slate-100 bg-white">
         <div className="mx-auto flex h-8 max-w-[1200px] items-center justify-between px-4 text-xs text-slate-500">
           <div className="flex items-center gap-1">
@@ -151,7 +129,7 @@ export function Navbar() {
               <strong className="text-slate-700">
                 Gratis Ongkir + Banyak Promo
               </strong>{" "}
-              belanja di aplikasi
+              belanja di Fashionku
             </span>
             <span className="material-symbols-outlined text-[14px]">
               chevron_right
@@ -226,53 +204,40 @@ export function Navbar() {
             </Link>
 
             {user ? (
-              <>
-                <button
-                  type="button"
-                  onClick={handleOpenSellerPanel}
-                  className="hidden items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 transition-colors hover:border-[#10B981] hover:bg-emerald-50 hover:text-[#047857] sm:flex"
-                  aria-label="Beralih ke Panel Penjual"
+              <div
+                className="relative"
+                onMouseEnter={() => {
+                  setCategoryOpen(false);
+                  setProfileHover(true);
+                }}
+                onMouseLeave={() => setProfileHover(false)}
+              >
+                <Link
+                  to="/profile"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-emerald-50"
                 >
-                  <span className="material-symbols-outlined text-[18px]">storefront</span>
-                  <span>Panel Penjual</span>
-                </button>
-
-                <div
-                  className="relative"
-                  onMouseEnter={() => {
-                    setCategoryOpen(false);
-                    setProfileHover(true);
-                  }}
-                  onMouseLeave={() => setProfileHover(false)}
-                >
-                  <Link
-                    to="/profile"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-emerald-50"
-                  >
-                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#10B981] text-sm font-bold text-white">
-                      {(user.name || "G").charAt(0).toUpperCase()}
-                    </div>
-                    <span className="hidden max-w-[72px] truncate text-sm text-slate-700 lg:inline">
-                      {(user.name || "Guest").split(" ")[0]}
-                    </span>
-                    <span className="material-symbols-outlined text-[16px] text-slate-400">
-                      expand_more
-                    </span>
-                  </Link>
-                  <div
-                    className={`origin-top-right transition-all duration-200 ${profileHover ? "pointer-events-auto scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"}`}
-                  >
-                    <ProfileTooltip
-                      onClose={() => setProfileHover(false)}
-                      onLogout={handleLogout}
-                      roles={roles}
-                      loading={loading}
-                    />
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#10B981] text-sm font-bold text-white">
+                    {(user.name || "G").charAt(0).toUpperCase()}
                   </div>
+                  <span className="hidden max-w-[72px] truncate text-sm text-slate-700 lg:inline">
+                    {(user.name || "Guest").split(" ")[0]}
+                  </span>
+                  <span className="material-symbols-outlined text-[16px] text-slate-400">
+                    expand_more
+                  </span>
+                </Link>
+                <div
+                  className={`origin-top-right transition-all duration-200 ${profileHover ? "pointer-events-auto scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"}`}
+                >
+                  <ProfileTooltip
+                    onClose={() => setProfileHover(false)}
+                    onLogout={handleLogout}
+                    loading={loading}
+                  />
                 </div>
-              </>
+              </div>
             ) : (
               <>
                 <div className="mx-1 h-6 w-px bg-slate-200" />
