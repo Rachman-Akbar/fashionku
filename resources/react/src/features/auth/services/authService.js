@@ -405,18 +405,13 @@ async function ensureFirebaseReady() {
   try {
     await setPersistence(firebaseAuth, browserSessionPersistence);
   } catch {
-    // Fallback: keep default persistence if session persistence is unavailable.
   }
 }
 
-export async function loginBackendWithFirebaseUser(firebaseUser, options = {}) {
-  if (!firebaseUser?.uid) {
-    throw new Error("Sesi Google Firebase tidak ditemukan.");
-  }
-
+async function initiateFirebaseGoogleLogin(firebaseUser, options = {}) {
   const requestedRole = normalizeRole(options.role || "buyer") || "buyer";
   const storageScope = options.storageScope || "base";
-  const promiseKey = `${firebaseUser.uid}:${requestedRole}:${storageScope}`;
+  const promiseKey = `${firebaseUser.uid}:${requestedRole}:${storageScope}:init`;
 
   if (firebaseBackendLoginPromise && firebaseBackendLoginUid === promiseKey) {
     return firebaseBackendLoginPromise;
@@ -438,13 +433,13 @@ export async function loginBackendWithFirebaseUser(firebaseUser, options = {}) {
           },
         }
       );
-      const normalized = normalizeAuthPayload(response.data, {
-        storageScope,
-      });
-
-      return persistSession(normalized, {
-        scope: storageScope,
-      });
+      const payload = response?.data?.data ?? response?.data ?? response;
+      return {
+        ...payload,
+        otp_required: Boolean(payload?.otp_required),
+        challenge_id: payload?.challenge_id || payload?.challengeId || "",
+        email: payload?.email || firebaseUser.email || "",
+      };
     } finally {
       firebaseBackendLoginPromise = null;
       firebaseBackendLoginUid = null;
@@ -470,13 +465,39 @@ export async function loginWithPassword(payload) {
     role,
     device_name: resolveDeviceName(payload?.deviceName || payload?.device_name, role),
   });
-  const normalized = normalizeAuthPayload(response.data, {
-    storageScope,
-  });
+  const data = response?.data?.data ?? response?.data ?? response;
 
-  return persistSession(normalized, {
-    scope: storageScope,
+  if (data?.otp_required) {
+    return {
+      otp_required: true,
+      challenge_id: data.challenge_id || data.challengeId,
+      email: data.email || email,
+      expires_in_minutes: data.expires_in_minutes,
+      purpose: data.purpose || "login",
+      storageScope,
+    };
+  }
+
+  const normalized = normalizeAuthPayload(response.data, { storageScope });
+  return persistSession(normalized, { scope: storageScope });
+}
+
+export async function verifyPasswordLoginOtp(payload) {
+  const response = await authApi.post(getAuthPath("password-login/verify"), {
+    challenge_id: payload?.challenge_id || payload?.challengeId,
+    code: String(payload?.code || "").trim(),
+    device_name: payload?.deviceName || payload?.device_name,
   });
+  const storageScope = payload?.storageScope || "base";
+  const normalized = normalizeAuthPayload(response.data, { storageScope });
+  return persistSession(normalized, { scope: storageScope });
+}
+
+export async function resendPasswordLoginOtp(payload) {
+  const response = await authApi.post(getAuthPath("password-login/resend"), {
+    challenge_id: payload?.challenge_id || payload?.challengeId,
+  });
+  return response?.data?.data ?? response?.data ?? response;
 }
 
 export async function registerWithPassword(payload) {
@@ -576,7 +597,7 @@ export async function loginWithGoogle(options = {}) {
     if (!result?.user) {
       throw new Error("Login Google dibatalkan atau gagal.");
     }
-    return loginBackendWithFirebaseUser(result.user, options);
+    return initiateFirebaseGoogleLogin(result.user, options);
   } catch (err) {
     const code = String(err?.code || "");
     if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
@@ -612,7 +633,7 @@ export async function handleGoogleRedirect(options = {}) {
         return null;
       }
 
-      return loginBackendWithFirebaseUser(result.user, options);
+      return initiateFirebaseGoogleLogin(result.user, options);
     } catch (err) {
       if (String(err?.code || "").startsWith("auth/")) {
         throw normalizeFirebaseAuthError(err);
@@ -626,6 +647,24 @@ export async function handleGoogleRedirect(options = {}) {
   } finally {
     googleRedirectPromise = null;
   }
+}
+
+export async function verifyFirebaseLoginOtp(payload) {
+  const response = await authApi.post(getAuthPath("firebase-login/verify"), {
+    challenge_id: payload?.challenge_id || payload?.challengeId,
+    code: String(payload?.code || "").trim(),
+    device_name: payload?.deviceName || payload?.device_name,
+  });
+  const storageScope = payload?.storageScope || "base";
+  const normalized = normalizeAuthPayload(response.data, { storageScope });
+  return persistSession(normalized, { scope: storageScope });
+}
+
+export async function resendFirebaseLoginOtp(payload) {
+  const response = await authApi.post(getAuthPath("firebase-login/resend"), {
+    challenge_id: payload?.challenge_id || payload?.challengeId,
+  });
+  return response?.data?.data ?? response?.data ?? response;
 }
 
 export async function requestPasswordReset(email) {

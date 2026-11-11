@@ -127,7 +127,7 @@ export function AuthProvider({ children }) {
     try {
       const nextSession = await action();
 
-      if (nextSession?.redirected) {
+      if (nextSession?.redirected || nextSession?.otp_required) {
         return nextSession;
       }
 
