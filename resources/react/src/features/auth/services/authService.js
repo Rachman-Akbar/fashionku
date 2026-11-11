@@ -16,6 +16,7 @@ let firebaseBackendLoginPromise = null;
 let firebaseBackendLoginUid = null;
 let currentUserPromise = null;
 let currentUserPromiseToken = "";
+let googleRedirectPromise = null;
 
 function trimSlash(value = "") {
   return String(value).replace(/^\/+|\/+$/g, "");
@@ -339,8 +340,6 @@ export function persistSession(session, options = {}) {
     localStorage.setItem(BASE_SESSION_KEY, JSON.stringify(nextSession));
     sessionStorage.removeItem(WINDOW_TOKEN_KEY);
     sessionStorage.removeItem(WINDOW_SESSION_KEY);
-    sessionStorage.removeItem(BASE_TOKEN_KEY);
-    sessionStorage.removeItem(BASE_SESSION_KEY);
   }
 
   window.dispatchEvent(
@@ -364,8 +363,6 @@ export function clearStoredSession(options = {}) {
     localStorage.removeItem(BASE_SESSION_KEY);
     sessionStorage.removeItem(WINDOW_TOKEN_KEY);
     sessionStorage.removeItem(WINDOW_SESSION_KEY);
-    sessionStorage.removeItem(BASE_TOKEN_KEY);
-    sessionStorage.removeItem(BASE_SESSION_KEY);
     return;
   }
 
@@ -383,7 +380,7 @@ async function ensureFirebaseReady() {
   await setPersistence(firebaseAuth, browserSessionPersistence);
 }
 
-async function loginBackendWithFirebaseUser(firebaseUser, options = {}) {
+export async function loginBackendWithFirebaseUser(firebaseUser, options = {}) {
   if (!firebaseUser?.uid) {
     throw new Error("Sesi Google Firebase tidak ditemukan.");
   }
@@ -485,13 +482,97 @@ export async function registerWithPassword(payload) {
   });
 }
 
+export async function registerWithOtp(payload) {
+  const name = String(payload?.name || "").trim();
+  const email = String(payload?.email || "").trim();
+  const password = String(payload?.password || "");
+  const passwordConfirmation = String(
+    payload?.password_confirmation || payload?.confirm || ""
+  );
+  const phone = String(payload?.phone || "").trim();
+
+  if (!name || !email || !password || !passwordConfirmation) {
+    throw new Error("Semua field wajib diisi.");
+  }
+
+  if (password !== passwordConfirmation) {
+    throw new Error("Konfirmasi password tidak cocok.");
+  }
+
+  const response = await authApi.post(getAuthPath("register-with-otp"), {
+    name,
+    email,
+    password,
+    password_confirmation: passwordConfirmation,
+    phone: phone || undefined,
+    device_name: resolveDeviceName(payload?.deviceName, "buyer"),
+  });
+
+  return response?.data?.data ?? response?.data ?? response;
+}
+
+export async function verifyRegistrationOtp(payload) {
+  const response = await authApi.post(getAuthPath("verify-registration-otp"), {
+    challenge_id: payload?.challenge_id || payload?.challengeId,
+    code: String(payload?.code || "").trim(),
+    device_name: resolveDeviceName(payload?.deviceName, "buyer"),
+  });
+  const normalized = normalizeAuthPayload(response.data, {
+    storageScope: "base",
+  });
+
+  return persistSession(normalized, {
+    scope: "base",
+  });
+}
+
+export async function resendRegistrationOtp(payload) {
+  const response = await authApi.post(getAuthPath("resend-registration-otp"), {
+    challenge_id: payload?.challenge_id || payload?.challengeId,
+  });
+
+  return response?.data?.data ?? response?.data ?? response;
+}
+
 export async function loginWithGoogle(options = {}) {
   await ensureFirebaseReady();
 
   const { firebaseAuth, googleProvider } = await getFirebase();
-  const { signInWithPopup } = await import("firebase/auth");
-  const credential = await signInWithPopup(firebaseAuth, googleProvider);
-  return loginBackendWithFirebaseUser(credential.user, options);
+
+  googleProvider.setCustomParameters({
+    prompt: "select_account",
+  });
+
+  const { signInWithRedirect } = await import("firebase/auth");
+  await signInWithRedirect(firebaseAuth, googleProvider);
+  return { redirected: true };
+}
+
+export async function handleGoogleRedirect(options = {}) {
+  if (googleRedirectPromise) {
+    return googleRedirectPromise;
+  }
+
+  googleRedirectPromise = (async () => {
+    await ensureFirebaseReady();
+
+    const { firebaseAuth } = await getFirebase();
+    const { getRedirectResult } = await import("firebase/auth");
+
+    const result = await getRedirectResult(firebaseAuth);
+
+    if (!result?.user) {
+      return null;
+    }
+
+    return loginBackendWithFirebaseUser(result.user, options);
+  })();
+
+  try {
+    return await googleRedirectPromise;
+  } finally {
+    googleRedirectPromise = null;
+  }
 }
 
 export async function requestPasswordReset(email) {

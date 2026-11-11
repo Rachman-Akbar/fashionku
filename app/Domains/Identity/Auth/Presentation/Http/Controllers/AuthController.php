@@ -72,14 +72,20 @@ final class AuthController extends Controller
         $ipAddress = $request->ip();
         $userAgent = $request->userAgent();
 
-        $result = $useCase->initiate(
-            name: $validated['name'],
-            email: $validated['email'],
-            password: $validated['password'],
-            phone: $validated['phone'] ?? null,
-            ipAddress: $ipAddress,
-            userAgent: $userAgent,
-        );
+        try {
+            $result = $useCase->initiate(
+                name: $validated['name'],
+                email: $validated['email'],
+                password: $validated['password'],
+                phone: $validated['phone'] ?? null,
+                ipAddress: $ipAddress,
+                userAgent: $userAgent,
+            );
+        } catch (EmailAlreadyExistsException $exception) {
+            throw ValidationException::withMessages([
+                'email' => ['Email ini sudah terdaftar. Silakan masuk atau gunakan email lain.'],
+            ]);
+        }
 
         return response()->json($result, 202);
     }
@@ -101,9 +107,11 @@ final class AuthController extends Controller
         return response()->json($result);
     }
 
-    public function resendRegistrationOtp(OtpRequest $request, RegisterUserWithOtpUseCase $useCase): JsonResponse
+    public function resendRegistrationOtp(Request $request, RegisterUserWithOtpUseCase $useCase): JsonResponse
     {
-        $validated = $request->validated();
+        $validated = $request->validate([
+            'challenge_id' => ['required', 'string', 'uuid'],
+        ]);
         $ipAddress = $request->ip();
         $userAgent = $request->userAgent();
 

@@ -21,12 +21,30 @@ final class EloquentRegistrationChallengeRepository
             ->first();
     }
 
+    public function findByOtpChallengeId(string $otpChallengeId): ?RegistrationChallenge
+    {
+        return RegistrationChallenge::query()
+            ->where('otp_challenge_id', $otpChallengeId)
+            ->whereNull('deleted_at')
+            ->first();
+    }
+
     public function findActiveByEmail(string $email): ?RegistrationChallenge
     {
         return RegistrationChallenge::query()
             ->where('email', $email)
             ->whereNull('deleted_at')
             ->where('expires_at', '>=', now())
+            ->first();
+    }
+
+    public function findActiveByEmailForUpdate(string $email): ?RegistrationChallenge
+    {
+        return RegistrationChallenge::query()
+            ->where('email', $email)
+            ->whereNull('deleted_at')
+            ->where('expires_at', '>=', now())
+            ->lockForUpdate()
             ->first();
     }
 

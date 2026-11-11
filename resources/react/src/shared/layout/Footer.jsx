@@ -48,7 +48,7 @@ export function Footer() {
             Bantuan & Panduan
           </h4>
           <ul className="space-y-2">
-            {["Fashionku Care", "Syarat & Ketentuan", "Kebijakan Privasi"].map(
+            {["Toko Kami", "Syarat & Ketentuan", "Kebijakan Privasi"].map(
               (item) => (
                 <li key={item}>
                   <Link

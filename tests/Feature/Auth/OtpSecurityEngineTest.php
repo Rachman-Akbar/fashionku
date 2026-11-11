@@ -119,10 +119,16 @@ class OtpSecurityEngineTest extends TestCase
         $engine = app(OtpSecurityEngine::class);
         $email = 'test-cooldown@example.com';
 
-        $engine->issue($email, OtpPurpose::REGISTER->value);
+        $code1 = $engine->issue($email, OtpPurpose::REGISTER->value);
 
+        // Resend should succeed (replaces previous OTP), not throw
+        $code2 = $engine->resend($email, OtpPurpose::REGISTER->value);
+
+        $this->assertNotEquals($code1, $code2);
+
+        // Old code should be invalidated
         $this->expectException(\Illuminate\Validation\ValidationException::class);
-        $engine->resend($email, OtpPurpose::REGISTER->value);
+        $engine->verify($email, OtpPurpose::REGISTER->value, $code1);
     }
 
     public function test_otp_stored_as_hash_not_plaintext(): void

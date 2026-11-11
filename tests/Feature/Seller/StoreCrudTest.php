@@ -68,7 +68,7 @@ class StoreCrudTest extends TestCase
     {
         [$seller, $store] = $this->actingAsSeller();
 
-        $this->putJson("/api/v1/seller/stores/{$store->id}", [
+        $this->putJson("/api/v1/seller/store", [
             'store_name' => 'Toko Maju',
             'description' => 'Deskripsi baru.',
             'phone' => '081299998888',

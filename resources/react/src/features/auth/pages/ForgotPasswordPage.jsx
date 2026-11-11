@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
+import { Loader2 } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const { forgotPassword, loading, clearError } = useAuth();
@@ -24,7 +25,7 @@ export default function ForgotPasswordPage() {
 
     try {
       await forgotPassword(email);
-      setSuccess("Kode verifikasi sudah dikirim ke email kamu.");
+      setSuccess("Jika email terdaftar, kode verifikasi sudah dikirim ke email kamu.");
     } catch (submitError) {
       setLocalError(submitError.message);
     }
@@ -99,7 +100,11 @@ export default function ForgotPasswordPage() {
             disabled={loading}
             className="h-12 w-full rounded-xl bg-[#10B981] font-black shadow-[0_14px_30px_rgba(3,172,14,0.24)] hover:bg-[#059669] focus-visible:ring-[#10B981] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            Kirim Kode Verifikasi
+            {loading ? (
+              <span className="inline-flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Mengirim...</span>
+            ) : (
+              "Kirim Kode Verifikasi"
+            )}
           </Button>
         </form>
       )}

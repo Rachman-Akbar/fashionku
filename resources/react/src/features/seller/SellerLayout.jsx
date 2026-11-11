@@ -18,8 +18,6 @@ export const SELLER_NAV_ITEMS = [
   { href: "/seller/reviews", label: "Ulasan", icon: "reviews", group: "Penjualan" },
   { href: "/seller/cashflow", label: "Keuangan", icon: "account_balance_wallet", group: "Keuangan" },
   { href: "/seller/receivables-payables", label: "Hutang/Piutang", icon: "payments", group: "Keuangan" },
-  { href: "/seller/store", label: "Toko", icon: "storefront", group: "Toko", noChildTabs: true },
-  { href: "/seller/banners", label: "Banner", icon: "view_carousel", group: "Toko" },
   { href: "/seller/code-settings", label: "Kode", icon: "tune", group: "Lainnya", noChildTabs: true, hiddenInSidebar: true, pinTop: true },
   { href: "/seller/chat", label: "Chat", icon: "forum", bottom: true, noChildTabs: true },
   { href: "/seller/help", label: "Bantuan", icon: "help_outline", bottom: true, dividerBefore: true },
@@ -54,7 +52,6 @@ export default function SellerLayout() {
               notificationClassName="hover:bg-slate-50"
               notificationPanel={({ close }) => <NotificationCenterPanel onClose={close} />}
               mobileNavigation={<PanelMobileNavigation items={SELLER_NAV_ITEMS} activeClassName="bg-emerald-50 text-emerald-700" />}
-              backToMarketplace
             />
             <PanelTabBar />
             <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/60 px-4 pb-20 sm:px-6 lg:px-8 lg:pb-6">

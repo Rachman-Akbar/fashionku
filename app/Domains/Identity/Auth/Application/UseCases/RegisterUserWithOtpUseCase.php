@@ -12,12 +12,13 @@ use App\Domains\Identity\Auth\Infrastructure\Mail\EmailVerificationMail;
 use App\Domains\Identity\User\Application\DTOs\CreateUserDTO;
 use App\Domains\Identity\User\Domain\Exceptions\EmailAlreadyExistsException;
 use App\Domains\Identity\User\Domain\Repositories\UserRepositoryInterface;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use RuntimeException;
+use Illuminate\Validation\ValidationException;
 
 final readonly class RegisterUserWithOtpUseCase
 {
@@ -45,33 +46,44 @@ final readonly class RegisterUserWithOtpUseCase
             throw new EmailAlreadyExistsException("User with email {$email} already exists.");
         }
 
-        $existingChallenge = $this->registrationChallengeRepository->findActiveByEmail($email);
-        if ($existingChallenge) {
-            throw new RuntimeException('Sudah ada proses registrasi aktif untuk email ini. Silakan verifikasi atau tunggu hingga kedaluwarsa.');
-        }
-
         $challengeId = (string) Str::uuid();
         $ttlSeconds = 600;
 
         $registrationChallenge = DB::transaction(function () use ($name, $email, $password, $phone, $firebaseUid, $avatar, $challengeId, $ttlSeconds, $ipAddress, $userAgent): RegistrationChallenge {
-            $challenge = $this->registrationChallengeRepository->create([
-                'id' => (string) Str::uuid(),
-                'email' => $email,
-                'name' => trim($name),
-                'password_hash' => Hash::make($password),
-                'phone' => $phone,
-                'firebase_uid' => $firebaseUid,
-                'avatar' => $avatar,
-                'otp_challenge_id' => $challengeId,
-                'ip_address' => $ipAddress,
-                'user_agent' => $userAgent,
-                'metadata' => json_encode([
-                    'initiated_at' => now()->toISOString(),
-                ]),
-                'expires_at' => now()->addSeconds($ttlSeconds),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            $existingChallenge = $this->registrationChallengeRepository->findActiveByEmailForUpdate($email);
+            if ($existingChallenge) {
+                throw ValidationException::withMessages([
+                    'email' => ['Sudah ada proses registrasi aktif untuk email ini. Silakan verifikasi atau tunggu hingga kedaluwarsa.'],
+                ]);
+            }
+
+            try {
+                $challenge = $this->registrationChallengeRepository->create([
+                    'id' => (string) Str::uuid(),
+                    'email' => $email,
+                    'name' => trim($name),
+                    'password_hash' => Hash::make($password),
+                    'phone' => $phone,
+                    'firebase_uid' => $firebaseUid,
+                    'avatar' => $avatar,
+                    'otp_challenge_id' => $challengeId,
+                    'ip_address' => $ipAddress,
+                    'user_agent' => $userAgent,
+                    'metadata' => json_encode([
+                        'initiated_at' => now()->toISOString(),
+                    ]),
+                    'expires_at' => now()->addSeconds($ttlSeconds),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } catch (QueryException $e) {
+                if ($this->isUniqueConstraintViolation($e)) {
+                    throw ValidationException::withMessages([
+                        'email' => ['Sudah ada proses registrasi aktif untuk email ini. Silakan verifikasi atau tunggu hingga kedaluwarsa.'],
+                    ]);
+                }
+                throw $e;
+            }
 
             return $challenge;
         });
@@ -98,7 +110,12 @@ final readonly class RegisterUserWithOtpUseCase
                 'email' => $email,
                 'exception' => $throwable,
             ]);
-            throw new RuntimeException('Gagal mengirim kode verifikasi. Silakan coba lagi.');
+            // Rollback: invalidate OTP and delete registration challenge
+            $this->otpEngine->invalidateByChallengeId($challengeId, OtpPurpose::REGISTER->value);
+            $this->registrationChallengeRepository->delete($registrationChallenge->id);
+            throw ValidationException::withMessages([
+                'email' => ['Gagal mengirim kode verifikasi. Silakan coba lagi.'],
+            ]);
         }
 
         return [
@@ -117,15 +134,19 @@ final readonly class RegisterUserWithOtpUseCase
         ?string $ipAddress = null,
         ?string $userAgent = null,
     ): array {
-        $registrationChallenge = $this->registrationChallengeRepository->findById($challengeId);
+        $registrationChallenge = $this->registrationChallengeRepository->findByOtpChallengeId($challengeId);
 
         if (! $registrationChallenge) {
-            throw new RuntimeException('Registrasi tidak ditemukan atau sudah kedaluwarsa.');
+            throw ValidationException::withMessages([
+                'challenge_id' => ['Registrasi tidak ditemukan atau sudah kedaluwarsa.'],
+            ]);
         }
 
         if ($registrationChallenge->isExpired()) {
-            $this->registrationChallengeRepository->delete($challengeId);
-            throw new RuntimeException('Registrasi telah kedaluwarsa. Silakan daftar ulang.');
+            $this->registrationChallengeRepository->delete($registrationChallenge->id);
+            throw ValidationException::withMessages([
+                'challenge_id' => ['Registrasi telah kedaluwarsa. Silakan daftar ulang.'],
+            ]);
         }
 
         $this->otpEngine->verifyAndConsume(
@@ -168,15 +189,19 @@ final readonly class RegisterUserWithOtpUseCase
         ?string $ipAddress = null,
         ?string $userAgent = null,
     ): array {
-        $registrationChallenge = $this->registrationChallengeRepository->findById($challengeId);
+        $registrationChallenge = $this->registrationChallengeRepository->findByOtpChallengeId($challengeId);
 
         if (! $registrationChallenge) {
-            throw new RuntimeException('Registrasi tidak ditemukan atau sudah kedaluwarsa.');
+            throw ValidationException::withMessages([
+                'challenge_id' => ['Registrasi tidak ditemukan atau sudah kedaluwarsa.'],
+            ]);
         }
 
         if ($registrationChallenge->isExpired()) {
-            $this->registrationChallengeRepository->delete($challengeId);
-            throw new RuntimeException('Registrasi telah kedaluwarsa. Silakan daftar ulang.');
+            $this->registrationChallengeRepository->delete($registrationChallenge->id);
+            throw ValidationException::withMessages([
+                'challenge_id' => ['Registrasi telah kedaluwarsa. Silakan daftar ulang.'],
+            ]);
         }
 
         $code = $this->otpEngine->resend(
@@ -200,7 +225,9 @@ final readonly class RegisterUserWithOtpUseCase
                 'email' => $registrationChallenge->email,
                 'exception' => $throwable,
             ]);
-            throw new RuntimeException('Gagal mengirim kode verifikasi. Silakan coba lagi.');
+            throw ValidationException::withMessages([
+                'email' => ['Gagal mengirim kode verifikasi. Silakan coba lagi.'],
+            ]);
         }
 
         return [
@@ -212,5 +239,16 @@ final readonly class RegisterUserWithOtpUseCase
     public function cleanupExpired(): int
     {
         return $this->registrationChallengeRepository->cleanupExpired();
+    }
+
+    private function isUniqueConstraintViolation(QueryException $e): bool
+    {
+        $message = $e->getMessage();
+        return str_contains($message, 'Unique constraint') ||
+            str_contains($message, 'Duplicate entry') ||
+            str_contains($message, 'unique constraint') ||
+            str_contains($message, 'duplicate entry') ||
+            str_contains($message, '1062') ||
+            str_contains($message, '23505');
     }
 }

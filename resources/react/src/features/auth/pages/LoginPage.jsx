@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
+import { handleGoogleRedirect } from "@/features/auth/services/authService";
 
 const PORTALS = {
   buyer: {
@@ -53,38 +54,88 @@ export default function LoginPage({ portal = "buyer" }) {
     password: "",
   });
   const [localError, setLocalError] = useState("");
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const redirectHandledRef = useRef(false);
   const message = localError;
 
-
-  const ensurePortalAccess = async (session) => {
-    const activeRole = String(
-      session?.activeRole || session?.active_role || session?.user?.role || "",
-    ).toLowerCase();
-    const sessionRoles = session?.roles || session?.user?.roles || [];
-    const roles = Array.isArray(sessionRoles)
-      ? sessionRoles.map((role) =>
-          String(role?.name || role || "").toLowerCase(),
-        )
-      : [];
-
-    if (activeRole === config.role || roles.includes(config.role)) {
-      return;
-    }
-
-    await logout();
-    throw new Error(
-      config.role === "admin"
-        ? "Akun ini tidak memiliki akses Admin."
-        : "Akun tidak memiliki akses ke portal yang dipilih.",
-    );
-  };
-
-  const getRedirectPath = () => {
+  const getRedirectPath = useCallback(() => {
     const query = new URLSearchParams(location.search);
     const redirect = query.get("redirect");
     const statePath = location.state?.from?.pathname;
     return redirect || statePath || config.redirect;
-  };
+  }, [location, config.redirect]);
+
+  const ensurePortalAccess = useCallback(
+    async (session) => {
+      const activeRole = String(
+        session?.activeRole || session?.active_role || session?.user?.role || "",
+      ).toLowerCase();
+      const sessionRoles = session?.roles || session?.user?.roles || [];
+      const roles = Array.isArray(sessionRoles)
+        ? sessionRoles.map((role) =>
+            String(role?.name || role || "").toLowerCase(),
+          )
+        : [];
+
+      if (activeRole === config.role || roles.includes(config.role)) {
+        return;
+      }
+
+      await logout();
+      throw new Error(
+        config.role === "admin"
+          ? "Akun ini tidak memiliki akses Admin."
+          : "Akun tidak memiliki akses ke portal yang dipilih.",
+      );
+    },
+    [config.role, logout],
+  );
+
+  useEffect(() => {
+    let mounted = true;
+
+    if (redirectHandledRef.current) {
+      return undefined;
+    }
+    redirectHandledRef.current = true;
+
+    (async () => {
+      setGoogleBusy(true);
+      try {
+        const session = await handleGoogleRedirect({
+          role: config.role,
+          deviceName: config.deviceName,
+          storageScope: config.storageScope,
+        });
+
+        if (!mounted || !session) {
+          return;
+        }
+
+        window.dispatchEvent(new CustomEvent("marketku:session-changed"));
+        await ensurePortalAccess(session);
+        navigate(getRedirectPath(), { replace: true });
+      } catch (err) {
+        if (!mounted) return;
+        setLocalError(err?.message || "Login Google gagal. Silakan coba lagi.");
+      } finally {
+        if (mounted) {
+          setGoogleBusy(false);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [
+    config.role,
+    config.deviceName,
+    config.storageScope,
+    ensurePortalAccess,
+    getRedirectPath,
+    navigate,
+  ]);
 
   const handleChange = (event) => {
     setLocalError("");
@@ -125,17 +176,24 @@ export default function LoginPage({ portal = "buyer" }) {
   const handleGoogleLogin = async () => {
     setLocalError("");
     clearError();
+    setGoogleBusy(true);
 
     try {
-      const session = await loginWithGoogle({
+      const result = await loginWithGoogle({
         role: config.role,
         deviceName: config.deviceName,
         storageScope: config.storageScope,
       });
-      await ensurePortalAccess(session);
+
+      if (result?.redirected) {
+        return;
+      }
+
+      await ensurePortalAccess(result);
       navigate(getRedirectPath(), { replace: true });
     } catch (submitError) {
       setLocalError(submitError.message);
+      setGoogleBusy(false);
     }
   };
 
@@ -210,7 +268,7 @@ export default function LoginPage({ portal = "buyer" }) {
         <Button
           type="submit"
           size="lg"
-          disabled={loading}
+          disabled={loading || googleBusy}
           className="h-12 w-full rounded-xl bg-[#10B981] font-black shadow-[0_14px_30px_rgba(3,172,14,0.24)] hover:bg-[#059669] focus-visible:ring-[#10B981] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {loading ? "Memproses..." : config.submitLabel}
@@ -230,11 +288,11 @@ export default function LoginPage({ portal = "buyer" }) {
         <Button
           type="button"
           variant="outline"
-          disabled={loading}
+          disabled={loading || googleBusy}
           onClick={handleGoogleLogin}
           className="h-12 w-full rounded-xl border-slate-200 font-bold text-slate-700 hover:border-[#10B981]/40 hover:bg-[#ECFDF5] hover:text-[#10B981] disabled:cursor-not-allowed disabled:opacity-70"
         >
-          Google
+          {googleBusy ? "Menghubungkan Google..." : "Google"}
         </Button>
       </form>
 

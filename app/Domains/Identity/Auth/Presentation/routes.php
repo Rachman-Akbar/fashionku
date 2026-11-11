@@ -55,7 +55,6 @@ Route::prefix('auth')->name('auth.')->group(function (): void {
 
         Route::middleware('active.user')->group(function (): void {
             Route::get('/me', [AuthController::class, 'me'])->name('me');
-            Route::delete('/account', [AuthController::class, 'deleteCurrentAccount'])->name('account.delete');
             Route::post('/switch-role', [AuthController::class, 'switchRole'])->name('switch-role');
             Route::post('/register-seller', [StoreController::class, 'registerStore'])
                 ->middleware('verified.email')

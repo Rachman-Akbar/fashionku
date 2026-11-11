@@ -121,10 +121,6 @@ export function useDeleteReview() {
   return useMutationHelper((id) => remove(`/api/v1/order/reviews/${id}`), advancedKeys.reviews);
 }
 
-export function usePublicShowcases(storeId) {
-  return useQuery({ queryKey: [...advancedKeys.showcases, "public", storeId], queryFn: () => getList(`/api/v1/seller/stores/${storeId}/showcases`, { per_page: 100 }), enabled: Boolean(storeId) });
-}
-
 export function useFinance(params = {}) {
   return useInfiniteList({ queryKey: advancedKeys.finance, queryFn: (queryParams) => getList("/api/v1/seller/finance", queryParams), params });
 }

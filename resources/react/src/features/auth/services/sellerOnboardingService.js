@@ -11,11 +11,10 @@ import { useAuth } from "@/features/auth/context/AuthContext";
 
 export const sellerOnboardingKeys = {
   store: ["seller", "stores"],
-  address: (storeId) => [
+  address: () => [
     "order",
     "addresses",
     "store",
-    String(storeId || ""),
   ],
 };
 
@@ -196,9 +195,9 @@ async function registerSellerStore(values, files) {
   return store;
 }
 
-async function updateRegisteredStore(id, values, files) {
+async function updateRegisteredStore(values, files) {
   const response = await apiClient.post(
-    `/api/v1/seller/stores/${id}`,
+    "/api/v1/seller/store",
     buildStoreFormData(values, files),
   );
   const store = normalizeStore(resolveStoreSource(response.data));
@@ -210,8 +209,8 @@ async function updateRegisteredStore(id, values, files) {
   return store;
 }
 
-async function getRegisteredStore(id) {
-  const response = await apiClient.get(`/api/v1/seller/stores/${id}/manage`);
+async function getRegisteredStore() {
+  const response = await apiClient.get(`/api/v1/seller/store/manage`);
   return normalizeStore(resolveStoreSource(response.data));
 }
 
@@ -288,7 +287,7 @@ export function useSellerOnboarding() {
       });
 
       if (shouldUpdateExistingStore) {
-        store = await updateRegisteredStore(store.id, values, files);
+        store = await updateRegisteredStore(values, files);
       }
 
       let address;
@@ -304,7 +303,7 @@ export function useSellerOnboarding() {
         );
       }
 
-      const finalStore = await getRegisteredStore(store.id);
+      const finalStore = await getRegisteredStore();
       await refreshMe();
 
       if (!finalStore.id || !address?.id) {
@@ -320,16 +319,16 @@ export function useSellerOnboarding() {
     },
     onSuccess: ({ store, address }) => {
       queryClient.setQueryData(
-        ["seller", "stores", "detail", String(store.id)],
+        ["seller", "stores", "detail"],
         store,
       );
       queryClient.setQueryData(
-        sellerOnboardingKeys.address(store.id),
+        sellerOnboardingKeys.address(),
         address,
       );
       queryClient.invalidateQueries({ queryKey: sellerOnboardingKeys.store });
       queryClient.invalidateQueries({
-        queryKey: sellerOnboardingKeys.address(store.id),
+        queryKey: sellerOnboardingKeys.address(),
       });
     },
   });

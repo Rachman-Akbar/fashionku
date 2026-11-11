@@ -16,8 +16,8 @@ import {
 
 export const sellerStoreKeys = {
   all: ["seller", "stores"],
-  detail: (id) => ["seller", "stores", "detail", String(id || "")],
-  address: (id) => ["order", "addresses", "store", String(id || "")],
+  detail: () => ["seller", "stores", "detail"],
+  address: () => ["order", "addresses", "store"],
 };
 
 export function normalizeStore(row = {}) {
@@ -62,16 +62,13 @@ export function assetUrl(path) {
   return resolveMediaUrl(path);
 }
 
-export async function getSellerStoreData(id) {
-  const response = await apiClient.get(`/api/v1/seller/stores/${id}/manage`);
+export async function getSellerStoreData() {
+  const response = await apiClient.get(`/api/v1/seller/store/manage`);
   return normalizeStore(unwrapApiData(response.data));
 }
 
-export async function updateSellerStore({ id, formData }) {
-  const response = await apiClient.post(
-    `/api/v1/seller/stores/${id}`,
-    formData,
-  );
+export async function updateSellerStore({ formData }) {
+  const response = await apiClient.post(`/api/v1/seller/store`, formData);
   return normalizeStore(unwrapApiData(response.data));
 }
 
@@ -86,13 +83,12 @@ export async function saveSellerStoreAddress(values) {
 
 export function useSellerStore(options = {}) {
   const { store, isAuthenticated, activeRole } = useAuth();
-  const id = store?.id || 0;
   const { enabled = true, ...queryOptions } = options;
 
   return useQuery({
-    queryKey: sellerStoreKeys.detail(id),
-    queryFn: () => getSellerStoreData(id),
-    enabled: Boolean(enabled && isAuthenticated && activeRole === "seller" && id),
+    queryKey: sellerStoreKeys.detail(),
+    queryFn: () => getSellerStoreData(),
+    enabled: Boolean(enabled && isAuthenticated && activeRole === "seller" && store),
     staleTime: 120000,
     ...queryOptions,
   });
@@ -100,14 +96,13 @@ export function useSellerStore(options = {}) {
 
 export function useSellerStoreAddress(options = {}) {
   const { isAuthenticated, activeRole, store } = useAuth();
-  const id = store?.id || 0;
   const { enabled = true, ...queryOptions } = options;
 
   return useQuery({
-    queryKey: sellerStoreKeys.address(id),
+    queryKey: sellerStoreKeys.address(),
     queryFn: async () => (await getAddresses("store"))[0] || null,
     enabled: Boolean(
-      enabled && isAuthenticated && activeRole === "seller" && id,
+      enabled && isAuthenticated && activeRole === "seller" && store,
     ),
     staleTime: 300000,
     ...queryOptions,
@@ -120,7 +115,7 @@ export function useUpdateSellerStore() {
   return useMutation({
     mutationFn: updateSellerStore,
     onSuccess: (store) => {
-      queryClient.setQueryData(sellerStoreKeys.detail(store.id), store);
+      queryClient.setQueryData(sellerStoreKeys.detail(), store);
       queryClient.invalidateQueries({ queryKey: sellerStoreKeys.all });
     },
   });
@@ -134,7 +129,7 @@ export function useSaveSellerStoreAddress() {
     mutationFn: saveSellerStoreAddress,
     onSuccess: (address) => {
       queryClient.setQueryData(
-        sellerStoreKeys.address(store?.id),
+        sellerStoreKeys.address(),
         address,
       );
       queryClient.setQueryData(addressKeys.store, [address]);

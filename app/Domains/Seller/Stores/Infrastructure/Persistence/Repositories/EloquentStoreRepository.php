@@ -42,7 +42,6 @@ final class EloquentStoreRepository implements StoreRepositoryInterface
     public function findById(int $id): ?StoreEntity
     {
         $model = StoreModel::query()->with(['detail', 'owner:id,name,email'])->find($id);
-
         return $model ? StoreMapper::toEntity($model) : null;
     }
 

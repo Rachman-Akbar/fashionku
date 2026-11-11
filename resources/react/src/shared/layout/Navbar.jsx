@@ -160,8 +160,8 @@ export function Navbar() {
           <div className="hidden items-center gap-5 lg:flex">
             <Link to="/promotions" className="whitespace-nowrap transition-colors hover:text-[#10B981]">Promo</Link>
             <Link to="/cart?tab=order" className="whitespace-nowrap transition-colors hover:text-[#10B981]">Riwayat</Link>
-            <span className="whitespace-nowrap">Pusat Edukasi Penjual</span>
-            <span className="whitespace-nowrap">Fashionku Care</span>
+            <Link to="/hubungi-kami" className="whitespace-nowrap transition-colors hover:text-[#10B981]">Hubungi Kami</Link>
+            <Link to="/toko-kami" className="whitespace-nowrap transition-colors hover:text-[#10B981]">Toko Kami</Link>
           </div>
         </div>
       </div>

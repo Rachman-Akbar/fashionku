@@ -196,7 +196,7 @@ export default function OtpVerifyDialog({
                   }}
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  placeholder="0".repeat(codeLength)
+                  placeholder={"0".repeat(codeLength)}
                   className={OTP_INPUT_CLASS}
                 />
               </label>

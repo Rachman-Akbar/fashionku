@@ -16,6 +16,7 @@ const SearchPage = lazyWithRetry(() => import("@/features/catalog/product/pages/
 const ProductDetailPage = lazyWithRetry(() => import("@/features/catalog/product/pages/ProductDetailPage"));
 const CategoryPage = lazyWithRetry(() => import("@/features/catalog/category/pages/CategoryPage"));
 const PromotionPage = lazyWithRetry(() => import("@/features/catalog/promotion/pages/PromotionPage"));
+const CompanyProfilePage = lazyWithRetry(() => import("@/features/catalog/company/pages/CompanyProfilePage"));
 const CartPage = lazyWithRetry(() => import("@/features/order/cart/pages/CartPage"));
 const CheckoutPage = lazyWithRetry(() => import("@/features/order/ordering/pages/CheckoutPage"));
 const OrderDetailPage = lazyWithRetry(() => import("@/features/order/ordering/pages/OrderDetailPage"));
@@ -24,6 +25,7 @@ const RegisterPage = lazyWithRetry(() => import("@/features/auth/pages/RegisterP
 const ForgotPasswordPage = lazyWithRetry(() => import("@/features/auth/pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazyWithRetry(() => import("@/features/auth/pages/ResetPasswordPage"));
 const RoleSwitchPage = lazyWithRetry(() => import("@/features/auth/pages/RoleSwitchPage"));
+const GoogleRedirectHandler = lazyWithRetry(() => import("@/features/auth/pages/GoogleRedirectHandler"));
 const SellerOnboardingPage = lazyWithRetry(() => import("@/features/auth/pages/SellerOnboardingPage"));
 const SellerDashboardPage = lazyWithRetry(() => import("@/features/seller/dashboard/pages/SellerDashboardPage"));
 const SellerProductsPage = lazyWithRetry(() => import("@/features/seller/product/pages/SellerProductsPage"));
@@ -67,6 +69,8 @@ function renderBuyerRoutes() {
       <Route path="/category/*" element={<CategoryPage />} />
       <Route path="/products/:slug" element={<ProductDetailPage />} />
       <Route path="/promotions" element={<PromotionPage />} />
+      <Route path="/toko-kami" element={<CompanyProfilePage />} />
+      <Route path="/hubungi-kami" element={<Navigate to="/chat" replace />} />
       <Route element={<ProtectedRoute />}>
         <Route path="/cart" element={<CartPage />} />
         <Route path="/checkout/*" element={<CheckoutPage />} />
@@ -79,14 +83,15 @@ function renderBuyerRoutes() {
 
 function renderAuthenticationRoutes() {
   return (
-    <Route element={<GuestRoute />}>
-      <Route element={<AuthLayout />}>
-        <Route path="/auth/login" element={<LoginPage portal="buyer" />} />
-        <Route path="/auth/register" element={<RegisterPage />} />
-        <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+      <Route element={<GuestRoute />}>
+        <Route element={<AuthLayout />}>
+          <Route path="/auth/login" element={<LoginPage portal="buyer" />} />
+          <Route path="/auth/register" element={<RegisterPage />} />
+          <Route path="/auth/google-callback" element={<GoogleRedirectHandler />} />
+          <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+        </Route>
       </Route>
-    </Route>
   );
 }
 

@@ -30,7 +30,7 @@ final readonly class DeviceManagementUseCase
     {
         $devices = $this->deviceRepository->getAllDevicesByUserId((string) $user->id);
 
-        return $devices->map(function ($device): array {
+        return $devices->map(function ($device) use ($user): array {
             return [
                 'id' => $device->id,
                 'device_name' => $device->device_name,
@@ -125,7 +125,7 @@ final readonly class DeviceManagementUseCase
 
         DB::transaction(function () use ($user, $device): void {
             if ($device->sanctum_token_id) {
-                $token = PersonalAccessToken::findToken($device->sanctum_token_id);
+                $token = PersonalAccessToken::find($device->sanctum_token_id);
                 if ($token) {
                     $token->delete();
                 }

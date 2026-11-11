@@ -40,7 +40,7 @@ final class SecurityEvent extends Model
     protected $dates = [
         'occurred_at',
         'deleted_at',
-    ]
+    ];
 
     public function isCritical(): bool
     {

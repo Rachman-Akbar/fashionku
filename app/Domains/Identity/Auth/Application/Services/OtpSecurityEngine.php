@@ -52,12 +52,13 @@ final class OtpSecurityEngine
 
         $ttl = $ttlSeconds ?? self::DEFAULT_TTL_SECONDS;
         $this->checkRateLimit($email, $purpose, $ipAddress);
-        $this->invalidateExistingOtps($email, $purpose, $challengeId);
 
         $code = $this->generateCode();
         $codeHash = Hash::make($code);
 
         DB::transaction(function () use ($email, $purpose, $userId, $phone, $challengeId, $codeHash, $ttl, $ipAddress, $userAgent, $metadata): void {
+            $this->invalidateExistingOtps($email, $purpose, $challengeId);
+
             DB::table('otp_challenges')->insert([
                 'id' => (string) Str::uuid(),
                 'user_id' => $userId,
@@ -190,21 +191,8 @@ final class OtpSecurityEngine
         $email = $this->normalizeEmail($email);
         $this->validatePurpose($purpose);
 
-        $existing = DB::table('otp_challenges')
-            ->where('email', $email)
-            ->where('purpose', $purpose)
-            ->whereNull('consumed_at')
-            ->when($challengeId, fn ($query) => $query->where('challenge_id', $challengeId))
-            ->when($userId, fn ($query) => $query->where('user_id', $userId))
-            ->orderByDesc('created_at')
-            ->first();
-
-        if ($existing && $existing->created_at->gt(now()->subSeconds(self::RESEND_COOLDOWN_SECONDS))) {
-            $remaining = self::RESEND_COOLDOWN_SECONDS - now()->diffInSeconds($existing->created_at);
-            throw ValidationException::withMessages([
-                'code' => ["Silakan tunggu {$remaining} detik sebelum meminta kode baru."],
-            ]);
-        }
+        // Resend replaces the previous OTP, so we skip cooldown check here.
+        // The rate limit in issue() still applies.
 
         return $this->issue($email, $purpose, $userId, $phone, $challengeId, $ipAddress, $userAgent, $metadata, $ttlSeconds);
     }
@@ -391,10 +379,7 @@ final class OtpSecurityEngine
             ]);
         }
 
-        cache()->increment($key);
-        if ($attempts === 0) {
-            cache()->expire($key, self::RATE_LIMIT_WINDOW_SECONDS);
-        }
+        cache()->put($key, $attempts + 1, now()->addSeconds(self::RATE_LIMIT_WINDOW_SECONDS));
     }
 
     private function invalidateExistingOtps(string $email, string $purpose, ?string $challengeId): void

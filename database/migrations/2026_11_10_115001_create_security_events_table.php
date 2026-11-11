@@ -23,6 +23,7 @@ return new class extends Migration
             $table->boolean('success')->default(true);
             $table->text('failure_reason')->nullable();
             $table->timestamp('occurred_at')->useCurrent()->index();
+            $table->timestamps();
             $table->softDeletes()->index();
 
             $table->index(['user_id', 'event_type', 'occurred_at'], 'security_events_user_event_time_index');

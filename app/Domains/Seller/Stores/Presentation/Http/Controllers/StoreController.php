@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Domains\Seller\Stores\Presentation\Http\Controllers;
 
 use App\Domains\Identity\User\Domain\Repositories\UserRepositoryInterface;
-use App\Domains\Seller\Stores\Application\Queries\GetStoreByIdQuery;
 use App\Domains\Seller\Stores\Application\UseCases\CreateStoreUseCase;
 use App\Domains\Seller\Stores\Application\UseCases\UpdateStoreUseCase;
+use App\Domains\Seller\Stores\Domain\Services\FashionStoreResolver;
 use App\Domains\Seller\Stores\Presentation\Http\Resources\StoreResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,14 +20,13 @@ use Illuminate\Support\Arr;
 final class StoreController extends Controller
 {
     public function __construct(
-        private GetStoreByIdQuery $getStoreByIdQuery,
-        private UserRepositoryInterface $userRepository
+        private UserRepositoryInterface $userRepository,
     ) {}
 
-    public function manageShow(Request $request, int $id): StoreResource
+    public function manageShow(Request $request): StoreResource
     {
-        $store = $this->getStoreByIdQuery->execute($id);
-        abort_if(! $store, 404, 'Toko tidak ditemukan.');
+        $store = FashionStoreResolver::resolve();
+        abort_if(! $store, 404, 'Toko Fashionku belum tersedia.');
 
         $user = $request->user();
         $user->loadMissing('roles:id,name');
@@ -54,8 +53,11 @@ final class StoreController extends Controller
             ->setStatusCode(201);
     }
 
-    public function updateStore(int $id, Request $request, UpdateStoreUseCase $useCase): JsonResponse
+    public function updateStore(Request $request, UpdateStoreUseCase $useCase): JsonResponse
     {
+        $store = FashionStoreResolver::resolve();
+        abort_if(! $store, 404, 'Toko Fashionku belum tersedia.');
+
         $validated = $request->validate($this->rules(false));
         unset($validated['status']);
         $validated = $this->storeUploads($request, $validated);
@@ -65,9 +67,9 @@ final class StoreController extends Controller
         }
 
         $role = (string) ($this->userRepository->getActiveRoleFromCurrentToken($request->user()) ?: 'buyer');
-        $store = $useCase->execute($id, (string) $request->user()->id, $role, $validated);
+        $result = $useCase->execute((int) $store->id, (string) $request->user()->id, $role, $validated);
 
-        return (new StoreResource($store))
+        return (new StoreResource($result))
             ->additional(['message' => 'Toko berhasil diperbarui.'])
             ->response();
     }
