@@ -3,7 +3,6 @@ export {
   getCategoryById,
   getCategoryByPath,
   getCategoryProducts,
-  getCategoriesByCatalogGroup,
   getCategoryNavigation,
   normalizeCategory,
   getCategoryHref,

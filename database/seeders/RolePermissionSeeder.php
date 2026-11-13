@@ -8,7 +8,12 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Role & permission untuk Fashionku (single-store, dua role bisnis: seller & buyer).
+ * Role & permission untuk Fashionku (single-store).
+ *
+ * Dua role bisnis aktif: `admin` (operator tunggal = pemilik toko/penjual)
+ * dan `buyer` (pembeli). Role warisan `seller` dinonaktifkan dan seluruh
+ * pemiliknya dipindahkan ke `admin` oleh migrasi
+ * `2026_11_13_000200_merge_seller_role_into_admin`.
  */
 final class RolePermissionSeeder extends Seeder
 {
@@ -33,6 +38,8 @@ final class RolePermissionSeeder extends Seeder
             ['name' => 'reviews.manage', 'description' => 'Memoderasi seluruh review produk', 'is_active' => true],
             ['name' => 'chat.use', 'description' => 'Menggunakan percakapan', 'is_active' => true],
             ['name' => 'announcements.manage', 'description' => 'Mengirim announcement', 'is_active' => true],
+            ['name' => 'users.manage', 'description' => 'Mengelola pengguna', 'is_active' => true],
+            ['name' => 'roles.manage', 'description' => 'Mengelola peran dan hak akses', 'is_active' => true],
         ];
 
         DB::table('permissions')->upsert(
@@ -46,7 +53,7 @@ final class RolePermissionSeeder extends Seeder
         );
 
         $roles = [
-            ['name' => 'seller', 'description' => 'Pengelola toko Fashionku', 'is_active' => true],
+            ['name' => 'admin', 'description' => 'Administrator/pemilik toko Fashionku (operator tunggal)', 'is_active' => true],
             ['name' => 'buyer', 'description' => 'Pembeli Fashionku', 'is_active' => true],
         ];
 
@@ -60,31 +67,42 @@ final class RolePermissionSeeder extends Seeder
             ['description', 'is_active', 'updated_at']
         );
 
-        // Nonaktifkan role lama yang diwarisi dari marketplace multi-store.
+        // Nonaktifkan role lama: `seller` (digabung ke `admin`) dan role
+        // warisan marketplace multi-store lainnya.
         DB::table('roles')
-            ->whereNotIn('name', ['seller', 'buyer'])
+            ->whereNotIn('name', ['admin', 'buyer'])
             ->update(['is_active' => false, 'updated_at' => $now]);
 
         $roleIds = DB::table('roles')->pluck('id', 'name');
         $permissionIds = DB::table('permissions')->pluck('id', 'name');
 
+        $storeOperatorPermissions = [
+            'products.manage',
+            'banners.manage',
+            'promotions.manage',
+            'vouchers.manage',
+            'orders.view',
+            'orders.manage',
+            'reports.export',
+            'finance.manage',
+            'stock.manage',
+            'tickets.create',
+            'tickets.manage',
+            'reviews.create',
+            'reviews.manage',
+            'chat.use',
+        ];
+
+        // Admin = operator toko + pengelola pengguna/peran/pengumuman.
+        $adminPermissions = array_values(array_unique([
+            ...$storeOperatorPermissions,
+            'users.manage',
+            'roles.manage',
+            'announcements.manage',
+        ]));
+
         $assignments = [
-            'seller' => [
-                'products.manage',
-                'banners.manage',
-                'promotions.manage',
-                'vouchers.manage',
-                'orders.view',
-                'orders.manage',
-                'reports.export',
-                'finance.manage',
-                'stock.manage',
-                'tickets.create',
-                'tickets.manage',
-                'reviews.create',
-                'reviews.manage',
-                'chat.use',
-            ],
+            'admin' => $adminPermissions,
             'buyer' => [
                 'orders.view',
                 'checkout.create',

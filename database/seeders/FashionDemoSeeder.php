@@ -34,14 +34,15 @@ final class FashionDemoSeeder extends Seeder
     {
         $this->command?->info('Fashionku: membuat akun demo & toko utama...');
 
-        $sellerRoleId = DB::table('roles')->where('name', 'seller')->value('id');
+        // Single-store: operator/pemilik toko memakai role `admin`.
+        $adminRoleId = DB::table('roles')->where('name', 'admin')->value('id');
         $buyerRoleId = DB::table('roles')->where('name', 'buyer')->value('id');
         $now = now()->toDateTimeString();
 
-        // ── Seller pengelola toko ────────────────────────────────────────────
+        // ── Admin/operator pengelola toko ────────────────────────────────────
         $ownerId = self::uuidFor('seller.utama');
-        $this->createUser($ownerId, 'nadia@fashionku.id', 'Nadia Prameswari', [($sellerRoleId ?? 0), ($buyerRoleId ?? 0)], $now);
-        $this->createUser(self::uuidFor('seller.kedua'), 'rafi@fashionku.id', 'Rafi Ardiansyah', [($sellerRoleId ?? 0)], $now);
+        $this->createUser($ownerId, 'nadia@fashionku.id', 'Nadia Prameswari', [($adminRoleId ?? 0), ($buyerRoleId ?? 0)], $now);
+        $this->createUser(self::uuidFor('seller.kedua'), 'rafi@fashionku.id', 'Rafi Ardiansyah', [($adminRoleId ?? 0)], $now);
 
         // ── Buyer demo ───────────────────────────────────────────────────────
         $buyers = [

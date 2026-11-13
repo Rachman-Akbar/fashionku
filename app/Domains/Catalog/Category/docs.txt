@@ -10,7 +10,6 @@ API
 JSON CREATE
     level 1
         {
-            "catalog_group_id": 1,
             "name": "Audio, Kamera & Elektronik Lainnya",
             "slug": "audio-kamera-elektronik-lainnya",
             "sort_order": 1,
@@ -43,7 +42,6 @@ JSON CREATE
 DB
     CREATE TABLE `categories` (
         `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-        `catalog_group_id` bigint unsigned NOT NULL,
         `parent_id` bigint unsigned DEFAULT NULL,
         `level` int NOT NULL DEFAULT '1',
         `sort_order` int NOT NULL DEFAULT '0',
@@ -57,9 +55,7 @@ DB
         `created_at` timestamp NULL DEFAULT NULL,
         `updated_at` timestamp NULL DEFAULT NULL,
         PRIMARY KEY (`id`),
-        KEY `fk_categories_catalog_group` (`catalog_group_id`),
         KEY `fk_categories_parent` (`parent_id`),
-        CONSTRAINT `fk_categories_catalog_group` FOREIGN KEY (`catalog_group_id`) REFERENCES `catalog_groups` (`id`) ON DELETE CASCADE,
         CONSTRAINT `fk_categories_parent` FOREIGN KEY (`parent_id`) REFERENCES `categories` (`id`) ON DELETE CASCADE
     ) ENGINE=InnoDB AUTO_INCREMENT=69 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 

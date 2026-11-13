@@ -110,7 +110,7 @@ export function PromotionFormDialog({ open, entity, portal, onClose, onSaved, on
 
   const quickCreateCategory = async (name) => {
     try {
-      const created = await quickCreateCategoryMutation.mutateAsync({ name, catalogGroupName: "Lainnya" });
+      const created = await quickCreateCategoryMutation.mutateAsync({ name });
       notifications.push({ type: "success", title: "Category siap digunakan", message: `${created.name} berhasil dibuat dan langsung dipilih sebagai target.` });
       return { value: created.id, label: toTitleCase(created.name) };
     } catch (error) {

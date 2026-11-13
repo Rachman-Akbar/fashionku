@@ -25,9 +25,17 @@ final class EnsureUserHasPermission
             ->unique()
             ->values();
         $activeRole = $this->activeRole($request);
-        $authorized = $allowed->contains(
-            fn (string $permission): bool => $user->hasPermissionForRole($permission, $activeRole)
-        );
+        $authorized = $allowed->contains(function (string $permission) use ($user, $activeRole): bool {
+            if ($user->hasPermissionForRole($permission, $activeRole)) {
+                return true;
+            }
+
+            // Admin (superset seller) memakai permission role admin saat
+            // mengakses panel seller pada deployment single-store.
+            return $activeRole === 'seller'
+                && $user->hasRole('admin')
+                && $user->hasPermissionForRole($permission, 'admin');
+        });
 
         if (! $authorized) {
             return response()->json(['message' => 'Insufficient permission access.'], 403);

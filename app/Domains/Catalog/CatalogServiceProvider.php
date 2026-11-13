@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domains\Catalog;
 
-use App\Domains\Catalog\CatalogGroup\Domain\Repositories\CatalogGroupRepositoryInterface;
-use App\Domains\Catalog\CatalogGroup\Infrastructure\Persistence\Repositories\EloquentCatalogGroupRepository;
 use App\Domains\Catalog\Category\Domain\Repositories\CategoryRepositoryInterface;
 use App\Domains\Catalog\Category\Infrastructure\Persistence\Repositories\EloquentCategoryRepository;
 use App\Domains\Catalog\Product\Domain\Repositories\ProductAttributeRepositoryInterface;
@@ -39,7 +37,6 @@ final class CatalogServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        $this->app->bind(CatalogGroupRepositoryInterface::class, EloquentCatalogGroupRepository::class);
         $this->app->bind(CategoryRepositoryInterface::class, EloquentCategoryRepository::class);
         $this->app->bind(ProductRepositoryInterface::class, EloquentProductRepository::class);
         $this->app->bind(ProductImageRepositoryInterface::class, EloquentProductImageRepository::class);

@@ -4,17 +4,19 @@ declare(strict_types=1);
 
 namespace App\Domains\Catalog\Category\Application\Queries;
 
-use App\Domains\Catalog\CatalogGroup\Domain\Repositories\CatalogGroupRepositoryInterface;
-use Illuminate\Support\Collection;
+use App\Domains\Catalog\Category\Domain\Repositories\CategoryRepositoryInterface;
 
 final class GetHeaderMenuQuery
 {
     public function __construct(
-        private readonly CatalogGroupRepositoryInterface $repository
+        private readonly CategoryRepositoryInterface $repository
     ) {}
 
-    public function execute(): Collection
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function execute(): array
     {
-        return $this->repository->getAll();
+        return $this->repository->listTree();
     }
 }

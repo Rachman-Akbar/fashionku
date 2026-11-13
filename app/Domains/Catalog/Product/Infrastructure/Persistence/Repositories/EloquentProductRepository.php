@@ -193,7 +193,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
     ): Collection {
         $category = CategoryModel::query()
             ->active()
-            ->whereHas('catalogGroup', fn (Builder $query) => $query->active())
             ->where(function (Builder $query) use ($categorySlug): void {
                 $query->where('slug', $categorySlug)
                     ->orWhere('full_slug', $categorySlug);
@@ -227,7 +226,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
     ): Collection {
         $category = CategoryModel::query()
             ->active()
-            ->whereHas('catalogGroup', fn (Builder $query) => $query->active())
             ->where('full_slug', $path)
             ->first();
 
@@ -371,12 +369,8 @@ final class EloquentProductRepository implements ProductRepositoryInterface
     private function relationsForDetail(bool $includeInactive = false): array
     {
         return [
-            'primaryCategory' => fn ($query) => $query->when(! $includeInactive, fn ($query) => $query
-                ->active()
-                ->whereHas('catalogGroup', fn ($groupQuery) => $groupQuery->active())),
-            'categories' => fn ($query) => $query->when(! $includeInactive, fn ($query) => $query
-                ->active()
-                ->whereHas('catalogGroup', fn ($groupQuery) => $groupQuery->active())),
+            'primaryCategory' => fn ($query) => $query->when(! $includeInactive, fn ($query) => $query->active()),
+            'categories' => fn ($query) => $query->when(! $includeInactive, fn ($query) => $query->active()),
             'store',
             'attributeValues.attribute',
             'variants.values.attribute',
@@ -431,7 +425,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
             if ($categorySlug !== '') {
                 $category = CategoryModel::query()
                     ->active()
-                    ->whereHas('catalogGroup', fn (Builder $categoryQuery) => $categoryQuery->active())
                     ->where(function (Builder $categoryQuery) use ($categorySlug): void {
                         $categoryQuery
                             ->where('slug', $categorySlug)
@@ -524,12 +517,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
         if (! empty($filters['seller_id'])) {
             $sellerId = (string) $filters['seller_id'];
             $query->whereHas('store', fn (Builder $storeQuery) => $storeQuery->where('user_id', $sellerId));
-        }
-
-        $catalogGroupId = $this->resolveCatalogGroupId($filters);
-
-        if ($catalogGroupId !== null) {
-            $this->applyCatalogGroupFilter($query, $catalogGroupId);
         }
 
         $search = trim((string) ($filters['search'] ?? $filters['q'] ?? ''));
@@ -702,41 +689,10 @@ final class EloquentProductRepository implements ProductRepositoryInterface
         });
     }
 
-    private function applyCatalogGroupFilter(Builder $query, int $catalogGroupId): void
-    {
-        $query->where(function (Builder $query) use ($catalogGroupId): void {
-            $query
-                ->whereHas('primaryCategory', fn (Builder $query) => $query->where('catalog_group_id', $catalogGroupId))
-                ->orWhereHas('categories', fn (Builder $query) => $query->where('categories.catalog_group_id', $catalogGroupId));
-        });
-    }
-
-    private function resolveCatalogGroupId(array $filters): ?int
-    {
-        if (! empty($filters['catalog_group_id'])) {
-            return (int) $filters['catalog_group_id'];
-        }
-
-        $slug = trim((string) ($filters['catalog_group_slug'] ?? ''));
-
-        if ($slug === '') {
-            return null;
-        }
-
-        $id = DB::table('catalog_groups')
-            ->where('slug', $slug)
-            ->where('is_active', true)
-            ->whereNull('deleted_at')
-            ->value('id');
-
-        return $id ? (int) $id : null;
-    }
-
     private function getCategoryAndDescendantIdsById(int $categoryId): array
     {
         $categoryExists = CategoryModel::query()
             ->active()
-            ->whereHas('catalogGroup', fn (Builder $query) => $query->active())
             ->whereKey($categoryId)
             ->exists();
 

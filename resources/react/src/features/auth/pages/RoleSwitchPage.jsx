@@ -62,16 +62,9 @@ export default function RoleSwitchPage() {
       }
 
       if (targetRole === "seller" && !resolveStore(currentSession)?.id) {
-        navigate(
-          "/auth/seller/onboarding",
-          {
-            state: {
-              from: redirect,
-              reason: "store_missing",
-            },
-            replace: true,
-          },
-        );
+        // Single-store: toko disiapkan lewat seeding/instalasi, bukan
+        // onboarding mandiri. Kembali ke marketplace bila toko belum ada.
+        navigate("/", { replace: true });
         return;
       }
 
@@ -99,20 +92,6 @@ export default function RoleSwitchPage() {
         });
         navigate(redirect, { replace: true });
       } catch {
-        if (targetRole === "seller") {
-          navigate(
-            "/auth/seller/onboarding",
-            {
-              state: {
-                from: redirect,
-                reason: "seller_access_unavailable",
-              },
-              replace: true,
-            },
-          );
-          return;
-        }
-
         navigate(getLoginPath(targetRole, redirect), { replace: true });
       }
     };

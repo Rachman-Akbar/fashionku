@@ -27,7 +27,6 @@ final class CategoryMapper
 
         return new Category(
             id: (int) $model->id,
-            catalogGroupId: (int) $model->catalog_group_id,
             parentId: $model->parent_id !== null ? (int) $model->parent_id : null,
             name: (string) $model->name,
             slug: (string) $model->slug,
@@ -47,8 +46,8 @@ final class CategoryMapper
     {
         $data = (array) $data;
 
-        // Tambahkan pengecekan $data['categories'] untuk menangkap kategori root dari Catalog Group
-        $categoriesData = $data['categories'] ?? $data['children'] ?? $data['children_tree'] ?? [];
+        // Tambahkan pengecekan $data['children'] untuk menangkap kategori turunan
+        $categoriesData = $data['children'] ?? $data['children_tree'] ?? [];
 
         // Map secara rekursif
         $children = collect($categoriesData)
@@ -57,7 +56,6 @@ final class CategoryMapper
 
         return new Category(
             id: isset($data['id']) ? (int) $data['id'] : null,
-            catalogGroupId: (int) ($data['catalog_group_id'] ?? $data['catalog_id'] ?? 0),
             parentId: isset($data['parent_id']) ? (int) $data['parent_id'] : null,
             name: (string) ($data['name'] ?? ''),
             slug: (string) ($data['slug'] ?? ''),

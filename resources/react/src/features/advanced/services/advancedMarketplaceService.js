@@ -75,7 +75,6 @@ export const advancedKeys = {
   productCosting: ["advanced", "product-costing"],
   financePayments: ["advanced", "finance-payments"],
   customers: ["advanced", "customers"],
-  showcases: ["advanced", "showcases"],
   tickets: ["advanced", "tickets"],
   ticketContext: ["advanced", "tickets", "context"],
   missions: ["advanced", "missions"],
@@ -254,18 +253,6 @@ export function useUpdateCustomer() {
 
 export function useDeleteCustomer() {
   return useMutationHelper((id) => remove(`/api/v1/seller/customers/${id}`), advancedKeys.customers);
-}
-
-export function useShowcases(params = {}) {
-  return useInfiniteList({ queryKey: advancedKeys.showcases, queryFn: (queryParams) => getList("/api/v1/seller/showcases", queryParams), params });
-}
-
-export function useSaveShowcase() {
-  return useMutationHelper(({ id, values }) => id ? put(`/api/v1/seller/showcases/${id}`, values) : post("/api/v1/seller/showcases", values), advancedKeys.showcases);
-}
-
-export function useDeleteShowcase() {
-  return useMutationHelper((id) => remove(`/api/v1/seller/showcases/${id}`), advancedKeys.showcases);
 }
 
 export function useTickets(params = {}) {

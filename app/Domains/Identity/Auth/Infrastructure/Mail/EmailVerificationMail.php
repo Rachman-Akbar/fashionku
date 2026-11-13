@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domains\Identity\Auth\Infrastructure\Mail;
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-final class EmailVerificationMail extends Mailable
+final class EmailVerificationMail extends Mailable implements ShouldQueue
 {
     use SerializesModels;
 

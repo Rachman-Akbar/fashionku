@@ -31,10 +31,9 @@ final class CreateCategoryUseCase
 
         $this->hierarchyPolicy->assertCanCreate($parent);
         $payload = $data->toCreatePayload($parent);
-        $catalogGroupId = (int) $payload['catalog_group_id'];
         $parentId = $parent?->id();
 
-        if ($this->repository->nameExistsInParent($catalogGroupId, $parentId, $payload['name'])) {
+        if ($this->repository->nameExists($parentId, $payload['name'])) {
             throw new InvalidArgumentException('Nama kategori sudah digunakan pada parent yang sama.');
         }
 
@@ -43,7 +42,6 @@ final class CreateCategoryUseCase
         $iconUrl = $level === 3 ? $payload['icon_url'] : null;
 
         $category = Category::createNew(
-            catalogGroupId: $catalogGroupId,
             parent: $parent,
             name: $payload['name'],
             slug: $payload['slug'],

@@ -1,87 +1,30 @@
 A. Buyer
-    1. List Product, CatalogGroup, Categori, Voucher, Store, Dll
+    1. List Product, CatalogGroup, Categori, Voucher, Dll
     2. Create Order Product General, Booking, and Preorder
-    3. Create Digital Product Pulsa, Listrik, Dll
     4. Add To cart and Wishlist
-    5. List History Order dan Review Product
-    6. Chat Seller
-    7. Help Admin
+    5. List History Order dan Rate&Review Product
+    6. Chat
 
-B. Seller 
-Seller mempunyai 2 cara menggunakan fitur, yaitu berjualan saja atau sekaligus melkaukan operasional
+B. Admin
+Admin mempunyai 2 cara menggunakan fitur, yaitu berjualan saja atau sekaligus melakukan operasional
     1. Register Seller accout and Create Store
-    2.  CRUD Banner, Product, SHowcase, Voucher, Promotion (Main Marketplace)
+    2.  CRUD Category, CatalogGroup, Promotion, Voucher, daily mission, user
+        CRUD Banner, Product, SHowcase, Voucher, Promotion (Main Marketplace)
         CRUD Materials, HPP, Transaksi, Stock, Schedule (Operasional)
     3. Import + Export Laporan dan Master data 
     4. Manajemen Review Product, Order, Stock, dan Transaksi
     5. Chat Buyer
-    6. Help Admin
-    7. Dekorasi Toko
-Sidebar dibuat seringkas mungkin agar lebih mudah pengelompokannya melakukan edit dankelola toko    
+       
+Tambahkan fitur import update yang menjadi acuan adalah kode nya bukan nama product, sehingga jika ada perubahan nama product tidak akan mempengaruhi data yang sudah ada. Bukan juga ID langsung dari database, karena ID tidak dapat dilihat oleh user secara langsung
+    1. bahan baku
+    2. Product
+    3. Stock
+    4. pengeluaran dan pemasukan
 
-C. Admin, mempunyai 2 mode
-    1. Admin Marketplace
-        a. CRUD Category, CatalogGroup, Promotion, Voucher, daily mission, user
-        b. Help admin
-        c. Banned and approved 
-        d. kelola pulsa
-    2. Admin Monitoring
-        a. menampilkan diagram bagan perbandingan semua toko yang melakukan jual beli di marketplace
+Fitur yang berfungsi sebagai data gunakan diagram menggunakan Chart.js. Gunakan di halaman ini :
+Halaman yang menggunakan Chart.js harus bisa menampilkan data dari filter tanggal, bulan, dan tahun. Data yang ditampilkan adalah data yang sudah di filter.
+    1. Dashboard Admin
+    2. Finance
+    3. Stock
+    4. Laporan Penjualan dan product 
 
-
-Tambahkan fitur import update yang menjadi acuan adalah kode nya
-1. bahan baku
-2. Product
-3. Stock
-4. pengeluaran dan pemasukan
-
-
-
-Berikut adalah ringkasan ide aplikasi Android berbasis masalah riil untuk **tiga lingkungan kehidupan utama** (Rumah Tangga, Bisnis/UMKM, dan Sekolah/Pendidikan) yang dirancang agar berdampak jangka panjang dan sangat cocok untuk topik Tugas Akhir:
-
----
-
-### **1. Lingkungan Rumah Tangga**
-
-**Nama Aplikasi:** *StokKu (Home Inventory & Waste Reduction)*
-
-* **Masalah Utama:** Pemborosan anggaran bulanan akibat bahan makanan/kebutuhan rumah tangga yang kadaluarsa di kulkas atau menumpuk tak terpakai.
-* **Solusi Aplikasi:** Aplikasi manajemen stok barang dan bahan makanan berbasis foto/struk belanja.
-* **Fitur Kunci:**
-* Scan struk belanjaan (OCR) untuk *input* otomatis nama barang & perkiraan tanggal kadaluarsa.
-* *Smart Recipe Generator* yang memberi saran resep masakan sesuai bahan yang paling mendekati kadaluarsa.
-
-
-* **Efek Jangka Panjang:** Membentuk budaya hemat, mengurangi limbah makanan harian (*zero food waste*), dan mengoptimalkan manajemen pengeluaran keuangan keluarga.
-
----
-
-### **2. Lingkungan Bisnis / UMKM**
-
-**Nama Aplikasi:** *KasirPintar & Stok (Micro-POS & Smart Inventory)*
-
-* **Masalah Utama:** Pelaku UMKM rumahan/ritel sering kali tidak tahu persis margin keuntungan riil karena uang pribadi bercampur dengan uang usaha, serta tidak melacak *dead stock* (barang tidak laku).
-* **Solusi Aplikasi:** Kasir digital (Point of Sales) terintegrasi dengan pengelola stok barang otomatis dan pencatatan arus kas sederhana.
-* **Fitur Kunci:**
-* Pencatatan transaksi penjualan berbasis scan barcode kamera Android.
-* Analisis keuntungan bersih otomatis dan pemicu notifikasi restok saat barang hampir habis.
-
-
-* **Efek Jangka Panjang:** Meningkatkan *literasi keuangan* pelaku usaha kecil, mencegah kebangkrutan dini akibat salah hitung kas, dan mempermudah UMKM naik kelas.
-
----
-
-### **3. Lingkungan Sekolah / Pendidikan**
-
-**Nama Aplikasi:** *EduResource / SchoolHub (Smart Asset & Canteen Management)*
-
-* **Masalah Utama:** Aset dan fasilitas sekolah (laptop, proyektor, alat lab/olahraga) sering rusak atau hilang tanpa jejak, serta penumpukan antrean dan limbah makanan di kantin sekolah.
-* **Solusi Aplikasi:** Platform pengelolaan peminjaman aset sekolah berbasis QR-Code serta sistem *pre-order* makanan kantin.
-* **Fitur Kunci:**
-* Peminjaman dan pengembalian sarana sekolah mandiri via scan QR-Code oleh siswa/guru.
-* Pre-order makanan kantin untuk jam istirahat guna memangkas antrean dan memprediksi porsi masakan harian.
-
-
-* **Efek Jangka Panjang:** Membentuk karakter disiplin dan tanggung jawab pada siswa terhadap fasilitas umum, serta menciptakan lingkungan sekolah yang teratur dan efisien secara operasional.
-
----

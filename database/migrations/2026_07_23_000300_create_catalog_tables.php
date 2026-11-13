@@ -11,21 +11,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('catalog_groups', function (Blueprint $table): void {
-            $table->id();
-            $table->string('name')->unique();
-            $table->string('slug')->unique();
-            $table->boolean('is_active')->default(true)->index();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamps();
-            $table->softDeletes()->index();
-            $table->index(['is_active', 'deleted_at'], 'catalog_groups_status_index');
-        });
-
+        // CatalogGroup sudah dihapus: kategori murni hierarkis via `parent_id`.
         Schema::create('categories', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('catalog_group_id')->constrained('catalog_groups')->cascadeOnDelete();
             $table->foreignId('parent_id')->nullable()->constrained('categories')->cascadeOnDelete();
             $table->unsignedBigInteger('parent_scope_id')->default(0);
             $table->unsignedTinyInteger('level')->default(1);
@@ -41,8 +29,8 @@ return new class extends Migration
             $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
             $table->softDeletes()->index();
-            $table->unique(['catalog_group_id', 'parent_scope_id', 'name'], 'categories_parent_name_unique');
-            $table->index(['catalog_group_id', 'parent_id', 'sort_order']);
+            $table->unique(['parent_scope_id', 'name'], 'categories_parent_name_unique');
+            $table->index(['parent_id', 'sort_order'], 'categories_parent_id_sort_order_index');
             $table->index(['is_active', 'is_visible_in_menu', 'deleted_at'], 'categories_menu_status_index');
         });
 

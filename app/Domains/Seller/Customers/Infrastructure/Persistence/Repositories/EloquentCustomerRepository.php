@@ -42,13 +42,22 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
             ->whereNotNull('address_pick.user_id')
             ->whereRaw('address_pick.id = (SELECT address_fallback.id FROM addresses address_fallback WHERE address_fallback.user_id = address_pick.user_id ORDER BY address_fallback.is_primary DESC, address_fallback.id ASC LIMIT 1)');
 
+        $addressColumns = [
+            'buyer_address.full_address',
+            'buyer_address.subdistrict',
+            'buyer_address.district',
+            'buyer_address.city_or_regency',
+            'buyer_address.province',
+            'buyer_address.postal_code',
+        ];
+
         $buyerAddress = DB::table('addresses as buyer_address')
             ->joinSub($primaryAddress, 'chosen_address', fn ($join) => $join->on('chosen_address.address_id', '=', 'buyer_address.id'))
             ->select(
                 'buyer_address.user_id as buyer_user_id',
                 'buyer_address.recipient_name as buyer_recipient',
                 'buyer_address.phone_number as buyer_phone',
-                DB::raw("CONCAT_WS(', ', buyer_address.full_address, buyer_address.subdistrict, buyer_address.district, buyer_address.city_or_regency, buyer_address.province, buyer_address.postal_code) as buyer_address_text"),
+                DB::raw($this->addressTextExpression($addressColumns).' as buyer_address_text'),
             );
 
         return User::query()
@@ -80,9 +89,29 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
             ->paginate($perPage);
     }
 
-    public function findForStore(string $userId, ?int $storeId): ?User
+    /**
+     * Ekspresi SQL portabel untuk menggabungkan komponen alamat dengan
+     * pemisah ", ". MySQL memakai CONCAT_WS (melewati NULL), SQLite tidak
+     * memiliki fungsi tersebut sehingga dibangun manual.
+     *
+     * @param  array<int, string>  $columns
+     */
+    private function addressTextExpression(array $columns): string
     {
-        if ($storeId === null) {
+        if (DB::getDriverName() === 'sqlite') {
+            $parts = array_map(
+                fn (string $column): string => "CASE WHEN NULLIF(TRIM(COALESCE({$column}, '')), '') IS NOT NULL THEN ', ' || {$column} ELSE '' END",
+                $columns,
+            );
+
+            return "LTRIM(".implode(' || ', $parts).", ', ')";
+        }
+
+        return "CONCAT_WS(', ', ".implode(', ', $columns).')';
+    }
+
+    public function findForStore(string $userId, ?int $storeId): ?User
+    {        if ($storeId === null) {
             return null;
         }
 

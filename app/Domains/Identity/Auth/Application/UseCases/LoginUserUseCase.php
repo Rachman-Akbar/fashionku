@@ -66,7 +66,7 @@ final class LoginUserUseCase
             ],
         );
 
-        $this->sendOtpEmail($user->email, $code);
+        $this->sendOtpEmail($user->email, $code, $challengeId);
 
         return [
             'otp_required' => true,
@@ -126,7 +126,9 @@ final class LoginUserUseCase
         $resolvedDevice = $deviceName ?: (string) ($metadata['device_name'] ?? 'marketplace-web');
         $activeRole = $this->resolveRole($user, $requestedRole);
 
-        $token = $this->issueToken->execute($user, $resolvedDevice, $activeRole);
+        // Single active session: login yang berhasil (setelah OTP) mencabut
+        // seluruh sesi/perangkat lama. Perangkat baru otomatis force logout.
+        $token = $this->issueToken->execute($user, $resolvedDevice, $activeRole, true);
 
         return [
             ...$this->payload->execute($user, $activeRole),
@@ -167,7 +169,7 @@ final class LoginUserUseCase
             metadata: $metadata,
         );
 
-        $this->sendOtpEmail((string) $otp->email, $code);
+        $this->sendOtpEmail((string) $otp->email, $code, $challengeId);
 
         return [
             'otp_required' => true,
@@ -178,7 +180,7 @@ final class LoginUserUseCase
         ];
     }
 
-    private function sendOtpEmail(string $email, string $code): void
+    private function sendOtpEmail(string $email, string $code, ?string $challengeId = null): void
     {
         try {
             \Illuminate\Support\Facades\Mail::to($email)
@@ -192,10 +194,14 @@ final class LoginUserUseCase
                 'exception' => $throwable,
             ]);
 
-            // Invalidate issued OTP so it cannot be guessed if email failed.
-            try {
-                $this->otpEngine->invalidateByChallengeId('', OtpPurpose::LOGIN->value);
-            } catch (\Throwable) {
+            // Invalidate the issued OTP so it cannot be guessed when email
+            // delivery fails. Sebelumnya challenge id kosong sehingga OTP
+            // tetap aktif (bug keamanan).
+            if ($challengeId !== null && $challengeId !== '') {
+                try {
+                    $this->otpEngine->invalidateByChallengeId($challengeId, OtpPurpose::LOGIN->value);
+                } catch (\Throwable) {
+                }
             }
 
             throw ValidationException::withMessages([
@@ -209,7 +215,11 @@ final class LoginUserUseCase
         $role = strtolower(trim($requestedRole)) ?: 'buyer';
         $user->loadMissing('roles:id,name');
 
-        if (! $user->hasRole($role)) {
+        // Admin adalah superset seller pada marketplace single-store.
+        $roleAllowed = $user->hasRole($role)
+            || ($role === 'seller' && $user->hasRole('admin'));
+
+        if (! $roleAllowed) {
             throw ValidationException::withMessages([
                 'role' => ["Akun ini tidak memiliki akses {$role}."],
             ]);

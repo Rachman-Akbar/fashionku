@@ -4,7 +4,7 @@ import { invalidateCategoryNavigationCache } from "@/features/catalog/category/s
 export async function invalidateCatalogResources(queryClient, queryKeys = [], cacheMatches = []) {
   cacheMatches.forEach((match) => invalidateCatalogQueries(match));
 
-  if (cacheMatches.some((match) => match.includes("categories") || match.includes("catalog-groups"))) {
+  if (cacheMatches.some((match) => match.includes("categories"))) {
     invalidateCategoryNavigationCache(queryClient);
   }
 

@@ -8,7 +8,6 @@ final class Category
 {
     public function __construct(
         private ?int $id,
-        private int $catalogGroupId,
         private ?int $parentId,
         private string $name,
         private string $slug,
@@ -24,7 +23,6 @@ final class Category
     ) {}
 
     public static function createNew(
-        int $catalogGroupId,
         ?Category $parent,
         string $name,
         string $slug,
@@ -36,12 +34,10 @@ final class Category
     ): self {
         $level = $parent ? $parent->level() + 1 : 1;
         $parentId = $parent?->id();
-        $finalCatalogGroupId = $parent?->catalogGroupId() ?? $catalogGroupId;
         $fullSlug = $parent ? $parent->fullSlug().'/'.$slug : $slug;
 
         return new self(
             id: null,
-            catalogGroupId: $finalCatalogGroupId,
             parentId: $parentId,
             name: $name,
             slug: $slug,
@@ -87,10 +83,6 @@ final class Category
             $this->isVisibleInMenu = (bool) $data['is_visible_in_menu'];
         }
 
-        if (array_key_exists('catalog_group_id', $data) && $data['catalog_group_id'] !== null) {
-            $this->catalogGroupId = (int) $data['catalog_group_id'];
-        }
-
         if (array_key_exists('parent_id', $data)) {
             if ($parent) {
                 $this->syncWithParent($parent);
@@ -117,7 +109,6 @@ final class Category
     public function syncWithParent(Category $parent): void
     {
         $this->parentId = $parent->id();
-        $this->catalogGroupId = $parent->catalogGroupId();
         $this->level = $parent->level() + 1;
         $this->fullSlug = $parent->fullSlug().'/'.$this->slug;
     }
@@ -140,11 +131,6 @@ final class Category
     public function id(): ?int
     {
         return $this->id;
-    }
-
-    public function catalogGroupId(): int
-    {
-        return $this->catalogGroupId;
     }
 
     public function parentId(): ?int

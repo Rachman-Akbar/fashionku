@@ -165,13 +165,16 @@ class PoStockSplitTest extends TestCase
             'notes' => 'Stok dikosongkan untuk tes preorder otomatis',
         ], $this->storeId);
 
+        // Set kapasitas preorder agar preorder otomatis dapat diproses (G-10).
+        DB::table('product_variants')->where('id', $this->variantId)->update(['stock_preorder' => 20]);
+
         $buyerId = $this->buyerWithCartItem(5, 5);
         $orderId = $this->placeOrder($buyerId, 5, 'normal');
 
         $row = $this->variantRow();
         $this->assertSame(0, (int) $row->stock);
         $this->assertSame(0, (int) $row->stock_reserved);
-        $this->assertSame(5, (int) $row->stock_preorder);
+        $this->assertSame(25, (int) $row->stock_preorder); // 20 awal + 5 reservasi
         $this->assertSame(30, (int) $row->po_stock);
 
         $orderType = DB::table('orders')->where('id', $orderId)->value('order_type');
@@ -214,14 +217,17 @@ class PoStockSplitTest extends TestCase
             'notes' => 'Stok dikosongkan untuk tes pembatalan preorder',
         ], $this->storeId);
 
+        // Set kapasitas preorder agar preorder otomatis dapat diproses (G-10).
+        DB::table('product_variants')->where('id', $this->variantId)->update(['stock_preorder' => 20]);
+
         $buyerId = $this->buyerWithCartItem(5, 8);
         $orderId = $this->placeOrder($buyerId, 5, 'normal');
-        $this->assertSame(5, (int) $this->variantRow()->stock_preorder);
+        $this->assertSame(25, (int) $this->variantRow()->stock_preorder); // 20 awal + 5 reservasi
 
         $this->cancel($orderId);
 
         $row = $this->variantRow();
-        $this->assertSame(0, (int) $row->stock_preorder);
+        $this->assertSame(20, (int) $row->stock_preorder); // dikembalikan ke awal setelah pembatalan
         $this->assertSame(0, (int) $row->stock);
     }
 

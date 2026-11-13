@@ -1,0 +1,48 @@
+Berikut adalah ringkasan ide aplikasi Android berbasis masalah riil untuk **tiga lingkungan kehidupan utama** (Rumah Tangga, Bisnis/UMKM, dan Sekolah/Pendidikan) yang dirancang agar berdampak jangka panjang dan sangat cocok untuk topik Tugas Akhir:
+
+---
+
+### **1. Lingkungan Rumah Tangga**
+
+**Nama Aplikasi:** *StokKu (Home Inventory & Waste Reduction)*
+
+* **Masalah Utama:** Pemborosan anggaran bulanan akibat bahan makanan/kebutuhan rumah tangga yang kadaluarsa di kulkas atau menumpuk tak terpakai.
+* **Solusi Aplikasi:** Aplikasi manajemen stok barang dan bahan makanan berbasis foto/struk belanja.
+* **Fitur Kunci:**
+* Scan struk belanjaan (OCR) untuk *input* otomatis nama barang & perkiraan tanggal kadaluarsa.
+* *Smart Recipe Generator* yang memberi saran resep masakan sesuai bahan yang paling mendekati kadaluarsa.
+
+
+* **Efek Jangka Panjang:** Membentuk budaya hemat, mengurangi limbah makanan harian (*zero food waste*), dan mengoptimalkan manajemen pengeluaran keuangan keluarga.
+
+---
+
+### **2. Lingkungan Bisnis / UMKM**
+
+**Nama Aplikasi:** *KasirPintar & Stok (Micro-POS & Smart Inventory)*
+
+* **Masalah Utama:** Pelaku UMKM rumahan/ritel sering kali tidak tahu persis margin keuntungan riil karena uang pribadi bercampur dengan uang usaha, serta tidak melacak *dead stock* (barang tidak laku).
+* **Solusi Aplikasi:** Kasir digital (Point of Sales) terintegrasi dengan pengelola stok barang otomatis dan pencatatan arus kas sederhana.
+* **Fitur Kunci:**
+* Pencatatan transaksi penjualan berbasis scan barcode kamera Android.
+* Analisis keuntungan bersih otomatis dan pemicu notifikasi restok saat barang hampir habis.
+
+
+* **Efek Jangka Panjang:** Meningkatkan *literasi keuangan* pelaku usaha kecil, mencegah kebangkrutan dini akibat salah hitung kas, dan mempermudah UMKM naik kelas.
+
+---
+
+### **3. Lingkungan Sekolah / Pendidikan**
+
+**Nama Aplikasi:** *EduResource / SchoolHub (Smart Asset & Canteen Management)*
+
+* **Masalah Utama:** Aset dan fasilitas sekolah (laptop, proyektor, alat lab/olahraga) sering rusak atau hilang tanpa jejak, serta penumpukan antrean dan limbah makanan di kantin sekolah.
+* **Solusi Aplikasi:** Platform pengelolaan peminjaman aset sekolah berbasis QR-Code serta sistem *pre-order* makanan kantin.
+* **Fitur Kunci:**
+* Peminjaman dan pengembalian sarana sekolah mandiri via scan QR-Code oleh siswa/guru.
+* Pre-order makanan kantin untuk jam istirahat guna memangkas antrean dan memprediksi porsi masakan harian.
+
+
+* **Efek Jangka Panjang:** Membentuk karakter disiplin dan tanggung jawab pada siswa terhadap fasilitas umum, serta menciptakan lingkungan sekolah yang teratur dan efisien secara operasional.
+
+---

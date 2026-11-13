@@ -8,8 +8,11 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Katalog Fashionku: catalog group, kategori fashion, atribut (ukuran/warna/material),
- * serta konfigurasi biaya layanan per kategori.
+ * Katalog Fashionku: kategori fashion hierarkis 3 level (level 1 = root,
+ * level 2 & 3 = turunan), atribut (ukuran/warna/material), serta konfigurasi
+ * biaya layanan per kategori.
+ *
+ * CatalogGroup dihapus: kategori kini murni hierarkis via `parent_id`.
  */
 final class FashionCatalogSeeder extends Seeder
 {
@@ -20,106 +23,88 @@ final class FashionCatalogSeeder extends Seeder
         $now = now()->toDateTimeString();
         $actorId = FashionDemoSeeder::uuidFor('seller.utama');
 
-        // ── Catalog groups ──────────────────────────────────────────────────
-        $groups = [
-            ['Pakaian', 'pakaian', 10],
-            ['Gaya Hidup', 'gaya-hidup', 20],
-        ];
-
-        $groupIds = [];
-        foreach ($groups as [$name, $slug, $sort]) {
-            $groupIds[$slug] = DB::table('catalog_groups')->insertGetId([
-                'name' => $name,
-                'slug' => $slug,
-                'is_active' => true,
-                'created_by' => $actorId,
-                'updated_by' => $actorId,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
-        }
-
-        // ── Kategori fashion (akar -> anak) ────────────────────────────────
+        // ── Kategori fashion (root -> sub -> leaf) ─────────────────────────
+        // [slug root, nama root, [slug sub, nama sub, [slug leaf => nama leaf]]]
         $tree = [
-            'pakaian' => [
-                'pakaian-pria' => ['Pakaian Pria', 'pakaian-pria', [
+            ['pakaian', 'Pakaian', [
+                ['pakaian-pria', 'Pakaian Pria', [
                     'kaos' => 'Kaos',
                     'kemeja' => 'Kemeja',
                     'jaket' => 'Jaket',
                     'celana-pria' => 'Celana',
                 ]],
-                'pakaian-wanita' => ['Pakaian Wanita', 'pakaian-wanita', [
+                ['pakaian-wanita', 'Pakaian Wanita', [
                     'dress' => 'Dress',
                     'blus' => 'Blus & Atasan',
                     'rok' => 'Rok',
                     'outer-wanita' => 'Outerwear',
                 ]],
-            ],
-            'gaya-hidup' => [
-                'alas-kaki' => ['Alas Kaki', 'alas-kaki', [
+            ]],
+            ['gaya-hidup', 'Gaya Hidup', [
+                ['alas-kaki', 'Alas Kaki', [
                     'sepatu' => 'Sepatu',
                     'sandal' => 'Sandal',
                 ]],
-                'tas' => ['Tas', 'tas', [
+                ['tas', 'Tas', [
                     'tas-ransel' => 'Tas Ransel',
                     'tas-selempang' => 'Tas Selempang',
                     'dompet' => 'Dompet',
                 ]],
-                'aksesori' => ['Aksesori', 'aksesori', [
+                ['aksesori', 'Aksesori', [
                     'jam-tangan' => 'Jam Tangan',
                     'kacamata' => 'Kacamata',
                     'perhiasan' => 'Perhiasan',
                 ]],
-            ],
+            ]],
         ];
 
         $leafIds = [];
-        foreach ($tree as $groupSlug => $roots) {
-            $groupId = $groupIds[$groupSlug];
-            $sort = 10;
+        $categoryCount = 0;
 
-            foreach ($roots as $rootSlug => [$rootName, $rootSlugName, $children]) {
-                $rootId = DB::table('categories')->insertGetId([
-                    'catalog_group_id' => $groupId,
-                    'parent_id' => null,
-                    'parent_scope_id' => 0,
-                    'level' => 1,
-                    'sort_order' => $sort,
-                    'is_active' => true,
-                    'is_visible_in_menu' => true,
-                    'name' => $rootName,
-                    'slug' => $rootSlugName,
-                    'full_slug' => $rootSlugName,
-                    'image_url' => null,
-                    'icon_url' => null,
-                    'created_by' => $actorId,
-                    'updated_by' => $actorId,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
-                $sort += 10;
+        foreach ($tree as [$rootSlug, $rootName, $subs]) {
+            $rootId = $this->insertCategory(
+                parentId: null,
+                level: 1,
+                slug: $rootSlug,
+                fullSlug: $rootSlug,
+                name: $rootName,
+                sortOrder: 10,
+                actorId: $actorId,
+                now: $now,
+            );
+            $categoryCount++;
 
-                $childSort = 10;
-                foreach ($children as $childSlug => $childName) {
-                    $leafIds[$childSlug] = DB::table('categories')->insertGetId([
-                        'catalog_group_id' => $groupId,
-                        'parent_id' => $rootId,
-                        'parent_scope_id' => $rootId,
-                        'level' => 2,
-                        'sort_order' => $childSort,
-                        'is_active' => true,
-                        'is_visible_in_menu' => true,
-                        'name' => $childName,
-                        'slug' => $childSlug,
-                        'full_slug' => $rootSlugName.'/'.$childSlug,
-                        'image_url' => null,
-                        'icon_url' => null,
-                        'created_by' => $actorId,
-                        'updated_by' => $actorId,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ]);
-                    $childSort += 10;
+            $subSort = 10;
+            foreach ($subs as [$subSlug, $subName, $leaves]) {
+                $subFullSlug = $rootSlug.'/'.$subSlug;
+                $subId = $this->insertCategory(
+                    parentId: $rootId,
+                    level: 2,
+                    slug: $subSlug,
+                    fullSlug: $subFullSlug,
+                    name: $subName,
+                    sortOrder: $subSort,
+                    actorId: $actorId,
+                    now: $now,
+                );
+                $categoryCount++;
+                $subSort += 10;
+
+                $leafSort = 10;
+                foreach ($leaves as $leafSlug => $leafName) {
+                    $leafFullSlug = $subFullSlug.'/'.$leafSlug;
+                    $leafIds[$leafSlug] = $this->insertCategory(
+                        parentId: $subId,
+                        level: 3,
+                        slug: $leafSlug,
+                        fullSlug: $leafFullSlug,
+                        name: $leafName,
+                        sortOrder: $leafSort,
+                        actorId: $actorId,
+                        now: $now,
+                    );
+                    $categoryCount++;
+                    $leafSort += 10;
                 }
             }
         }
@@ -160,6 +145,35 @@ final class FashionCatalogSeeder extends Seeder
             ]);
         }
 
-        $this->command?->info('Fashionku: katalog selesai — '.count($groupIds).' group, '.count($leafIds).' kategori, '.count($attributes).' atribut.');
+        $this->command?->info('Fashionku: katalog selesai — '.$categoryCount.' kategori, '.count($leafIds).' leaf, '.count($attributes).' atribut.');
+    }
+
+    private function insertCategory(
+        ?int $parentId,
+        int $level,
+        string $slug,
+        string $fullSlug,
+        string $name,
+        int $sortOrder,
+        ?string $actorId,
+        string $now,
+    ): int {
+        return DB::table('categories')->insertGetId([
+            'parent_id' => $parentId,
+            'parent_scope_id' => $parentId ?? 0,
+            'level' => $level,
+            'sort_order' => $sortOrder,
+            'is_active' => true,
+            'is_visible_in_menu' => true,
+            'name' => $name,
+            'slug' => $slug,
+            'full_slug' => $fullSlug,
+            'image_url' => null,
+            'icon_url' => null,
+            'created_by' => $actorId,
+            'updated_by' => $actorId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 }

@@ -67,12 +67,9 @@ final class UpdateCategoryUseCase
 
             $resultingParent = $parentTouched ? $newParent : $currentParent;
             $resultingParentId = $parentTouched ? $newParent?->id() : $category->parentId();
-            $resultingCatalogGroupId = $newParent?->catalogGroupId()
-                ?? (isset($payload['catalog_group_id']) ? (int) $payload['catalog_group_id'] : $category->catalogGroupId());
             $resultingName = (string) ($payload['name'] ?? $category->name());
 
-            if ($this->repository->nameExistsInParent(
-                $resultingCatalogGroupId,
+            if ($this->repository->nameExists(
                 $resultingParentId,
                 $resultingName,
                 (int) $category->id()
@@ -93,7 +90,6 @@ final class UpdateCategoryUseCase
             if (
                 $parentChanged
                 || array_key_exists('slug', $payload)
-                || array_key_exists('catalog_group_id', $payload)
             ) {
                 $this->updateChildrenHierarchies($updatedCategory);
             }

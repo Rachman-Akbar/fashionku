@@ -190,7 +190,7 @@ export function SellerProductEditor({
 
   const quickCreateCategory = async (name) => {
     try {
-      const created = await quickCreateCategoryMutation.mutateAsync({ name, catalogGroupName: "Lainnya" });
+      const created = await quickCreateCategoryMutation.mutateAsync({ name });
       notifications.push({ type: "success", title: "Category siap digunakan", message: `${created.name} berhasil tersedia dan langsung dipilih.` });
       return { value: created.id, label: `L${created.level || 1} · ${toTitleCase(created.name)}` };
     } catch (error) {

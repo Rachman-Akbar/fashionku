@@ -29,46 +29,24 @@ class StoreCrudTest extends TestCase
                 'shipping_policy' => 'Pengiriman dikirim dalam 1x24 jam.',
                 'return_policy' => 'Barang dapat dikembalikan dalam 7 hari.',
                 'open_days' => 'Senin - Sabtu',
-                'open_time' => '08:00',
-                'close_time' => '17:00',
                 'whatsapp_url' => 'https://wa.me/081234567890',
             ],
         ], $overrides);
     }
 
-    public function test_seller_can_register_a_store(): void
+    public function test_self_service_seller_registration_route_is_removed(): void
     {
-        $seller = $this->actingAsRole('seller');
+        $this->actingAsRole('seller');
 
-        $response = $this->postJson('/api/v1/identity/auth/register-seller', $this->storePayload())
-            ->assertStatus(201);
-
-        $this->assertDatabaseCount('stores', 1);
-        $store = StoreModel::query()->where('user_id', $seller->id)->first();
-        $this->assertNotNull($store);
-        $this->assertSame('approved', $store->status);
-    }
-
-    public function test_a_new_user_registers_a_store_and_is_granted_the_seller_role(): void
-    {
-        $this->makeRole('buyer');
-        $this->makeRole('seller');
-        $user = $this->makeUser();
-
-        $token = $this->tokenFor($user, 'buyer');
-
-        $this->withToken($token)
-            ->postJson('/api/v1/identity/auth/register-seller', $this->storePayload())
-            ->assertCreated();
-
-        $this->assertTrue($user->fresh()->hasRole('seller'));
+        $this->postJson('/api/v1/identity/auth/register-seller', $this->storePayload())
+            ->assertNotFound();
     }
 
     public function test_seller_can_update_own_store(): void
     {
         [$seller, $store] = $this->actingAsSeller();
 
-        $this->putJson("/api/v1/seller/store", [
+        $this->putJson('/api/v1/seller/store', [
             'store_name' => 'Toko Maju',
             'description' => 'Deskripsi baru.',
             'phone' => '081299998888',
@@ -80,5 +58,25 @@ class StoreCrudTest extends TestCase
         $store->refresh();
         $this->assertSame('Toko Maju', $store->name);
         $this->assertSame('Bandung', $store->city);
+    }
+
+    public function test_admin_can_operate_the_seller_store_panel(): void
+    {
+        // Single-store: admin adalah operator/penjual yang sama.
+        $admin = $this->actingAsRole('admin');
+        $this->makeStore($admin);
+
+        $this->putJson('/api/v1/seller/store', [
+            'store_name' => 'Toko Admin',
+            'description' => 'Dikelola admin.',
+            'phone' => '081200001111',
+            'city' => 'Surabaya',
+            'province' => 'Jawa Timur',
+            'address' => 'Jl. Admin No. 2',
+        ])->assertOk();
+
+        $store = StoreModel::query()->whereNull('deleted_at')->orderBy('id')->first();
+        $this->assertNotNull($store);
+        $this->assertSame('Toko Admin', $store->name);
     }
 }

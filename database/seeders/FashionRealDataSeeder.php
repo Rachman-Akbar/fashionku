@@ -157,16 +157,16 @@ final class FashionRealDataSeeder extends Seeder
 
         $now = now()->toDateTimeString();
 
-        // Pastikan role & permission ada
-        $sellerRoleId = DB::table('roles')->where('name', 'seller')->value('id');
+        // Pastikan role & permission ada (single-store: admin = operator toko).
+        $adminRoleId = DB::table('roles')->where('name', 'admin')->value('id');
         $buyerRoleId = DB::table('roles')->where('name', 'buyer')->value('id');
 
-        if (!$sellerRoleId || !$buyerRoleId) {
-            $this->command?->error('Role seller/buyer belum ada. Jalankan RolePermissionSeeder terlebih dahulu.');
+        if (!$adminRoleId || !$buyerRoleId) {
+            $this->command?->error('Role admin/buyer belum ada. Jalankan RolePermissionSeeder terlebih dahulu.');
             return;
         }
 
-        $this->seedUsers($sellerRoleId, $buyerRoleId, $now);
+        $this->seedUsers($adminRoleId, $buyerRoleId, $now);
         $this->seedStoresAndDetails($now);
         $this->seedCatalogAndProducts($now);
         $this->seedOrdersAndPayments($now);
@@ -177,7 +177,7 @@ final class FashionRealDataSeeder extends Seeder
         $this->command?->info('FashionRealData: selesai seeding semua tabel dengan data realistik.');
     }
 
-    private function seedUsers(int $sellerRoleId, int $buyerRoleId, string $now): void
+    private function seedUsers(int $operatorRoleId, int $buyerRoleId, string $now): void
     {
         // Bersihkan data user sebelumnya agar seeding idempoten
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
@@ -239,7 +239,7 @@ final class FashionRealDataSeeder extends Seeder
             ];
             $userRoles[] = [
                 'user_id' => $id,
-                'role_id' => $sellerRoleId,
+                'role_id' => $operatorRoleId,
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
@@ -261,16 +261,16 @@ final class FashionRealDataSeeder extends Seeder
         DB::table('stores')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
-        $sellerRoleId = DB::table('roles')->where('name', 'seller')->value('id');
+        $adminRoleId = DB::table('roles')->where('name', 'admin')->value('id');
         $sellerIds = DB::table('user_roles')
-            ->where('role_id', $sellerRoleId)
+            ->where('role_id', $adminRoleId)
             ->whereNotIn('user_id', function ($query) {
                 $query->select('user_id')->from('stores');
             })
             ->pluck('user_id');
 
         if ($sellerIds->isEmpty()) {
-            $this->command?->warn('Tidak ada seller untuk membuat toko.');
+            $this->command?->warn('Tidak ada admin/operator untuk membuat toko.');
             return;
         }
 
@@ -802,7 +802,7 @@ final class FashionRealDataSeeder extends Seeder
             ->pluck('user_id');
 
         $sellerIds = DB::table('user_roles')
-            ->where('role_id', DB::table('roles')->where('name', 'seller')->value('id'))
+            ->where('role_id', DB::table('roles')->where('name', 'admin')->value('id'))
             ->pluck('user_id');
 
         // Bersihkan data chat/notifikasi sebelumnya agar seeding idempoten

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Auth;
 
+use App\Domains\Identity\Auth\Infrastructure\Mail\EmailVerificationMail;
 use App\Domains\Identity\User\Domain\Entities\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\Support\InteractsAsUser;
 use Tests\TestCase;
 
@@ -49,16 +51,33 @@ class AuthTest extends TestCase
 
     public function test_user_can_login_and_fetch_me(): void
     {
+        Mail::fake();
+
         $user = $this->makeUser([
             'email' => 'login@example.com',
             'password' => 'secret123',
             'is_email_verified' => true,
         ]);
 
-        $login = $this->postJson('/api/v1/identity/auth/password-login', [
+        // Step 1: credentials -> OTP challenge.
+        $initiate = $this->postJson('/api/v1/identity/auth/password-login', [
             'email' => 'login@example.com',
             'password' => 'secret123',
             'role' => 'buyer',
+        ]);
+
+        $initiate->assertStatus(202);
+        $challengeId = $initiate->json('challenge_id');
+        $this->assertNotEmpty($challengeId);
+
+        $queued = Mail::queued(EmailVerificationMail::class, fn ($mail): bool => $mail->hasTo('login@example.com'));
+        $this->assertCount(1, $queued);
+        $code = (string) $queued->last()->code;
+
+        // Step 2: OTP -> session token.
+        $login = $this->postJson('/api/v1/identity/auth/password-login/verify', [
+            'challenge_id' => $challengeId,
+            'code' => $code,
         ]);
 
         $login->assertOk();

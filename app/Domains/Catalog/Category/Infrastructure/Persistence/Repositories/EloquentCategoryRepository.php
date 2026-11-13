@@ -131,14 +131,12 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
         return $maxDepth;
     }
 
-    public function nameExistsInParent(
-        int $catalogGroupId,
+    public function nameExists(
         ?int $parentId,
         string $name,
         ?int $ignoreId = null
     ): bool {
         return CategoryModel::withTrashed()
-            ->where('catalog_group_id', $catalogGroupId)
             ->when(
                 $parentId === null,
                 fn (Builder $query) => $query->whereNull('parent_id'),
@@ -155,7 +153,6 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
             ? CategoryModel::query()->findOrFail($category->id())
             : new CategoryModel;
 
-        $model->catalog_group_id = $category->catalogGroupId();
         $model->parent_id = $category->parentId();
         $model->parent_scope_id = $category->parentId() ?? 0;
         $model->level = $category->level();
@@ -201,9 +198,7 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
             return $query;
         }
 
-        return $query
-            ->active()
-            ->whereHas('catalogGroup', fn (Builder $groupQuery) => $groupQuery->active());
+        return $query->active();
     }
 
     private function normalizePath(string $path): string
@@ -220,7 +215,6 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
                 return $this->query($includeInactive)
                     ->select([
                         'id',
-                        'catalog_group_id',
                         'parent_id',
                         'level',
                         'sort_order',
@@ -248,7 +242,6 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
                     ->get()
                     ->map(fn (CategoryModel $model): array => [
                         'id' => (int) $model->id,
-                        'catalog_group_id' => (int) $model->catalog_group_id,
                         'parent_id' => $model->parent_id !== null ? (int) $model->parent_id : null,
                         'level' => (int) $model->level,
                         'sort_order' => (int) $model->sort_order,

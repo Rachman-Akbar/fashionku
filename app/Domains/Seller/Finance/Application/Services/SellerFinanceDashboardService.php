@@ -17,9 +17,10 @@ class SellerFinanceDashboardService
         private SellerWithdrawalService $withdrawalService
     ) {}
 
-    public function getDashboard(int $storeId, ?string $period = null, ?string $dateFrom = null, ?string $dateTo = null): array
+    public function getDashboard(int $storeId, ?string $period = null, ?string $dateFrom = null, ?string $dateTo = null, ?string $granularity = null): array
     {
         $period = $period ?? 'monthly';
+        $granularity = $granularity ?? 'day';
         [$startDate, $endDate] = $this->resolveRange($period, $dateFrom, $dateTo);
 
         $transactions = FinancialTransactionModel::where('store_id', $storeId)
@@ -37,6 +38,7 @@ class SellerFinanceDashboardService
 
         return [
             'period' => $dateFrom ? 'custom' : $period,
+            'granularity' => $granularity,
             'start_date' => $startDate->toDateString(),
             'end_date' => $endDate->toDateString(),
             'summary' => [
@@ -67,9 +69,10 @@ class SellerFinanceDashboardService
         ];
     }
 
-    public function getOrderTrend(int $storeId, ?string $period = null, ?string $dateFrom = null, ?string $dateTo = null): array
+    public function getOrderTrend(int $storeId, ?string $period = null, ?string $dateFrom = null, ?string $dateTo = null, ?string $granularity = null): array
     {
         $period = $period ?? 'monthly';
+        $granularity = $granularity ?? 'day';
         [$startDate, $endDate] = $this->resolveRange($period, $dateFrom, $dateTo);
 
         $rows = SubOrderModel::where('store_id', $storeId)
@@ -101,14 +104,16 @@ class SellerFinanceDashboardService
 
         return [
             'period' => $dateFrom ? 'custom' : $period,
+            'granularity' => $granularity,
             'start_date' => $startDate->toDateString(),
             'end_date' => $endDate->toDateString(),
             'points' => $trend,
         ];
     }
 
-    public function getCashflow(int $storeId, string $fromDate, string $toDate): array
+    public function getCashflow(int $storeId, string $fromDate, string $toDate, ?string $granularity = null): array
     {
+        $granularity = $granularity ?? 'day';
         $from = Carbon::parse($fromDate)->startOfDay();
         $to = Carbon::parse($toDate)->endOfDay();
 
@@ -139,8 +144,9 @@ class SellerFinanceDashboardService
         }
 
         return [
-            'from_date' => $fromDate,
-            'to_date' => $toDate,
+            'date_from' => $fromDate,
+            'date_to' => $toDate,
+            'granularity' => $granularity,
             'daily' => $dailyData,
             'totals' => [
                 'income' => round($transactions->where('type', 'income')->sum('amount'), 2),

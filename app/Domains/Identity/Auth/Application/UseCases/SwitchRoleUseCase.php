@@ -25,7 +25,10 @@ final class SwitchRoleUseCase
         $targetRole = strtolower(trim($targetRole));
         $user->loadMissing('roles:id,name');
 
-        if (! $user->hasRole($targetRole)) {
+        $roleAllowed = $user->hasRole($targetRole)
+            || ($targetRole === 'seller' && $user->hasRole('admin'));
+
+        if (! $roleAllowed) {
             throw new AccessDeniedHttpException("Anda tidak memiliki hak akses sebagai {$targetRole}.");
         }
 
@@ -33,7 +36,14 @@ final class SwitchRoleUseCase
             throw new AccessDeniedHttpException('Akses seller belum aktif atau toko belum tersedia.');
         }
 
-        $newToken = $this->issueToken->execute($user, $deviceName, $targetRole);
+        // Kebijakan sesi tunggal: beralih role menerbitkan token baru dan
+        // mencabut seluruh sesi/perangkat lama agar tidak ada dua sesi aktif.
+        $newToken = $this->issueToken->execute(
+            $user,
+            $deviceName,
+            $targetRole,
+            revokeExistingSessions: true,
+        );
 
         return [
             ...$this->payload->execute($user, $targetRole),

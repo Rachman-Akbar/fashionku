@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domains\Catalog\Category\Presentation\Http\Controllers;
 
-use App\Domains\Catalog\CatalogGroup\Presentation\Http\Resources\CatalogGroupResource;
 use App\Domains\Catalog\Category\Application\Queries\GetCategoryByIdQuery;
 use App\Domains\Catalog\Category\Application\Queries\GetCategoryByPathQuery;
 use App\Domains\Catalog\Category\Application\Queries\GetHeaderMenuQuery;
@@ -130,11 +129,9 @@ final class CategoryController extends Controller
 
     public function headerMenu(GetHeaderMenuQuery $query): JsonResponse
     {
-        $catalogGroups = $query->execute();
-
         return response()->json([
             'success' => true,
-            'data' => CatalogGroupResource::collection($catalogGroups),
+            'data' => CategoryResource::collection($query->execute()),
         ]);
     }
 

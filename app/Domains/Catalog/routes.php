@@ -6,11 +6,11 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('catalog')->group(function (): void {
     $routeFiles = [
-        app_path('Domains/Catalog/CatalogGroup/Presentation/routes.php'),
         app_path('Domains/Catalog/Category/Presentation/routes.php'),
         app_path('Domains/Catalog/Promotion/Presentation/routes.php'),
         app_path('Domains/Catalog/Product/Presentation/routes.php'),
         app_path('Domains/Catalog/Media/Presentation/routes.php'),
+        app_path('Domains/Catalog/Spreadsheet/Presentation/routes.php'),
     ];
 
     foreach ($routeFiles as $routeFile) {

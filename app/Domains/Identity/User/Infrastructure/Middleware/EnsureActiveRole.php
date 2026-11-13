@@ -28,7 +28,10 @@ final class EnsureActiveRole
             return response()->json(['message' => 'Akun tidak memiliki akses aktif.'], 403);
         }
 
-        if (! $user->hasRole($role)) {
+        $isAdmin = $user->hasRole('admin');
+        $roleSatisfied = $user->hasRole($role) || ($role === 'seller' && $isAdmin);
+
+        if (! $roleSatisfied) {
             return response()->json([
                 'message' => "Forbidden. Anda tidak memiliki role {$role} aktif.",
             ], 403);
@@ -40,7 +43,13 @@ final class EnsureActiveRole
             return response()->json(['message' => 'Missing access token.'], 401);
         }
 
-        if (! in_array("active-role:{$role}", $token->abilities ?? [], true)) {
+        // Admin adalah superset seller pada marketplace single-store. Token
+        // admin boleh mengakses route seller tanpa perlu role seller terpisah.
+        $abilities = $token->abilities ?? [];
+        $abilitySatisfied = in_array("active-role:{$role}", $abilities, true)
+            || ($role === 'seller' && in_array('active-role:admin', $abilities, true));
+
+        if (! $abilitySatisfied) {
             return response()->json([
                 'message' => "Active role must be {$role}.",
             ], 403);

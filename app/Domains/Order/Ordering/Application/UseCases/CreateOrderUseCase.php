@@ -250,6 +250,13 @@ class CreateOrderUseCase
         ): Order {
             $orderType = $this->resolveOrderType($orderType, $groups, $scheduledAt);
 
+            // Preorder otomatis (stok habis saat checkout normal/booking) tetap
+            // wajib punya tanggal rilis agar data pesanan tidak null. Bila buyer
+            // tidak menyertakannya, isi default 7 hari ke depan.
+            if ($orderType === 'preorder' && (! is_string($preorderReleaseAt) || trim($preorderReleaseAt) === '')) {
+                $preorderReleaseAt = now()->addDays(7)->toDateTimeString();
+            }
+
             [$voucherId, $discountAmount, $shippingDiscountAmount] = $this->calculateVoucher(
                 $userId,
                 $voucherCode,
@@ -425,6 +432,23 @@ class CreateOrderUseCase
                         throw new RuntimeException("Stok {$item['product_name']} habis dan preorder untuk produk ini tidak tersedia.");
                     }
 
+                    // Pesanan booking bergantung pada jadwal kirim/pickup yang sudah
+                    // dipilih buyer. Jangan ubah diam-diam menjadi preorder.
+                    if ($requestedType === 'booking') {
+                        throw new RuntimeException(
+                            "Stok {$item['product_name']} habis sehingga pesanan booking tidak dapat diproses. Silakan tunggu restock atau ubah ke pesanan biasa/preorder."
+                        );
+                    }
+
+                    // G-10: preorder harus mempertimbangkan kapasitas stock_preorder,
+                    // bukan hanya stock = 0.
+                    $stockPreorder = (int) $variant->stock_preorder;
+                    if ($stockPreorder <= 0 || $quantity > $stockPreorder) {
+                        throw new RuntimeException(
+                            "Kapasitas preorder untuk {$item['product_name']} habis. Silakan pilih produk lain atau tunggu restock."
+                        );
+                    }
+
                     $needsPreorder = true;
 
                     continue;
@@ -443,6 +467,26 @@ class CreateOrderUseCase
         if ($requestedType === 'booking') {
             if ($scheduledAt === null) {
                 throw new RuntimeException('Jadwal kirim/pickup wajib diisi untuk pesanan booking.');
+            }
+
+            // G-11: booking harus memvalidasi kapasitas slot jadwal (schedules.capacity).
+            $scheduleDate = substr((string) $scheduledAt, 0, 10);
+            $schedule = DB::table('schedules')
+                ->where('date', $scheduleDate)
+                ->where('is_active', true)
+                ->first();
+
+            if (! $schedule) {
+                throw new RuntimeException('Jadwal yang dipilih tidak tersedia.');
+            }
+
+            $bookedCount = DB::table('orders')
+                ->whereDate('scheduled_at', $scheduleDate)
+                ->where('status', '!=', 'cancelled')
+                ->count();
+
+            if ($bookedCount >= (int) $schedule->capacity) {
+                throw new RuntimeException('Kapasitas jadwal yang dipilih sudah penuh. Silakan pilih jadwal lain.');
             }
 
             return 'booking';

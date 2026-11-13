@@ -13,7 +13,6 @@ final class CategoryResource extends JsonResource
     {
         return [
             'id' => $this->resource->id(),
-            'catalog_group_id' => $this->resource->catalogGroupId(),
             'parent_id' => $this->resource->parentId(),
             'name' => $this->resource->name(),
             'slug' => $this->resource->slug(),

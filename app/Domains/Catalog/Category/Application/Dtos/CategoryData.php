@@ -11,8 +11,6 @@ use InvalidArgumentException;
 final readonly class CategoryData
 {
     private function __construct(
-        private ?int $catalogGroupId,
-        private bool $hasCatalogGroupId,
         private ?int $parentId,
         private bool $hasParentId,
         private ?string $name,
@@ -34,8 +32,6 @@ final readonly class CategoryData
     public static function fromArray(array $data): self
     {
         return new self(
-            catalogGroupId: self::nullableInt($data, 'catalog_group_id'),
-            hasCatalogGroupId: array_key_exists('catalog_group_id', $data),
             parentId: self::nullableInt($data, 'parent_id'),
             hasParentId: array_key_exists('parent_id', $data),
             name: self::nullableString($data, 'name'),
@@ -70,7 +66,6 @@ final readonly class CategoryData
         $name = $this->requireName();
 
         return [
-            'catalog_group_id' => $parent?->catalogGroupId() ?? $this->requireCatalogGroupId(),
             'name' => $name,
             'slug' => $this->slugOrGenerated($name),
             'sort_order' => $this->sortOrder ?? 0,
@@ -84,10 +79,6 @@ final readonly class CategoryData
     public function toUpdatePayload(Category $category): array
     {
         $payload = [];
-
-        if ($this->hasCatalogGroupId && $this->catalogGroupId !== null) {
-            $payload['catalog_group_id'] = $this->catalogGroupId;
-        }
 
         if ($this->hasParentId) {
             $payload['parent_id'] = $this->parentId;
@@ -132,15 +123,6 @@ final readonly class CategoryData
         }
 
         return $this->name;
-    }
-
-    private function requireCatalogGroupId(): int
-    {
-        if ($this->catalogGroupId === null || $this->catalogGroupId <= 0) {
-            throw new InvalidArgumentException('Catalog group wajib diisi untuk kategori utama.');
-        }
-
-        return $this->catalogGroupId;
     }
 
     private function slugOrGenerated(string $name): string

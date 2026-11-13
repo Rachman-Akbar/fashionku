@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Seller\Stores\Presentation\Http\Controllers;
 
 use App\Domains\Identity\User\Domain\Repositories\UserRepositoryInterface;
-use App\Domains\Seller\Stores\Application\UseCases\CreateStoreUseCase;
 use App\Domains\Seller\Stores\Application\UseCases\UpdateStoreUseCase;
 use App\Domains\Seller\Stores\Domain\Services\FashionStoreResolver;
 use App\Domains\Seller\Stores\Presentation\Http\Resources\StoreResource;
@@ -37,20 +36,6 @@ final class StoreController extends Controller
         }
 
         return new StoreResource(\App\Domains\Seller\Stores\Application\DTOs\StoreData::fromEntity($store));
-    }
-
-    public function registerStore(Request $request, CreateStoreUseCase $useCase): JsonResponse
-    {
-        $validated = $request->validate($this->rules(true));
-        $validated = $this->storeUploads($request, $validated);
-        $validated['detail'] = $this->detailData($validated);
-
-        $store = $useCase->execute((string) $request->user()->id, $validated, $request->header('X-Device-Name'));
-
-        return (new StoreResource($store))
-            ->additional(['message' => 'Akses penjual aktif. Anda dapat mengelola toko.'])
-            ->response()
-            ->setStatusCode(201);
     }
 
     public function updateStore(Request $request, UpdateStoreUseCase $useCase): JsonResponse

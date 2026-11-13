@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domains\Catalog\Category\Infrastructure\Persistence\Models;
 
-use App\Domains\Catalog\CatalogGroup\Infrastructure\Persistence\Models\CatalogGroupModel;
 use App\Domains\Catalog\Product\Infrastructure\Persistence\Models\ProductModel;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\HasActiveStatus;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -24,7 +22,6 @@ final class CategoryModel extends Model
     protected $table = 'categories';
 
     protected $fillable = [
-        'catalog_group_id',
         'parent_id',
         'parent_scope_id',
         'level',
@@ -41,7 +38,6 @@ final class CategoryModel extends Model
     ];
 
     protected $casts = [
-        'catalog_group_id' => 'integer',
         'parent_id' => 'integer',
         'parent_scope_id' => 'integer',
         'level' => 'integer',
@@ -56,11 +52,6 @@ final class CategoryModel extends Model
         return Attribute::make(
             set: fn (mixed $value): string => trim((string) preg_replace('/\s+/u', ' ', (string) $value))
         );
-    }
-
-    public function catalogGroup(): BelongsTo
-    {
-        return $this->belongsTo(CatalogGroupModel::class, 'catalog_group_id');
     }
 
     public function children(): HasMany

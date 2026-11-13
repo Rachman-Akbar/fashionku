@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domains\Identity\User\Domain\Repositories;
 
-use App\Domains\Identity\Auth\Application\DTOs\RegisterSellerDTO;
 use App\Domains\Identity\User\Application\DTOs\CreateUserDTO;
 use App\Domains\Identity\User\Application\DTOs\UpdateUserDTO;
 use App\Domains\Identity\User\Domain\Entities\User;
@@ -37,8 +36,6 @@ interface UserRepositoryInterface
     public function getActiveRoleFromCurrentToken(User $user): ?string;
 
     public function resolveDefaultActiveRole(User $user): ?string;
-
-    public function registerStore(string $userId, RegisterSellerDTO $dto): int;
 
     public function hasSellerAccess(User $user): bool;
 

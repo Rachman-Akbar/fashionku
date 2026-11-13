@@ -44,9 +44,6 @@ final class CategoryRequest extends FormRequest
         $isCreate = $this->isMethod('post');
 
         return [
-            'catalog_group_id' => $isCreate
-                ? ['required_without:parent_id', 'nullable', 'integer', 'exists:catalog_groups,id']
-                : ['sometimes', 'integer', 'exists:catalog_groups,id'],
             'parent_id' => array_values(array_filter([
                 $isCreate ? 'nullable' : 'sometimes',
                 'nullable',

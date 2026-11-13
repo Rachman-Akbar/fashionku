@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Domains\Identity\Auth\Infrastructure\Middleware\ValidateFirebaseToken;
 use App\Domains\Identity\Auth\Presentation\Http\Controllers\AuthController;
-use App\Domains\Seller\Stores\Presentation\Http\Controllers\StoreController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->name('auth.')->group(function (): void {
@@ -69,9 +68,6 @@ Route::prefix('auth')->name('auth.')->group(function (): void {
         Route::middleware('active.user')->group(function (): void {
             Route::get('/me', [AuthController::class, 'me'])->name('me');
             Route::post('/switch-role', [AuthController::class, 'switchRole'])->name('switch-role');
-            Route::post('/register-seller', [StoreController::class, 'registerStore'])
-                ->middleware('verified.email')
-                ->name('register-seller');
             Route::post('/change-password', [AuthController::class, 'changePassword'])
                 ->middleware('throttle:3,1')
                 ->name('change-password');

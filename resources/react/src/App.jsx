@@ -7,7 +7,7 @@ import AuthLayout from "@/features/auth/AuthLayout";
 import SellerLayout from "@/features/seller/SellerLayout";
 import ProfileLayout from "@/features/profile/ProfileLayout";
 import ProtectedRoute from "@/features/auth/routes/ProtectedRoute";
-import SellerOnboardingGuard from "@/features/auth/routes/SellerOnboardingGuard";
+import SellerStoreGuard from "@/features/auth/routes/SellerStoreGuard";
 import GuestRoute from "@/features/auth/routes/GuestRoute";
 import ErrorBoundary from "@/shared/components/feedback/ErrorBoundary";
 
@@ -26,10 +26,8 @@ const ForgotPasswordPage = lazyWithRetry(() => import("@/features/auth/pages/For
 const ResetPasswordPage = lazyWithRetry(() => import("@/features/auth/pages/ResetPasswordPage"));
 const RoleSwitchPage = lazyWithRetry(() => import("@/features/auth/pages/RoleSwitchPage"));
 const GoogleRedirectHandler = lazyWithRetry(() => import("@/features/auth/pages/GoogleRedirectHandler"));
-const SellerOnboardingPage = lazyWithRetry(() => import("@/features/auth/pages/SellerOnboardingPage"));
 const SellerDashboardPage = lazyWithRetry(() => import("@/features/seller/dashboard/pages/SellerDashboardPage"));
 const SellerProductsPage = lazyWithRetry(() => import("@/features/seller/product/pages/SellerProductsPage"));
-const SellerBannerPage = lazyWithRetry(() => import("@/features/seller/banner/pages/SellerBannerPage"));
 const SellerVoucherPage = lazyWithRetry(() => import("@/features/seller/voucher/pages/SellerVoucherPage"));
 const SellerPromotionPage = lazyWithRetry(() => import("@/features/seller/promotion/pages/SellerPromotionPage"));
 const SellerStorePage = lazyWithRetry(() => import("@/features/seller/store/pages/SellerStorePage"));
@@ -99,7 +97,6 @@ function renderAccountRoutes() {
   return (
     <Route element={<ProtectedRoute />}>
       <Route path="/auth/role-switch" element={<RoleSwitchPage />} />
-      <Route path="/auth/seller/onboarding" element={<SellerOnboardingPage />} />
       <Route element={<ProfileLayout />}>
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/profile/orders" element={<Navigate to="/cart?tab=order" replace />} />
@@ -120,8 +117,8 @@ function renderAccountRoutes() {
 
 function renderSellerRoutes() {
   return (
-    <Route element={<ProtectedRoute roles={["seller"]} />}>
-      <Route element={<SellerOnboardingGuard />}>
+    <Route element={<ProtectedRoute roles={["seller", "admin"]} />}>
+      <Route element={<SellerStoreGuard />}>
         <Route element={<SellerLayout />}>
           <Route path="/seller" element={<SellerDashboardPage />} />
           <Route path="/seller/products" element={<SellerProductsPage />} />
@@ -136,7 +133,6 @@ function renderSellerRoutes() {
           <Route path="/seller/help" element={<HelpPage />} />
           <Route path="/seller/chat" element={<RealtimeChatPage />} />
           <Route path="/seller/store" element={<SellerStorePage />} />
-          <Route path="/seller/banners" element={<SellerBannerPage />} />
           <Route path="/seller/code-settings" element={<CodePatternSettingsPage />} />
         </Route>
       </Route>

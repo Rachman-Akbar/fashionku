@@ -1,6 +1,5 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { catalogRequest, unwrapCollection, unwrapData } from "@/features/catalog/catalogApi";
-import { getCatalogGroups } from "@/features/catalog/cataloggroup/services/catalogGroupService";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { publicQueryOptions } from "@/core/api/publicQueryOptions";
 
@@ -79,7 +78,6 @@ export function normalizeCategoryTree(category = {}, fallback = {}) {
     normalizeCategoryTree(child, {
       parent_id: normalized.id ?? category.parent_id ?? fallback.parent_id ?? null,
       parent_key: normalized.key,
-      catalog_group_id: normalized.catalog_group_id,
       level: Number(normalized.level || 1) + 1,
     })
   );
@@ -99,16 +97,6 @@ export function normalizeCategory(category = {}, fallback = {}) {
     fallback.parent_id ??
     null;
 
-  const catalogGroupId =
-    category.catalog_group_id ??
-    category.catalogGroupId ??
-    category.catalog_group?.id ??
-    category.catalogGroup?.id ??
-    category.group_id ??
-    category.groupId ??
-    fallback.catalog_group_id ??
-    null;
-
   const level = Number(category.level ?? fallback.level ?? (parentId ? 2 : 1));
   const fullSlug = category.full_slug || category.fullSlug || category.path || slug;
   const key = String(id ?? fullSlug ?? slug);
@@ -116,7 +104,6 @@ export function normalizeCategory(category = {}, fallback = {}) {
   return {
     id,
     key,
-    catalog_group_id: catalogGroupId,
     parent_id: parentId,
     level,
     sort_order: Number(category.sort_order ?? category.sortOrder ?? 0),
@@ -141,12 +128,6 @@ function flattenCategories(categories = [], fallback = {}) {
   const walk = (category, parent = null, indexPath = "0") => {
     const normalized = normalizeCategory(category, {
       parent_id: parent?.id ?? category.parent_id ?? category.parentId ?? null,
-      catalog_group_id:
-        category.catalog_group_id ??
-        category.catalogGroupId ??
-        parent?.catalog_group_id ??
-        fallback.catalog_group_id ??
-        null,
       level: parent ? Number(parent.level || 1) + 1 : category.level ?? fallback.level ?? 1,
     });
 
@@ -235,44 +216,6 @@ export function buildCategoryTree(categories = [], fallback = {}) {
   return sortTree(roots);
 }
 
-function getEmbeddedGroupCategories(group = {}) {
-  const raw = group.raw || group;
-
-  return extractCategories(
-    raw.categories ??
-      raw.category ??
-      raw.children ??
-      raw.items ??
-      group.categories ??
-      []
-  );
-}
-
-function isEmptyNavigation(categoriesByGroup = {}) {
-  return Object.values(categoriesByGroup).every((items) => {
-    return !Array.isArray(items) || items.length === 0;
-  });
-}
-
-function splitMenuByGroup(menuCategories = [], groups = []) {
-  const flat = flattenCategories(menuCategories);
-
-  return Object.fromEntries(
-    groups.map((group) => {
-      const groupId = String(group.id ?? "");
-      const groupKey = String(group.key ?? groupId);
-      const groupItems = flat.filter((category) => String(category.catalog_group_id ?? "") === groupId);
-
-      return [
-        groupKey,
-        buildCategoryTree(groupItems, {
-          catalog_group_id: group.id,
-        }),
-      ];
-    })
-  );
-}
-
 export function getCategoryHref(category = {}) {
   const path = category.full_slug || category.path || category.slug || category.id || "";
   return `/category/${String(path).replace(/^\/+|\/+$/g, "")}`;
@@ -294,19 +237,6 @@ export async function getCategoriesMenu() {
 
   return {
     data: buildCategoryTree(rawItems),
-    raw: payload,
-  };
-}
-
-export async function getCategoriesByCatalogGroup(groupId) {
-  const payload = await catalogRequest(`/catalog-groups/${groupId}/categories`);
-  const data = unwrapData(payload);
-  const rawItems = extractCategories(data);
-
-  return {
-    data: buildCategoryTree(rawItems, {
-      catalog_group_id: groupId,
-    }),
     raw: payload,
   };
 }
@@ -379,70 +309,20 @@ export function useInfiniteProductsByCategoryPath(path, params = {}, options = {
 }
 
 export async function getCategoryNavigation() {
-  const groupsResult = await getCatalogGroups({ is_active: 1, include_categories: 1 });
-  const groups = Array.isArray(groupsResult?.data)
-    ? groupsResult.data
-        .filter((group) => group.is_active !== false)
-        .sort((a, b) => {
-          if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
-          return a.name.localeCompare(b.name);
-        })
-        .map((group) => ({
-          ...group,
-          key: String(group.key ?? group.id ?? group.slug),
-        }))
-    : [];
-
-  if (!groups.length) {
-    const menuResult = await getCategoriesMenu();
-
-    return {
-      groups: [
-        {
-          id: "all",
-          key: "all",
-          name: "Kategori",
-          slug: "kategori",
-        },
-      ],
-      categoriesByGroup: {
-        all: menuResult.data,
-      },
-    };
-  }
-
-  let categoriesByGroup = Object.fromEntries(
-    groups.map((group) => {
-      const embeddedCategories = getEmbeddedGroupCategories(group);
-
-      return [
-        group.key,
-        buildCategoryTree(embeddedCategories, {
-          catalog_group_id: group.id,
-        }),
-      ];
-    }),
-  );
-
-  if (isEmptyNavigation(categoriesByGroup)) {
-    try {
-      const menuResult = await getCategoriesMenu();
-      const groupedMenu = splitMenuByGroup(extractCategories(menuResult.raw), groups);
-
-      categoriesByGroup = isEmptyNavigation(groupedMenu)
-        ? {
-            ...categoriesByGroup,
-            [groups[0].key]: menuResult.data,
-          }
-        : groupedMenu;
-    } catch {
-      categoriesByGroup = Object.fromEntries(groups.map((group) => [group.key, []]));
-    }
-  }
+  const menuResult = await getCategoriesMenu();
 
   return {
-    groups,
-    categoriesByGroup,
+    groups: [
+      {
+        id: "all",
+        key: "all",
+        name: "Kategori",
+        slug: "kategori",
+      },
+    ],
+    categoriesByGroup: {
+      all: menuResult.data,
+    },
   };
 }
 

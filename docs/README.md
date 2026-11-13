@@ -14,6 +14,21 @@ Dokumentasi perubahan/karya yang dilakukan per-hari pada **market-api**.
 | 2026-09-01 | Fitur **Bukti Pembayaran (Receipt) PPOB** (checkout → receipt → email) + perbaikan migrasi | [`PPOB-RECEIPT.md`](./PPOB-RECEIPT.md) |
 | 2026-09-01 | Changelog ringkas semua perubahan hari ini (termasuk refactor invoice → receipt) | [`CHANGELOG-2026-09-01.md`](./CHANGELOG-2026-09-01.md) |
 
+## Spesifikasi Fitur
+
+Spesifikasi hasil analisis, hardening, dan perancangan ulang ada di folder
+[`specs/`](./specs/README.md):
+
+| # | Dokumen |
+|---|---|
+| 00 | [Analisis celah](./specs/00-analisis-celah.md) |
+| 01 | [Spesifikasi Buyer](./specs/01-buyer.md) |
+| 02 | [Spesifikasi Admin (= seller)](./specs/02-admin.md) |
+| 03 | [Chart.js + filter tanggal/bulan/tahun](./specs/03-chart-filter.md) |
+| 04 | [OTP, sesi, hapus akun](./specs/04-otp-sesi-hapus-akun.md) |
+| 05 | [Import update berbasis kode](./specs/05-import-update-berbasis-kode.md) |
+| 06 | [Penghapusan fitur & merge admin+seller](./specs/06-penghapusan-fitur-dan-merge.md) |
+
 ## Konvensi
 
 - Bahasa dokumentasi: Bahasa Indonesia.

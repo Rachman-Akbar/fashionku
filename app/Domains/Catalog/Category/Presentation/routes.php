@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('relations')->middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:seller,admin'])->group(function () {
     Route::post('categories/quick-create', [RelationQuickCreateController::class, 'category']);
-    Route::post('catalog-groups/quick-create', [RelationQuickCreateController::class, 'catalogGroup']);
 });
 
 Route::middleware('cache.headers:public;max_age=60;etag')

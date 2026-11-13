@@ -26,8 +26,7 @@ interface CategoryRepositoryInterface
 
     public function maxDepthFrom(int $categoryId): int;
 
-    public function nameExistsInParent(
-        int $catalogGroupId,
+    public function nameExists(
         ?int $parentId,
         string $name,
         ?int $ignoreId = null

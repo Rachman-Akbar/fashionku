@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domains\Identity\User\Infrastructure\Persistence\Repositories;
 
-use App\Domains\Identity\Auth\Application\DTOs\RegisterSellerDTO;
 use App\Domains\Identity\User\Application\DTOs\CreateUserDTO;
 use App\Domains\Identity\User\Application\DTOs\UpdateUserDTO;
 use App\Domains\Identity\User\Domain\Entities\User;
@@ -278,7 +277,8 @@ final class EloquentUserRepository implements UserRepositoryInterface
 
     public function hasSellerAccess(User $user): bool
     {
-        if (! $user->is_active || $user->isBanned() || ! $user->hasRole('seller')) {
+        // Single-store: admin adalah seller/operator yang sama.
+        if (! $user->is_active || $user->isBanned() || (! $user->hasRole('seller') && ! $user->hasRole('admin'))) {
             return false;
         }
 
@@ -329,65 +329,6 @@ final class EloquentUserRepository implements UserRepositoryInterface
         }
 
         return null;
-    }
-
-    public function registerStore(string $userId, RegisterSellerDTO $dto): int
-    {
-        return DB::transaction(function () use ($userId, $dto): int {
-            $existingId = DB::table('stores')->whereNull('deleted_at')->orderBy('id')->value('id');
-            if ($existingId !== null) {
-                return (int) $existingId;
-            }
-
-            $slug = Str::slug($dto->slug ?: $dto->storeName) ?: 'toko';
-            $base = $slug;
-            $suffix = 1;
-
-            while (DB::table('stores')->where('slug', $slug)->whereNull('deleted_at')->exists()) {
-                $slug = $base.'-'.$suffix++;
-            }
-
-            $storeId = (int) DB::table('stores')->insertGetId([
-                'user_id' => $userId,
-                'name' => $dto->storeName,
-                'slug' => $slug,
-                'description' => $dto->description,
-                'short_description' => $dto->shortDescription,
-                'phone' => $dto->phone,
-                'email' => $dto->email,
-                'city' => $dto->city,
-                'province' => $dto->province,
-                'address' => $dto->address,
-                'logo' => $dto->logo,
-                'banner_url' => $dto->bannerUrl,
-                'status' => 'approved',
-                'is_active' => true,
-                'created_by' => $userId,
-                'updated_by' => $userId,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            DB::table('store_details')->insert([
-                'store_id' => $storeId,
-                'owner_name' => $dto->detail['owner_name'] ?? null,
-                'owner_phone' => $dto->detail['owner_phone'] ?? null,
-                'description' => $dto->detail['description'] ?? null,
-                'shipping_policy' => $dto->detail['shipping_policy'] ?? null,
-                'return_policy' => $dto->detail['return_policy'] ?? null,
-                'open_days' => $dto->detail['open_days'] ?? null,
-                'open_time' => $dto->detail['open_time'] ?? null,
-                'close_time' => $dto->detail['close_time'] ?? null,
-                'whatsapp_url' => $dto->detail['whatsapp_url'] ?? null,
-                'instagram_url' => $dto->detail['instagram_url'] ?? null,
-                'tiktok_url' => $dto->detail['tiktok_url'] ?? null,
-                'website_url' => $dto->detail['website_url'] ?? null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            return $storeId;
-        });
     }
 
     public function logoutOtherDevices(User $user): int

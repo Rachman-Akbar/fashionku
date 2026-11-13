@@ -111,7 +111,8 @@ final class LoginWithFirebaseUseCase
         $resolvedDevice = $deviceName ?: (string) ($metadata['device_name'] ?? 'marketplace-web');
         $activeRole = $this->resolveRole($user, $requestedRole);
 
-        $token = $this->issueToken->execute($user, $resolvedDevice, $activeRole);
+        // Single active session: login Google yang berhasil mencabut sesi lama.
+        $token = $this->issueToken->execute($user, $resolvedDevice, $activeRole, true);
 
         return [
             ...$this->payload->execute($user, $activeRole),
@@ -213,7 +214,10 @@ final class LoginWithFirebaseUseCase
         $role = strtolower(trim($requestedRole)) ?: 'buyer';
         $user->loadMissing('roles:id,name');
 
-        if (! $user->hasRole($role)) {
+        $roleAllowed = $user->hasRole($role)
+            || ($role === 'seller' && $user->hasRole('admin'));
+
+        if (! $roleAllowed) {
             throw ValidationException::withMessages([
                 'role' => ["Akun Google ini tidak memiliki akses {$role}."],
             ]);
