@@ -5,6 +5,7 @@ import { useAuth } from "@/features/auth/context/AuthContext";
 import { useCart } from "@/features/order/cart/context/CartContext";
 import { CategoryDropdown } from "@/features/catalog/category/components/CategoryDropdown";
 import { confirmLogout } from "@/shared/utils/userFeedback";
+import { LogOut } from "lucide-react";
 
 function ProfileTooltip({ onClose, onLogout, loading }) {
   const sharedItems = [
@@ -61,11 +62,10 @@ export function Navbar() {
   useEffect(() => {
     const onScroll = () => {
       const currentY = window.scrollY || 0;
-      const sentinel = document.getElementById("product-feed-sentinel");
-      const reached = sentinel ? sentinel.getBoundingClientRect().top <= 96 : false;
       const scrollingDown = currentY > lastScrollY.current;
+      const threshold = 80; // Hide after scrolling down 80px
 
-      if (scrollingDown && reached) {
+      if (scrollingDown && currentY > threshold) {
         setNavHidden(true);
       } else if (!scrollingDown) {
         setNavHidden(false);
@@ -92,7 +92,7 @@ export function Navbar() {
   }
 
   function closeProfileMenu() {
-    setProfileHover(false);
+    setProfileOpen(false);
   }
 
   async function handleLogout() {
@@ -112,7 +112,7 @@ export function Navbar() {
   function toggleCategory(event) {
     event.preventDefault();
     event.stopPropagation();
-    setProfileHover(false);
+    setProfileOpen(false);
     setCategoryOpen((current) => !current);
   }
 
@@ -135,11 +135,17 @@ export function Navbar() {
               chevron_right
             </span>
           </div>
-          <div className="hidden items-center gap-5 lg:flex">
+<div className="hidden items-center gap-5 lg:flex">
             <Link to="/promotions" className="whitespace-nowrap transition-colors hover:text-[#10B981]">Promo</Link>
             <Link to="/cart?tab=order" className="whitespace-nowrap transition-colors hover:text-[#10B981]">Riwayat</Link>
             <Link to="/hubungi-kami" className="whitespace-nowrap transition-colors hover:text-[#10B981]">Hubungi Kami</Link>
-            <Link to="/toko-kami" className="whitespace-nowrap transition-colors hover:text-[#10B981]">Toko Kami</Link>
+            <button
+              type="button"
+              onClick={() => window.open("/toko-kami", "_blank", "noopener,noreferrer")}
+              className="whitespace-nowrap transition-colors hover:text-[#10B981] text-slate-500 font-medium"
+            >
+              Toko Kami
+            </button>
           </div>
         </div>
       </div>
@@ -214,9 +220,11 @@ export function Navbar() {
               >
                 <Link
                   to="/profile"
-                  target="_blank"
-                  rel="noopener noreferrer"
                   className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-emerald-50"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setProfileHover(false);
+                  }}
                 >
                   <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#10B981] text-sm font-bold text-white">
                     {(user.name || "G").charAt(0).toUpperCase()}
@@ -228,15 +236,19 @@ export function Navbar() {
                     expand_more
                   </span>
                 </Link>
-                <div
-                  className={`origin-top-right transition-all duration-200 ${profileHover ? "pointer-events-auto scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"}`}
-                >
-                  <ProfileTooltip
-                    onClose={() => setProfileHover(false)}
-                    onLogout={handleLogout}
-                    loading={loading}
-                  />
-                </div>
+                {profileHover && (
+                  <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-[10px] border border-slate-200 bg-white py-1 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      disabled={loading}
+                      className="flex w-full items-center gap-[5px] px-4 py-2.5 text-left text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <LogOut size={18} />
+                      {loading ? "Keluar..." : "Logout"}
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <>

@@ -734,34 +734,20 @@ final class FashionRealDataSeeder extends Seeder
     {
         $storeIds = DB::table('stores')->pluck('id');
 
-        // Bersihkan data banner/voucher sebelumnya agar seeding idempoten
+        // Bersihkan data voucher sebelumnya agar seeding idempoten
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        DB::table('banners')->truncate();
         DB::table('vouchers')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
         if ($storeIds->isEmpty()) {
-            $this->command?->warn('Toko tidak tersedia, banner/voucher dilewati.');
+            $this->command?->warn('Toko tidak tersedia, voucher dilewati.');
             return;
         }
 
-        $banners = [];
         $vouchers = [];
 
         for ($i = 1; $i <= 100; $i++) {
             $storeId = $storeIds->random();
-
-            $banners[] = [
-                'store_id' => $storeId,
-                'name' => 'Promo '.self::PRODUCT_NAMES[array_rand(self::PRODUCT_NAMES)].' Bulan '.date('F'),
-                'image_url' => 'https://picsum.photos/seed/banner-'.Str::random(8).'/1200/480',
-                'sort_order' => $i,
-                'is_active' => true,
-                'created_by' => DB::table('stores')->where('id', $storeId)->value('user_id'),
-                'updated_by' => DB::table('stores')->where('id', $storeId)->value('user_id'),
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
 
             $vouchers[] = [
                 'store_id' => $storeId,
@@ -789,10 +775,9 @@ final class FashionRealDataSeeder extends Seeder
             ];
         }
 
-        DB::table('banners')->insertOrIgnore($banners);
         DB::table('vouchers')->insertOrIgnore($vouchers);
 
-        $this->command?->info('FashionRealData: 100 banner dan 100 voucher selesai.');
+        $this->command?->info('FashionRealData: 100 voucher selesai.');
     }
 
     private function seedChatAndNotifications(string $now): void

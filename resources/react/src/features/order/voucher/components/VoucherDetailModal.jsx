@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { CalendarDays, Copy, TicketPercent, X } from "lucide-react";
 import { formatPrice } from "@/shared/utils/utils";
+import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 
 function formatDate(value) {
   if (!value) {
@@ -95,9 +96,12 @@ export default function VoucherDetailModal({ voucher, open, onClose, onUse }) {
         {voucher.imageUrl ? (
           <div className="relative h-52 w-full overflow-hidden rounded-t-2xl">
             <img
-              src={voucher.imageUrl}
+              src={resolveMediaUrl(voucher.imageUrl)}
               alt={voucher.name || voucher.code}
               className="h-full w-full object-cover"
+              onError={(e) => {
+                e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";
+              }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
             <div className="absolute bottom-4 left-5 right-5 text-white">

@@ -42,6 +42,12 @@ const tabs = [
   { key: "review", label: "Review", icon: Star },
 ];
 
+const PLACEHOLDER_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";
+
+function onImageError(event) {
+  event.currentTarget.src = PLACEHOLDER_SVG;
+}
+
 const ORDER_STATUS_OPTIONS = [
   { value: "pending", label: "Menunggu" },
   { value: "processing", label: "Diproses" },
@@ -87,26 +93,28 @@ function EmptyState({ icon: Icon, title, description }) {
 
 function TabNavigation({ activeTab, onChange }) {
   return (
-    <nav className="mb-6 flex gap-1 rounded-2xl bg-slate-100/80 p-1">
-      {tabs.map((tab) => {
-        const active = activeTab === tab.key;
-        const Icon = tab.icon;
-        return (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => onChange(tab.key)}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all duration-200 ${
-              active
-                ? "bg-white text-[#047857] shadow-sm"
-                : "text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            <Icon size={16} />
-            <span className="hidden sm:inline">{tab.label}</span>
-          </button>
-        );
-      })}
+    <nav className="sticky z-[70] mx-auto max-w-[760px] px-4 pt-1 pb-4 transition-[top] duration-300 ease-in-out" style={{ top: "var(--main-nav-offset, 96px)" }}>
+      <div className="flex items-center justify-between gap-2 border-b border-[#bccbb4] min-w-[0] overflow-x-auto scrollbar-hidden px-2">
+        {tabs.map((tab) => {
+          const active = activeTab === tab.key;
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => onChange(tab.key)}
+              className={`shrink-0 flex items-center gap-2 whitespace-nowrap pb-2 px-3 text-base transition-colors ${
+                active
+                  ? "border-b-2 border-[#047857] font-bold text-[#047857]"
+                  : "text-[#3e4a39] hover:text-[#047857]"
+              }`}
+            >
+              <Icon size={16} />
+              <span className="hidden sm:inline ml-1">{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
 }
@@ -297,7 +305,7 @@ function WishlistTab({ items, onAddToCart, onRemoveFromWishlist }) {
           productId={item.productId}
           variantId={item.variantId}
           slug={item.slug || String(item.productId)}
-          image={item.imageUrl}
+          image={resolveMediaUrl(item.imageUrl)}
           title={item.productName}
           price={item.price}
           stock={item.stock}
@@ -405,7 +413,9 @@ function OrderDetailPanel({ orderId, onBack, paymentNotice = "" }) {
           <div className="mt-2 divide-y divide-slate-50">
             {orderItems.map((item) => (
               <div key={`${item.id}-${item.productId}-${item.variantId}`} className="flex items-center gap-3 py-3">
-                {item.imageUrl ? <img src={item.imageUrl} alt={item.productName} className="h-12 w-12 rounded-xl object-cover" /> : null}
+                {item.imageUrl ? (
+                  <img src={resolveMediaUrl(item.imageUrl)} alt={item.productName} className="h-12 w-12 rounded-xl object-cover" loading="lazy" onError={onImageError} />
+                ) : null}
                 <div className="min-w-0 flex-1">
                   <p className="line-clamp-1 text-sm font-semibold text-slate-800">{item.productName}</p>
                   <p className="text-xs text-slate-400">{item.variantLabel || item.sku || "-"} x{item.quantity}</p>
@@ -478,7 +488,7 @@ function OrderTab({ items, onOpen, statusFilter }) {
           >
             <div className="flex items-start gap-3">
               {item.imageUrl ? (
-                <img src={item.imageUrl} alt={item.productName} className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+                <img src={resolveMediaUrl(item.imageUrl)} alt={item.productName} className="h-12 w-12 shrink-0 rounded-xl object-cover" loading="lazy" onError={onImageError} />
               ) : (
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-50">
                   <PackageCheck size={18} className="text-slate-300" />
@@ -559,7 +569,7 @@ function ReviewTab({ items, reviews = [], onReviewItem, onOpenProduct, ratingFil
             {filteredReviewable.map((item) => (
               <div key={item.id} className="flex items-center gap-3 py-3">
                 {item.imageUrl ? (
-                  <img src={item.imageUrl} alt={item.productName} className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+                  <img src={resolveMediaUrl(item.imageUrl)} alt={item.productName} className="h-12 w-12 shrink-0 rounded-xl object-cover" loading="lazy" onError={onImageError} />
                 ) : (
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-50"><PackageCheck size={16} className="text-slate-300" /></div>
                 )}
@@ -589,7 +599,7 @@ function ReviewTab({ items, reviews = [], onReviewItem, onOpenProduct, ratingFil
               <article key={review.id} className="group cursor-pointer py-3 first:pt-0" onClick={() => onOpenProduct?.(review)}>
                 <div className="flex gap-3">
                   {review.imageUrl ? (
-                    <img src={review.imageUrl} alt={review.productName} className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                    <img src={resolveMediaUrl(review.imageUrl)} alt={review.productName} className="h-10 w-10 shrink-0 rounded-lg object-cover" loading="lazy" onError={onImageError} />
                   ) : (
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-50"><PackageCheck size={16} className="text-slate-300" /></div>
                   )}
@@ -770,7 +780,10 @@ export default function CartPage() {
           {activeTab === "wishlist" ? (
             <WishlistTab
               items={wishlistItems}
-              onAddToCart={(item) => addItem({ productId: item.productId, variantId: item.variantId, quantity: 1 })}
+              onAddToCart={(item) => {
+                addItem({ productId: item.productId, variantId: item.variantId, quantity: 1 });
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
               onRemoveFromWishlist={(item) => removeWishlistItem(item.productId)}
             />
           ) : null}

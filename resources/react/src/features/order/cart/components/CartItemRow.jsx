@@ -1,5 +1,6 @@
 import { LoaderCircle, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { formatPrice } from "@/shared/utils/utils";
+import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 
 function getItemKey(item) {
   return `${item.productId}-${item.variantId || "default"}`;
@@ -32,9 +33,12 @@ export function CartItemRow({
       <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-[#f1f4f8]">
         {item.imageUrl || item.image ? (
           <img
-            src={item.imageUrl || item.image}
+            src={resolveMediaUrl(item.imageUrl || item.image)}
             alt={item.productName}
             className="h-full w-full object-cover"
+            onError={(e) => {
+              e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";
+            }}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[#8b9490]">

@@ -12,6 +12,7 @@ import { useActiveVouchers } from "@/features/order/voucher/services/voucherServ
 import VoucherDropdownPage from "@/features/order/voucher/components/VoucherDropdown";
 import { toTitleCase } from "@/shared/utils/textFormatter";
 import { Skeleton } from "@/shared/components/feedback/Skeleton";
+import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 
 export function CategoryDropdown({
   open,
@@ -194,10 +195,13 @@ export function CategoryDropdown({
                     >
                       {levelTwo.image_url && (
                         <img
-                          src={levelTwo.image_url}
+                          src={resolveMediaUrl(levelTwo.image_url)}
                           alt=""
                           className="h-5 w-5 flex-shrink-0 rounded object-cover"
                           loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";
+                          }}
                         />
                       )}
                       {levelTwo.name}
@@ -221,10 +225,13 @@ export function CategoryDropdown({
                             >
                               {levelThree.image_url && (
                                 <img
-                                  src={levelThree.image_url}
+                                  src={resolveMediaUrl(levelThree.image_url)}
                                   alt=""
                                   className="h-4 w-4 flex-shrink-0 rounded object-cover"
                                   loading="lazy"
+                                  onError={(e) => {
+                                    e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";
+                                  }}
                                 />
                               )}
                               {levelThree.name}

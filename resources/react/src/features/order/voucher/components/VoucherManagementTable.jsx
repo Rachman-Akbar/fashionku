@@ -10,6 +10,7 @@ import { formatDateTime } from "@/core/utils/dateTime";
 import { formatPrice } from "@/shared/utils/utils";
 import { formatTableValue } from "@/shared/utils/tableData";
 import { toTitleCase } from "@/shared/utils/textFormatter";
+import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 
 export const VOUCHER_TABLE_COLUMNS = [
   { key: "voucher", label: "Voucher" },
@@ -98,7 +99,7 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
     if (column.key.startsWith("raw:")) return <td key={column.key} className="max-w-72 truncate px-4 py-3 text-slate-600">{formatTableValue(row.raw?.[column.rawKey])}</td>;
     if (column.key === "voucher") return <td key={column.key} className="px-4 py-3"><p className="font-extrabold text-slate-900">{toTitleCase(row.name)}</p><p className="mt-1 text-xs font-bold uppercase text-emerald-700">{row.code}</p></td>;
     if (column.key === "scope") return <td key={column.key} className="px-4 py-3"><span className={`px-2.5 py-1 text-xs font-extrabold ${row.voucherScope === "store" ? "bg-emerald-50 text-emerald-700" : "bg-teal-50 text-teal-700"}`}>{row.voucherScope === "store" ? toTitleCase(row.storeName || `Toko ${row.storeId}`) : "Platform"}</span></td>;
-    if (column.key === "image") return <td key={column.key} className="px-4 py-3">{row.imageUrl || row.image ? <img src={row.imageUrl || row.image} alt={row.name} className="h-12 w-20 object-cover" loading="lazy" /> : "-"}</td>;
+    if (column.key === "image") return <td key={column.key} className="px-4 py-3">{row.imageUrl || row.image ? <img src={resolveMediaUrl(row.imageUrl || row.image)} alt={row.name} className="h-12 w-20 object-cover" loading="lazy" onError={(e) => { e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E"; }} /> : "-"}</td>;
     if (column.key === "discount") return <td key={column.key} className="px-4 py-3 font-bold text-slate-700">{discountLabel(row)}</td>;
     if (column.key === "minSpend") return <td key={column.key} className="px-4 py-3 text-right text-slate-600">{formatPrice(row.minSpend)}</td>;
     if (column.key === "minItems") return <td key={column.key} className="px-4 py-3 text-right text-slate-600">{row.minItems ? `${Number(row.minItems).toLocaleString("id-ID")} item` : "-"}</td>;

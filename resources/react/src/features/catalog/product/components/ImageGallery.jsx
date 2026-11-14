@@ -32,6 +32,9 @@ export function ImageGallery({ images = [], alt = "Product" }) {
           src={galleryImages[active]?.url || PLACEHOLDER_IMAGE}
           alt={galleryImages[active]?.alt_text || alt}
           className="w-full h-full object-cover transition-opacity duration-200"
+          onError={(e) => {
+            e.currentTarget.src = PLACEHOLDER_IMAGE;
+          }}
         />
 
         {galleryImages.length > 1 && (
@@ -101,6 +104,9 @@ export function ImageGallery({ images = [], alt = "Product" }) {
               src={img.url}
               alt={img.alt_text || `${alt} ${i + 1}`}
               className="w-full aspect-square object-cover"
+              onError={(e) => {
+                e.currentTarget.src = PLACEHOLDER_IMAGE;
+              }}
             />
           </button>
         ))}

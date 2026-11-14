@@ -6,6 +6,7 @@ import { PanelMobileNavigation } from "@/shared/layout/PanelMobileNavigation";
 import { PanelSidebar } from "@/shared/layout/PanelSidebar";
 import { PanelTabBar, PanelTabsProvider } from "@/shared/layout/tabs";
 import { RouteOutletBoundary } from "@/shared/layout/RouteOutletBoundary";
+import PageTransitionLoader from "@/shared/layout/PageTransitionLoader";
 
 export const SELLER_NAV_ITEMS = [
   { href: "/seller", label: "Ringkasan", icon: "dashboard", exact: true, hiddenInSidebar: true },
@@ -30,6 +31,7 @@ export default function SellerLayout() {
     <PanelTabsProvider items={SELLER_NAV_ITEMS}>
       <NotificationFeedbackBridge />
       <div className="h-dvh bg-white text-slate-900">
+        <PageTransitionLoader />
         <div className="grid h-full grid-cols-1 lg:grid-cols-[72px_minmax(0,1fr)]">
           <PanelSidebar
             items={SELLER_NAV_ITEMS}

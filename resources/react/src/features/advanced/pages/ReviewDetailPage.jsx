@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { advancedError, useDeleteReview, useUpdateReview } from "@/features/advanced/services/advancedMarketplaceService";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
@@ -36,6 +37,7 @@ function mediaItems(media) {
 
 function ReviewDetailForm({ row, onClose, onSaved, onDeleted }) {
   const { activeRole } = useAuth();
+  const navigate = useNavigate();
   const admin = activeRole === "admin";
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [active, setActive] = useState(Boolean(row?.is_active));
@@ -74,7 +76,7 @@ function ReviewDetailForm({ row, onClose, onSaved, onDeleted }) {
 
   const handleOpenMarketplace = () => {
     if (!productSlug) return;
-    window.open(`/products/${productSlug}`, "_blank", "noopener,noreferrer");
+    navigate(`/products/${productSlug}`);
   };
 
   const handleDelete = async () => {

@@ -9,6 +9,7 @@ import { useCart } from "@/features/order/cart/context/CartContext";
 import { useWishlist } from "@/features/order/wishlist/context/WishlistContext";
 import { formatPrice } from "@/shared/utils/utils";
 import { toTitleCase } from "@/shared/utils/textFormatter";
+import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 
 const EMPTY_VARIANTS = [];
 
@@ -421,6 +422,7 @@ export const ProductCard = memo(function ProductCard({
         await addSelectedVariant(targetVariant, 1);
         setCartStatus("success");
         setCartMessage("Produk berhasil dimasukkan ke keranjang.");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
 
@@ -497,6 +499,7 @@ export const ProductCard = memo(function ProductCard({
       await addSelectedVariant(selectedVariant, qty);
       setCartStatus("success");
       setCartMessage("Produk berhasil dimasukkan ke keranjang.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
       setCartStatus("error");
       setCartMessage(
@@ -560,10 +563,13 @@ export const ProductCard = memo(function ProductCard({
         <div className="pointer-events-none relative z-[1] aspect-square w-full overflow-hidden rounded-[4px] bg-[#f5f5f5]">
           {displayImage ? (
             <img
-              src={displayImage}
+              src={resolveMediaUrl(displayImage)}
               alt={displayTitle}
               loading="lazy"
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]"
+              onError={(e) => {
+                e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";
+              }}
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-[#f5f5f5] text-[11px] text-[#999999]">
@@ -699,12 +705,17 @@ export const ProductCard = memo(function ProductCard({
                 {displayImage ? (
                   <img
                     src={
-                      selectedVariant?.image ||
-                      selectedVariant?.image_url ||
-                      displayImage
+                      resolveMediaUrl(
+                        selectedVariant?.image ||
+                          selectedVariant?.image_url ||
+                          displayImage,
+                      )
                     }
                     alt={displayTitle}
                     className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";
+                    }}
                   />
                 ) : (
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[10px] text-slate-400">

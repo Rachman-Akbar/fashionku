@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { isExternalUrl } from "@/core/utils/url";
 import { usePromotionHighlights } from "@/features/catalog/promotion/services/promotionService";
+import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 
 function PromotionLink({ promotion, children }) {
   const className = "inline-flex bg-white/20 px-5 py-2.5 text-sm font-extrabold text-white backdrop-blur-md transition hover:bg-white/30";
@@ -38,11 +39,13 @@ export function PromotionCarousel() {
   if (promotionsQuery.isLoading) return null;
   if (!promotion) return null;
 
+  const placeholderSvg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";
+
   return (
     <section className="group relative aspect-[12/3] min-h-[180px] w-full overflow-hidden bg-slate-900">
       <picture className="absolute inset-0">
-        <source media="(max-width: 640px)" srcSet={promotion.mobileImageUrl || promotion.imageUrl} />
-        <img src={promotion.imageUrl} alt={promotion.title} className="h-full w-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} />
+        <source media="(max-width: 640px)" srcSet={promotion.mobileImageUrl ? resolveMediaUrl(promotion.mobileImageUrl) : resolveMediaUrl(promotion.imageUrl)} />
+        <img src={resolveMediaUrl(promotion.imageUrl)} alt={promotion.title} className="h-full w-full object-cover" onError={(event) => { event.currentTarget.src = placeholderSvg; }} />
       </picture>
       <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/40 to-transparent" />
       <div className="relative flex h-full max-w-xl flex-col justify-center px-12 py-8 text-white sm:px-16 lg:px-20">

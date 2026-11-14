@@ -22,5 +22,6 @@ final class DatabaseSeeder extends Seeder
         $this->call(FashionCatalogSeeder::class);
         $this->call(FashionProductsSeeder::class);
         $this->call(FashionRealDataSeeder::class);
+        $this->call(PromotionSeeder::class);
     }
 }

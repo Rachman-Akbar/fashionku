@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, getApiMessage, unwrapApiData } from "@/core/utils/apiClient";
+import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import {
   getProductById,
@@ -58,7 +59,7 @@ function normalizeCartItem(item = {}) {
       item.available_stock ?? item.availableStock ?? item.stock ?? 0,
     ),
     maxOrderQty: Number(item.max_order_qty ?? item.maxOrderQty ?? 0),
-    imageUrl: item.thumbnail || item.image || item.image_url || "",
+    imageUrl: resolveMediaUrl(item.thumbnail || item.image || item.image_url || ""),
     attributes,
   };
 }

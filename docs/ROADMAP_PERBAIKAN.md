@@ -7,8 +7,8 @@ Dokumen ini mencakup semua perbaikan yang belum selesai berdasarkan gap analysis
 | Item | Status |
 |------|--------|
 | `php artisan test` | **129 passed / 521 assertions** (hijau) |
-| `npm run build` | **Hijau** (~34s) |
-| Perbaikan DONE (terimplementasi) | G-01–G-07, G-10–G-13, G-14, G-15, G-16, G-17, G-18, G-19, G-20–G-24 |
+| `npm run build` | **Hijau** (~40s) |
+| Perbaikan DONE (terimplementasi) | G-01–G-07, G-10–G-13, G-14, G-15, G-16, G-17, G-18, G-19, G-20–G-24, UX-01–03, BUG-01–02 |
 | Perbaikan BELUM SELESAI | (semua fase selesai) |
 
 ---
@@ -133,5 +133,17 @@ Tabel `schedules` sudah ada dan kini didukung oleh domain/route/UI lengkap.
 | 2 | Fase 2 — Import/export (inti permintaan user; G-16 bahan baku sudah siap) | **[SELESAI]** G-15 |
 | 3 | Fase 3 — Schedule (menopang G-11 kapasitas booking) | **[SELESAI]** G-17 |
 | 4 | Fase 4 — Chart.js (UI/UX terakhir, independen) | **[SELESAI]** G-18, G-19 |
+
+## Perbaikan Tambahan (UX & Bug Fix) **[SELESAI]**
+
+| ID | Masalah | Aksi Perbaikan | Status |
+|----|---------|----------------|--------|
+| UX-01 | Tombol cart tidak meng-scroll halaman ke atas | Tambah `window.scrollTo({top:0, behavior:'smooth'})` pada `handleAddToCart`, `handleCardOrderAction` (ProductCard), `handleAddCart` (ProductCheckoutPanel), dan `onAddToCart` (CartPage WishlistTab) | **[SELESAI]** |
+| UX-02 | Tab switch di halaman cart tidak sticky saat scroll | Ganti `TabNavigation` di `CartPage.jsx` agar sticky dengan `var(--main-nav-offset, 96px)` dan desain sama seperti `ProductFeed` (border-bottom, scrollable, teks lebih besar) | **[SELESAI]** |
+| BUG-01 | Gambar tidak muncul di semua data bergambar (cart, order, dll.) | Tambah `resolveMediaUrl` pada `normalizeCartItem` di `CartContext.jsx`; tambah `onError` fallback placeholder pada `ProductCard`, `CartItemRow`, `ImageGallery`, `ProductCheckoutPanel` | **[SELESAI]** |
+| UX-03 | Carousel promosi mundur saat looping terakhir ke awal | Tambah kloning item pertama di akhir array, reset ke 0 setelah transisi selesai, hapus `loading="lazy"` agar gambar segera tampil | **[SELESAI]** `HomePromoSection.jsx` |
+| BUG-02 | `window.open` pada tombol "Kunjungi di Marketplace" di detail review | Ganti dengan `navigate()` ke halaman produk | **[SELESAI]** `ReviewDetailPage.jsx` |
+| BUG-03 | Profile button menampilkan dropdown multi-item saat hover/klik | Ganti dengan hanya tombol Logout yang muncul saat klik | **[SELESAI]** `Navbar.jsx` |
+| BUG-04 | Gambar produk masih tampil blank | Jalankan `php artisan storage:link`; database sudah memiliki 1012 product_images dengan URL picsum.photos; fallback placeholder sudah ditambahkan di setiap `onError` img | **[SELESAI]** |
 
 Setiap fase telah divalidasi dengan `php artisan test` dan `npm run build`.

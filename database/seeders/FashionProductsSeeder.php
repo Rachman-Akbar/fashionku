@@ -163,27 +163,6 @@ final class FashionProductsSeeder extends Seeder
             ]);
         }
 
-        // ── Banner toko ─────────────────────────────────────────────────────
-        $banners = [
-            ['Koleksi Baru: Pakaian Pria', 'fku-banner-pria', 10],
-            ['Dress & Outerwear Wanita', 'fku-banner-wanita', 20],
-            ['Diskon Sneakers & Tas', 'fku-banner-aksesori', 30],
-        ];
-
-        foreach ($banners as [$name, $seed, $sort]) {
-            DB::table('banners')->insert([
-                'store_id' => $storeId,
-                'name' => $name,
-                'image_url' => 'https://picsum.photos/seed/'.$seed.'/1200/480',
-                'sort_order' => $sort,
-                'is_active' => true,
-                'created_by' => $actorId,
-                'updated_by' => $actorId,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
-        }
-
         // ── Voucher ─────────────────────────────────────────────────────────
         $vouchers = [
             ['WELCOME20', 'Voucher Sambutan Fashionku', 'product', 'fixed', 20000, 150000, null, 500, 'platform', null],
@@ -218,6 +197,6 @@ final class FashionProductsSeeder extends Seeder
             ]);
         }
 
-        $this->command?->info('Fashionku: '.count($products).' produk, '.count($variantList).' varian, '.count($banners).' banner, '.count($vouchers).' voucher selesai.');
+        $this->command?->info('Fashionku: '.count($products).' produk, '.count($variantList).' varian, '.count($vouchers).' voucher selesai.');
     }
 }

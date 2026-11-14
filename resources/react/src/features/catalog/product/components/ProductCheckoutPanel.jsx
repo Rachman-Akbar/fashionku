@@ -118,6 +118,7 @@ export function ProductCheckoutPanel({
       });
 
       toastSuccess("Keranjang", "Produk berhasil ditambahkan ke keranjang.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
       toastError("Keranjang", getApiMessage(error, "Produk gagal ditambahkan ke keranjang."));
     } finally {
@@ -206,6 +207,9 @@ export function ProductCheckoutPanel({
           src={image}
           alt={variantName}
           className="h-12 w-12 rounded-md object-cover"
+          onError={(e) => {
+            e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";
+          }}
         />
 
         <span className="truncate text-sm text-gray-700">

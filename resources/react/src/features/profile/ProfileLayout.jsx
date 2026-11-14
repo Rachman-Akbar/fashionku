@@ -8,10 +8,12 @@ import {
   UserRound,
   WalletCards,
 } from "lucide-react";
+import { Navbar } from "@/shared/layout/Navbar";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { profileLayout } from "@/features/profile/components/profileLayoutClasses";
 import { RouteOutletBoundary } from "@/shared/layout/RouteOutletBoundary";
 import { cn } from "@/shared/utils/utils";
+import PageTransitionLoader from "@/shared/layout/PageTransitionLoader";
 
 const NAV_ITEMS = [
   { href: "/profile/chat", label: "Chat", icon: MessageSquare },
@@ -85,11 +87,15 @@ const ProfileNavigation = memo(function ProfileNavigation() {
 
 export default function ProfileLayout() {
   return (
-    <div className="flex h-[100dvh] w-full max-w-full overflow-hidden bg-white text-slate-900">
-      <ProfileNavigation />
-      <main className="relative min-w-0 max-w-full flex-1 overflow-hidden pb-16 md:pb-0">
-        <RouteOutletBoundary className="h-full w-full min-w-0 max-w-full overflow-hidden" />
-      </main>
+    <div className="flex h-[100dvh] w-full max-w-full flex-col overflow-hidden bg-white text-slate-900">
+      <Navbar />
+      <PageTransitionLoader />
+      <div className="flex flex-1 min-w-0 overflow-hidden">
+        <ProfileNavigation />
+        <main className="relative min-w-0 max-w-full flex-1 overflow-hidden pb-16 md:pb-0">
+          <RouteOutletBoundary className="h-full w-full min-w-0 max-w-full overflow-hidden" />
+        </main>
+      </div>
     </div>
   );
 }

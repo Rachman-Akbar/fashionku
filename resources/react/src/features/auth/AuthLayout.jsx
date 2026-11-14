@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { RouteOutletBoundary } from "@/shared/layout/RouteOutletBoundary";
+import PageTransitionLoader from "@/shared/layout/PageTransitionLoader";
 
 const BENEFITS = [
   "Belanja lebih cepat dengan voucher dan promo pilihan",
@@ -10,6 +11,7 @@ const BENEFITS = [
 export default function AuthLayout() {
   return (
     <div className="min-h-screen bg-[#f3f4f6]">
+      <PageTransitionLoader />
       <main className="flex min-h-screen items-center justify-center px-4 py-8">
         <div className="grid w-full max-w-6xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.12)] lg:grid-cols-[1.08fr_0.92fr]">
           <section className="relative hidden min-h-[680px] overflow-hidden bg-gradient-to-br from-[#10B981] via-[#10B981] to-[#008c47] p-10 text-white lg:block">
