@@ -14,7 +14,6 @@ import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 
 export const VOUCHER_TABLE_COLUMNS = [
   { key: "voucher", label: "Voucher" },
-  { key: "scope", label: "Cakupan" },
   { key: "image", label: "Gambar" },
   { key: "discount", label: "Diskon" },
   { key: "minSpend", label: "Min. Belanja", defaultVisible: false },
@@ -26,7 +25,7 @@ export const VOUCHER_TABLE_COLUMNS = [
   { key: "active", label: "Status" },
 ];
 
-const widths = { voucher: 250, scope: 200, image: 110, discount: 180, minSpend: 150, minItems: 130, terms: 260, maxDiscount: 170, period: 190, usage: 150, active: 130 };
+const widths = { voucher: 250, image: 110, discount: 180, minSpend: 150, minItems: 130, terms: 260, maxDiscount: 170, period: 190, usage: 150, active: 130 };
 
 function discountLabel(row) {
   const value = row.discountType === "percentage" ? `${row.discountValue}%` : formatPrice(row.discountValue);
@@ -52,7 +51,6 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
 
   const getValue = useCallback((row, key) => {
     if (key === "voucher") return row.name || "";
-    if (key === "scope") return row.voucherScope || "";
     if (key === "image") return row.imageUrl || row.image || "";
     if (key === "discount") return `${row.discountTarget || ""} ${row.discountType || ""} ${row.discountValue ?? ""}`;
     if (key === "minSpend") return row.minSpend;
@@ -65,7 +63,7 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
     return row[key] ?? row.raw?.[key];
   }, []);
 
-  const filterTypes = useMemo(() => ({ voucher: "text", scope: "select", discount: "text", minSpend: "range", minItems: "range", terms: "text", maxDiscount: "range", period: "text", usage: "range", active: "select" }), []);
+  const filterTypes = useMemo(() => ({ voucher: "text", discount: "text", minSpend: "range", minItems: "range", terms: "text", maxDiscount: "range", period: "text", usage: "range", active: "select" }), []);
   const { rows: tableRows, columnFilters, changeFilter, sortBy, sortDirection, setSort, resetFilters, resetSort } = useColumnFilterState({ rows, getValue, filterTypes });
 
   const interactiveProps = (column) => ({
@@ -83,7 +81,6 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
   const renderHeader = (column) => {
     if (column.key.startsWith("raw:")) return <InteractiveTableHeader key={column.key} {...interactiveProps(column)}>{column.label}</InteractiveTableHeader>;
     if (column.key === "voucher") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Voucher" sortKey="voucher" sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSort} filterType="text" filterValue={columnFilters.voucher || ""} onFilterChange={(value) => changeFilter("voucher", value)} placeholder="Cari voucher" />;
-    if (column.key === "scope") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Cakupan" sortKey="scope" sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSort} filterType="select" filterValue={columnFilters.scope || ""} onFilterChange={(value) => changeFilter("scope", value)} options={[{ value: "store", label: "Store" }, { value: "platform", label: "Platform" }]} />;
     if (column.key === "image") return <InteractiveTableHeader key={column.key} {...interactiveProps(column)}>Gambar</InteractiveTableHeader>;
     if (column.key === "discount") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Diskon" sortKey="discount" sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSort} filterType="text" filterValue={columnFilters.discount || ""} onFilterChange={(value) => changeFilter("discount", value)} placeholder="Cari diskon" />;
     if (column.key === "minSpend") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Min. Belanja" align="right" filterType="range" filterValue={columnFilters.minSpend || { min: "", max: "" }} onFilterChange={(value) => changeFilter("minSpend", value)} minPlaceholder="Min" maxPlaceholder="Max" />;
@@ -98,7 +95,6 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
   const renderCell = (column, row) => {
     if (column.key.startsWith("raw:")) return <td key={column.key} className="max-w-72 truncate px-4 py-3 text-slate-600">{formatTableValue(row.raw?.[column.rawKey])}</td>;
     if (column.key === "voucher") return <td key={column.key} className="px-4 py-3"><p className="font-extrabold text-slate-900">{toTitleCase(row.name)}</p><p className="mt-1 text-xs font-bold uppercase text-emerald-700">{row.code}</p></td>;
-    if (column.key === "scope") return <td key={column.key} className="px-4 py-3"><span className={`px-2.5 py-1 text-xs font-extrabold ${row.voucherScope === "store" ? "bg-emerald-50 text-emerald-700" : "bg-teal-50 text-teal-700"}`}>{row.voucherScope === "store" ? toTitleCase(row.storeName || `Toko ${row.storeId}`) : "Platform"}</span></td>;
     if (column.key === "image") return <td key={column.key} className="px-4 py-3">{row.imageUrl || row.image ? <img src={resolveMediaUrl(row.imageUrl || row.image)} alt={row.name} className="h-12 w-20 object-cover" loading="lazy" onError={(e) => { e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E"; }} /> : "-"}</td>;
     if (column.key === "discount") return <td key={column.key} className="px-4 py-3 font-bold text-slate-700">{discountLabel(row)}</td>;
     if (column.key === "minSpend") return <td key={column.key} className="px-4 py-3 text-right text-slate-600">{formatPrice(row.minSpend)}</td>;

@@ -116,8 +116,6 @@ final class EloquentCartRepository implements CartRepositoryInterface
                 'cart_item_id' => (int) $itemModel->id,
                 'variant_id' => $details->getId(),
                 'product_id' => $details->getProductId(),
-                'store_id' => $details->getStoreId(),
-                'store_name' => $details->getStoreName(),
                 'product_name' => $details->getProductName(),
                 'name' => $details->getName(),
                 'sku' => $details->getSku(),

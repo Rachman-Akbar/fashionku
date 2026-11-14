@@ -13,10 +13,6 @@ function normalizeRoles(values = []) {
     : [];
 }
 
-function resolveStore(session = {}) {
-  return session?.store || session?.user?.store || null;
-}
-
 function getLoginPath(role, redirect) {
   const path = role === "admin" ? "/admin/login" : "/auth/login";
   const params = new URLSearchParams({ redirect });
@@ -58,13 +54,6 @@ export default function RoleSwitchPage() {
 
       if (!roles.includes(targetRole) && activeRole !== targetRole) {
         navigate(getLoginPath(targetRole, redirect), { replace: true });
-        return;
-      }
-
-      if (targetRole === "seller" && !resolveStore(currentSession)?.id) {
-        // Single-store: toko disiapkan lewat seeding/instalasi, bukan
-        // onboarding mandiri. Kembali ke marketplace bila toko belum ada.
-        navigate("/", { replace: true });
         return;
       }
 

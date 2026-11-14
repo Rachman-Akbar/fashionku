@@ -43,19 +43,14 @@ final class UpdateProductRequest extends FormRequest
     public function rules(): array
     {
         $id = (int) $this->route('id');
-        $currentStoreId = DB::table('products')->where('id', $id)->value('store_id');
-        $storeId = $this->input('store_id') ?: $currentStoreId;
 
         return [
-            'store_id' => ['nullable', 'integer', 'exists:stores,id'],
             'primary_category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'name' => [
                 'sometimes',
                 'string',
                 'max:255',
-                Rule::unique('products', 'name')
-                    ->where(fn ($query) => $query->where('store_id', $storeId))
-                    ->ignore($id),
+                Rule::unique('products', 'name')->ignore($id),
             ],
             'slug' => ['nullable', 'string', 'max:255', Rule::unique('products', 'slug')->ignore($id)],
             'description' => ['nullable', 'string'],
@@ -80,20 +75,18 @@ final class UpdateProductRequest extends FormRequest
                 'string',
                 'max:100',
                 'distinct',
-                function (string $attribute, mixed $value, $fail) use ($storeId): void {
+                function (string $attribute, mixed $value, $fail): void {
                     preg_match('/variants\.(\d+)\.sku/', $attribute, $matches);
                     $index = isset($matches[1]) ? (int) $matches[1] : null;
                     $variantId = $index !== null ? $this->input("variants.{$index}.id") : null;
-                    $query = DB::table('product_variants')
-                        ->where('sku', $value)
-                        ->where('store_id', $storeId);
+                    $query = DB::table('product_variants')->where('sku', $value);
 
                     if ($variantId) {
                         $query->where('id', '!=', $variantId);
                     }
 
                     if ($query->exists()) {
-                        $fail("The SKU '{$value}' has already been taken in this store.");
+                        $fail("The SKU '{$value}' has already been taken.");
                     }
                 },
             ],

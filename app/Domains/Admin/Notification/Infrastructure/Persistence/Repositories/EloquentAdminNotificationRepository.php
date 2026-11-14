@@ -13,7 +13,7 @@ final class EloquentAdminNotificationRepository implements AdminNotificationRepo
     public function paginateForUser(string $userId, array $filters, int $perPage): LengthAwarePaginator
     {
         return AdminNotificationModel::query()
-            ->with(['actor:id,name,avatar', 'store:id,name,logo'])
+            ->with(['actor:id,name,avatar'])
             ->where('user_id', $userId)
             ->where('is_active', true)
             ->when($filters['module'] ?? null, fn ($query, $module) => $query->where('module', $module))
@@ -29,7 +29,7 @@ final class EloquentAdminNotificationRepository implements AdminNotificationRepo
     public function findForUser(int $id, string $userId): ?AdminNotificationModel
     {
         return AdminNotificationModel::query()
-            ->with(['actor:id,name,avatar', 'store:id,name,logo'])
+            ->with(['actor:id,name,avatar'])
             ->where('user_id', $userId)
             ->whereKey($id)
             ->first();
@@ -39,7 +39,7 @@ final class EloquentAdminNotificationRepository implements AdminNotificationRepo
     {
         $model->save();
 
-        return $model->refresh()->load(['actor:id,name,avatar', 'store:id,name,logo']);
+        return $model->refresh()->load(['actor:id,name,avatar']);
     }
 
     public function unreadCount(string $userId): int

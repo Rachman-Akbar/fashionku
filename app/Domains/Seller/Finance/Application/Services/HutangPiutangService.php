@@ -9,9 +9,9 @@ use Carbon\Carbon;
 
 class HutangPiutangService
 {
-    public function getSummary(int $storeId): array
+    public function getSummary(): array
     {
-        $base = FinancialTransactionModel::where('store_id', $storeId)
+        $base = FinancialTransactionModel::query()
             ->whereIn('type', ['payable', 'receivable'])
             ->where('is_active', true);
 
@@ -43,17 +43,17 @@ class HutangPiutangService
         ];
     }
 
-    public function getAging(int $storeId): array
+    public function getAging(): array
     {
         $today = Carbon::today();
 
-        $payables = FinancialTransactionModel::where('store_id', $storeId)
+        $payables = FinancialTransactionModel::query()
             ->where('type', 'payable')
             ->whereIn('status', ['open', 'partial'])
             ->where('is_active', true)
             ->get();
 
-        $receivables = FinancialTransactionModel::where('store_id', $storeId)
+        $receivables = FinancialTransactionModel::query()
             ->where('type', 'receivable')
             ->whereIn('status', ['open', 'partial'])
             ->where('is_active', true)
@@ -65,10 +65,9 @@ class HutangPiutangService
         ];
     }
 
-    public function getDetail(int $storeId, string $type): array
+    public function getDetail(string $type): array
     {
         $transactions = FinancialTransactionModel::with(['payments' => fn ($q) => $q->orderBy('paid_at')])
-            ->where('store_id', $storeId)
             ->where('type', $type)
             ->whereIn('status', ['open', 'partial'])
             ->where('is_active', true)
@@ -106,9 +105,9 @@ class HutangPiutangService
         })->all();
     }
 
-    public function exportReport(int $storeId, string $type, ?string $fromDate = null, ?string $toDate = null): string
+    public function exportReport(string $type, ?string $fromDate = null, ?string $toDate = null): string
     {
-        $query = FinancialTransactionModel::where('store_id', $storeId)
+        $query = FinancialTransactionModel::query()
             ->where('type', $type)
             ->where('is_active', true);
 
@@ -121,7 +120,6 @@ class HutangPiutangService
 
         $transactions = $query->orderBy('occurred_at')->get();
 
-        $typeName = $type === 'payable' ? 'Hutang' : 'Piutang';
         $csv = "No,Ref Number,Tanggal,Judul,Total,Jumlah Bayar,Sisa,Tanggal Jatuh Tempo,Status\n";
 
         foreach ($transactions as $i => $t) {

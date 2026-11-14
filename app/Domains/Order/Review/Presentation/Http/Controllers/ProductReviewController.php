@@ -9,7 +9,6 @@ use App\Domains\Order\Review\Domain\Repositories\ProductReviewRepositoryInterfac
 use App\Domains\Order\Review\Presentation\Http\Requests\ProductReviewRequest;
 use App\Domains\Order\Review\Presentation\Http\Resources\ProductReviewResource;
 use App\Domains\Shared\Presentation\Http\Concerns\ResolvesActiveRole;
-use App\Domains\Shared\Presentation\Http\Concerns\ResolvesSellerStoreContext;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,14 +17,12 @@ use InvalidArgumentException;
 final class ProductReviewController extends Controller
 {
     use ResolvesActiveRole;
-    use ResolvesSellerStoreContext;
 
     public function publicIndex(Request $request, int $productId, ProductReviewRepositoryInterface $repository): JsonResponse
     {
         $rows = $repository->paginate(
             ['product_id' => $productId, 'rating' => $request->query('rating'), 'is_active' => true],
             min(100, max(1, (int) $request->query('per_page', 20))),
-            null,
             null
         );
 
@@ -39,8 +36,7 @@ final class ProductReviewController extends Controller
         $rows = $service->paginate(
             $request->only(['product_id', 'rating', 'is_active', 'search']),
             min(100, max(1, (int) $request->query('per_page', 20))),
-            $isAdmin || $isSeller ? null : (string) $request->user()->id,
-            $isSeller ? $this->resolveSellerStoreId($request) : null
+            $isAdmin || $isSeller ? null : (string) $request->user()->id
         );
 
         return ProductReviewResource::collection($rows)->additional(['success' => true])->response();

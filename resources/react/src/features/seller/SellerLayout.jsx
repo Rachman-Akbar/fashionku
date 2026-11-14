@@ -56,7 +56,7 @@ export default function SellerLayout() {
               mobileNavigation={<PanelMobileNavigation items={SELLER_NAV_ITEMS} activeClassName="bg-emerald-50 text-emerald-700" />}
             />
             <PanelTabBar />
-            <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/60 px-4 pb-20 sm:px-6 lg:px-8 lg:pb-6">
+            <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-white px-4 pb-20 sm:px-6 lg:px-8 lg:pb-6">
               <div className="mx-auto w-full max-w-6xl py-6">
                 <RouteOutletBoundary className="h-full w-full min-w-0 max-w-full" />
               </div>

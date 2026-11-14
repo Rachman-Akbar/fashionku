@@ -9,7 +9,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface ProductReviewRepositoryInterface
 {
-    public function paginate(array $filters, int $perPage, ?string $userId, ?int $storeId): LengthAwarePaginator;
+    public function paginate(array $filters, int $perPage, ?string $userId): LengthAwarePaginator;
 
     public function find(int $id): ?ProductReviewModel;
 

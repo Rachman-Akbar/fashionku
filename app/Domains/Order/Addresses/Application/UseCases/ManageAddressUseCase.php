@@ -11,7 +11,6 @@ use App\Domains\Order\Addresses\Infrastructure\Persistence\Mappers\AddressMapper
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 use Throwable;
 
 final class ManageAddressUseCase
@@ -21,9 +20,9 @@ final class ManageAddressUseCase
         private ResolveAddressDestinationUseCase $resolveDestinationUseCase
     ) {}
 
-    public function listAddresses(?string $userId, ?string $storeId): Collection
+    public function listAddresses(?string $userId): Collection
     {
-        return $this->addressRepository->getByOwner($userId, $storeId);
+        return $this->addressRepository->getByOwner($userId);
     }
 
     public function createAddress(AddressDTO $dto): Address
@@ -31,22 +30,12 @@ final class ManageAddressUseCase
         $this->resolveDestination($dto);
 
         return DB::transaction(function () use ($dto): Address {
-            if ($dto->store_id !== null && $this->addressRepository->hasAddresses(null, $dto->store_id)) {
-                throw ValidationException::withMessages([
-                    'store_id' => ['Satu toko hanya boleh memiliki satu alamat. Gunakan endpoint update untuk mengubah alamat toko.'],
-                ]);
-            }
-
-            $isFirstAddress = ! $this->addressRepository->hasAddresses($dto->user_id, $dto->store_id);
+            $isFirstAddress = ! $this->addressRepository->hasAddresses($dto->user_id);
             $address = new Address(AddressMapper::toEntityArray($dto));
-
-            if ($dto->store_id !== null) {
-                $address->is_primary = true;
-            }
 
             $this->addressRepository->save($address);
 
-            if ($dto->is_primary || $isFirstAddress || $dto->store_id !== null) {
+            if ($dto->is_primary || $isFirstAddress) {
                 $address->markAsPrimary();
             }
 
@@ -57,7 +46,7 @@ final class ManageAddressUseCase
     public function updateAddress(int $id, AddressDTO $dto): Address
     {
         return DB::transaction(function () use ($id, $dto): Address {
-            $address = $this->addressRepository->findByIdAndOwner($id, $dto->user_id, $dto->store_id);
+            $address = $this->addressRepository->findByIdAndOwner($id, $dto->user_id);
 
             if (! $address) {
                 throw new ModelNotFoundException('Alamat tidak ditemukan atau Anda tidak memiliki akses.');
@@ -68,17 +57,13 @@ final class ManageAddressUseCase
             $wasPrimary = (bool) $address->is_primary;
             $address->fill(AddressMapper::toEntityArray($dto));
 
-            if ($dto->store_id !== null) {
-                $address->is_primary = true;
-            }
-
             $this->addressRepository->save($address);
 
-            if ($dto->is_primary || $dto->store_id !== null) {
+            if ($dto->is_primary) {
                 $address->markAsPrimary();
             } elseif ($wasPrimary && $dto->user_id !== null) {
                 $replacement = $this->addressRepository
-                    ->getByOwner($dto->user_id, null)
+                    ->getByOwner($dto->user_id)
                     ->first(fn (Address $item): bool => $item->getKey() !== $address->getKey());
 
                 if ($replacement) {
@@ -92,10 +77,10 @@ final class ManageAddressUseCase
         });
     }
 
-    public function deleteAddress(int $id, ?string $userId, ?string $storeId): bool
+    public function deleteAddress(int $id, ?string $userId): bool
     {
-        return DB::transaction(function () use ($id, $userId, $storeId): bool {
-            $address = $this->addressRepository->findByIdAndOwner($id, $userId, $storeId);
+        return DB::transaction(function () use ($id, $userId): bool {
+            $address = $this->addressRepository->findByIdAndOwner($id, $userId);
 
             if (! $address) {
                 throw new ModelNotFoundException('Alamat tidak ditemukan atau Anda tidak memiliki akses.');
@@ -105,7 +90,7 @@ final class ManageAddressUseCase
             $deleted = $this->addressRepository->delete($address);
 
             if ($deleted && $wasPrimary && $userId !== null) {
-                $replacement = $this->addressRepository->getByOwner($userId, null)->first();
+                $replacement = $this->addressRepository->getByOwner($userId)->first();
                 $replacement?->markAsPrimary();
             }
 

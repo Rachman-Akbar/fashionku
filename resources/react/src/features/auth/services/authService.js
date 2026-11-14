@@ -48,26 +48,6 @@ function getFirstValue(...values) {
   return values.find((value) => value !== undefined && value !== null && value !== "");
 }
 
-function hasOwn(object, key) {
-  return Boolean(
-    object &&
-      typeof object === "object" &&
-      Object.prototype.hasOwnProperty.call(object, key),
-  );
-}
-
-function resolveSessionStore(source, nestedSource, userSource, fallbackSession) {
-  const candidates = [source, nestedSource, userSource];
-
-  for (const candidate of candidates) {
-    if (hasOwn(candidate, "store")) {
-      return candidate.store ?? null;
-    }
-  }
-
-  return hasOwn(fallbackSession, "store") ? fallbackSession.store : null;
-}
-
 function normalizeRole(value) {
   if (typeof value === "string") {
     return value.toLowerCase().trim();
@@ -250,12 +230,6 @@ export function normalizeAuthPayload(payload = {}, fallbackSession = null) {
     },
     roles,
     activeRole,
-    store: resolveSessionStore(
-      source,
-      nestedSource,
-      userSource,
-      fallbackSession,
-    ),
     storageScope: fallbackSession?.storageScope || "base",
   };
 }

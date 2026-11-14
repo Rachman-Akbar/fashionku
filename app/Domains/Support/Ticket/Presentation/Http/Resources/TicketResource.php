@@ -29,8 +29,6 @@ final class TicketResource extends JsonResource
             'user_id' => $this->user_id,
             'user_name' => $this->user?->name,
             'user_email' => $this->user?->email,
-            'store_id' => $this->store_id,
-            'store_name' => $this->store?->name,
             'order_id' => $this->order_id,
             'order_number' => $this->order?->order_number,
             'category' => $this->category,

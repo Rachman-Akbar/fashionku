@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Seller;
 
-use App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel;
+use App\Domains\Shared\Settings\Infrastructure\Persistence\Models\AppSettingModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\InteractsAsUser;
 use Tests\TestCase;
@@ -36,47 +36,65 @@ class StoreCrudTest extends TestCase
 
     public function test_self_service_seller_registration_route_is_removed(): void
     {
-        $this->actingAsRole('seller');
+        $seller = $this->actingAsSeller();
 
         $this->postJson('/api/v1/identity/auth/register-seller', $this->storePayload())
             ->assertNotFound();
     }
 
-    public function test_seller_can_update_own_store(): void
+    public function test_seller_can_get_shop_profile(): void
     {
-        [$seller, $store] = $this->actingAsSeller();
+        $seller = $this->actingAsSeller();
 
-        $this->putJson('/api/v1/seller/store', [
-            'store_name' => 'Toko Maju',
-            'description' => 'Deskripsi baru.',
-            'phone' => '081299998888',
-            'city' => 'Bandung',
-            'province' => 'Jawa Barat',
-            'address' => 'Jl. Baru No. 1',
-        ])->assertOk();
+        $response = $this->getJson('/api/v1/seller/settings/store')
+            ->assertOk();
 
-        $store->refresh();
-        $this->assertSame('Toko Maju', $store->name);
-        $this->assertSame('Bandung', $store->city);
+        $this->assertTrue($response->json('success'));
+        $this->assertArrayHasKey('data', $response->json());
     }
 
-    public function test_admin_can_operate_the_seller_store_panel(): void
+    public function test_seller_can_update_shop_profile(): void
     {
-        // Single-store: admin adalah operator/penjual yang sama.
-        $admin = $this->actingAsRole('admin');
-        $this->makeStore($admin);
+        $seller = $this->actingAsSeller();
 
-        $this->putJson('/api/v1/seller/store', [
+        $response = $this->putJson('/api/v1/seller/settings/store', [
+            'store_name' => 'Toko Maju',
+            'description' => 'Deskripsi baru.',
+            'city' => 'Bandung',
+        ])->assertOk();
+
+        $this->assertTrue($response->json('success'));
+
+        // Verify persisted in app_settings
+        $this->assertDatabaseHas('app_settings', [
+            'key' => 'store.name',
+            'value' => 'Toko Maju',
+        ]);
+
+        // Verify GET returns updated profile
+        $get = $this->getJson('/api/v1/seller/settings/store')->assertOk();
+        $this->assertSame('Toko Maju', $get->json('data.store_name'));
+        $this->assertSame('Deskripsi baru.', $get->json('data.description'));
+        $this->assertSame('Bandung', $get->json('data.city'));
+    }
+
+    public function test_admin_can_operate_shop_profile(): void
+    {
+        $admin = $this->actingAsRole('admin');
+
+        $this->putJson('/api/v1/seller/settings/store', [
             'store_name' => 'Toko Admin',
             'description' => 'Dikelola admin.',
             'phone' => '081200001111',
             'city' => 'Surabaya',
-            'province' => 'Jawa Timur',
-            'address' => 'Jl. Admin No. 2',
         ])->assertOk();
 
-        $store = StoreModel::query()->whereNull('deleted_at')->orderBy('id')->first();
-        $this->assertNotNull($store);
-        $this->assertSame('Toko Admin', $store->name);
+        $this->assertDatabaseHas('app_settings', [
+            'key' => 'store.name',
+            'value' => 'Toko Admin',
+        ]);
+
+        $get = $this->getJson('/api/v1/seller/settings/store')->assertOk();
+        $this->assertSame('Toko Admin', $get->json('data.store_name'));
     }
 }

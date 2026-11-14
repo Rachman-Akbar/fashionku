@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Catalog\Promotion\Infrastructure\Persistence\Models;
 
 use App\Domains\Identity\User\Domain\Entities\User;
-use App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\HasActiveStatus;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Model;
@@ -22,7 +21,6 @@ final class PromotionPaymentModel extends Model
     protected $table = 'promotion_payments';
 
     protected $fillable = [
-        'store_id',
         'user_id',
         'payment_number',
         'package_name',
@@ -40,18 +38,12 @@ final class PromotionPaymentModel extends Model
     ];
 
     protected $casts = [
-        'store_id' => 'integer',
         'amount' => 'decimal:2',
         'paid_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'is_active' => 'boolean',
         'deleted_at' => 'datetime',
     ];
-
-    public function store(): BelongsTo
-    {
-        return $this->belongsTo(StoreModel::class, 'store_id');
-    }
 
     public function user(): BelongsTo
     {

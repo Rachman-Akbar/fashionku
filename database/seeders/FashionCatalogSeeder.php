@@ -126,25 +126,6 @@ final class FashionCatalogSeeder extends Seeder
             ]);
         }
 
-        // ── Biaya layanan per kategori (komisi platform) ────────────────────
-        foreach ($leafIds as $slug => $categoryId) {
-            DB::table('admin_fee_configs')->insert([
-                'category_id' => $categoryId,
-                'name' => 'Biaya layanan '.ucfirst(str_replace('-', ' ', $slug)),
-                'code' => 'fee-'.$slug,
-                'percentage' => 2.5,
-                'fixed_amount' => 0,
-                'min_fee' => 500,
-                'max_fee' => 25000,
-                'is_active' => true,
-                'description' => 'Biaya layanan platform untuk transaksi kategori ini.',
-                'created_by' => $actorId,
-                'updated_by' => $actorId,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
-        }
-
         $this->command?->info('Fashionku: katalog selesai — '.$categoryCount.' kategori, '.count($leafIds).' leaf, '.count($attributes).' atribut.');
     }
 

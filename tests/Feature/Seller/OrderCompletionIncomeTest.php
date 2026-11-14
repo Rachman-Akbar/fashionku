@@ -11,7 +11,6 @@ use App\Domains\Order\Ordering\Infrastructure\Persistence\Models\OrderModel;
 use App\Domains\Order\Ordering\Infrastructure\Persistence\Models\SubOrderModel;
 use App\Domains\Seller\Finance\Application\Services\AutoOrderIncomeService;
 use App\Domains\Seller\Finance\Infrastructure\Persistence\Models\FinancialTransactionModel;
-use App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\Support\InteractsAsUser;
@@ -22,11 +21,9 @@ class OrderCompletionIncomeTest extends TestCase
     use InteractsAsUser;
     use RefreshDatabase;
 
-    private function sellerBaseline(): array
+    private function sellerBaseline(): User
     {
         $seller = $this->actingAsRole('seller');
-        $store = $this->makeStore($seller);
-        $seller->unsetRelation('store');
 
         $permission = Permission::query()->firstOrCreate(
             ['name' => 'finance.manage'],
@@ -34,10 +31,10 @@ class OrderCompletionIncomeTest extends TestCase
         );
         Role::query()->firstWhere('name', 'seller')?->permissions()->syncWithoutDetaching([$permission->id]);
 
-        return [$seller, $store];
+        return $seller;
     }
 
-    private function makeOrderForStore(User $seller, StoreModel $store, string $status = 'received'): SubOrderModel
+    private function makeOrderForStore(User $seller, string $status = 'received'): SubOrderModel
     {
         $code = Str::upper(Str::random(6));
         $order = OrderModel::query()->create([
@@ -52,7 +49,6 @@ class OrderCompletionIncomeTest extends TestCase
 
         return SubOrderModel::query()->create([
             'order_id' => $order->id,
-            'store_id' => $store->id,
             'sub_order_number' => 'SUB-TEST-'.$code,
             'destination_id' => 'test-city',
             'total_items_price' => 50000,
@@ -61,10 +57,10 @@ class OrderCompletionIncomeTest extends TestCase
         ]);
     }
 
-    public function test_income_post_is_idempotent_per_store_and_order(): void
+    public function test_income_post_is_idempotent_per_order(): void
     {
-        [$seller, $store] = $this->sellerBaseline();
-        $subOrder = $this->makeOrderForStore($seller, $store);
+        $seller = $this->sellerBaseline();
+        $subOrder = $this->makeOrderForStore($seller);
 
         $payload = [
             'type' => 'income',
@@ -81,7 +77,6 @@ class OrderCompletionIncomeTest extends TestCase
         $this->assertSame(
             1,
             FinancialTransactionModel::query()
-                ->where('store_id', $store->id)
                 ->where('order_id', $subOrder->order_id)
                 ->where('type', 'income')
                 ->count(),
@@ -90,8 +85,8 @@ class OrderCompletionIncomeTest extends TestCase
 
     public function test_completing_order_after_income_post_does_not_duplicate_and_keeps_edited_values(): void
     {
-        [$seller, $store] = $this->sellerBaseline();
-        $subOrder = $this->makeOrderForStore($seller, $store);
+        $seller = $this->sellerBaseline();
+        $subOrder = $this->makeOrderForStore($seller);
 
         $this->postJson('/api/v1/seller/finance', [
             'type' => 'income',
@@ -110,7 +105,6 @@ class OrderCompletionIncomeTest extends TestCase
         $this->assertSame(
             1,
             FinancialTransactionModel::query()
-                ->where('store_id', $store->id)
                 ->where('order_id', $subOrder->order_id)
                 ->where('type', 'income')
                 ->count(),
@@ -129,16 +123,13 @@ class OrderCompletionIncomeTest extends TestCase
     public function test_auto_order_income_records_default_keterangan_title(): void
     {
         $seller = $this->makeUser([], ['seller']);
-        $store = $this->makeStore($seller);
-        $seller->unsetRelation('store');
 
-        $subOrder = $this->makeOrderForStore($seller, $store, 'completed');
+        $subOrder = $this->makeOrderForStore($seller, 'completed');
 
         $recorded = app(AutoOrderIncomeService::class)->recordForSubOrder((int) $subOrder->id, (string) $seller->id);
 
         $this->assertTrue($recorded);
         $this->assertDatabaseHas('financial_transactions', [
-            'store_id' => $store->id,
             'order_id' => $subOrder->order_id,
             'type' => 'income',
             'title' => 'Pemasukan sesuai dengan no order '.$subOrder->sub_order_number,

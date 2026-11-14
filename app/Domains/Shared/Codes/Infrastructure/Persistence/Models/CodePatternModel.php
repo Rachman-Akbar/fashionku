@@ -10,10 +10,5 @@ final class CodePatternModel extends Model
 {
     protected $table = 'code_patterns';
 
-    protected $fillable = ['store_id', 'type', 'pattern'];
-
-    public function store()
-    {
-        return $this->belongsTo(\App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel::class);
-    }
+    protected $fillable = ['type', 'pattern'];
 }

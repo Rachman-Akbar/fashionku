@@ -16,7 +16,7 @@ class ProductCrudTest extends TestCase
 
     public function test_seller_can_create_update_and_delete_product(): void
     {
-        [$seller, $store] = $this->actingAsSeller();
+        $seller = $this->actingAsSeller();
 
         $create = $this->postJson('/api/v1/catalog/seller/products', [
             'name' => 'Kulkas 2 Pintu',
@@ -29,7 +29,7 @@ class ProductCrudTest extends TestCase
         $create->assertOk();
         $id = $create->json('data.id') ?? $create->json('id');
         $this->assertNotNull($id, 'Product id must be returned on create');
-        $this->assertSame(1, ProductModel::query()->where('store_id', $store->id)->where('id', $id)->count());
+        $this->assertSame(1, ProductModel::query()->where('id', $id)->count());
 
         $update = $this->putJson("/api/v1/catalog/seller/products/{$id}", [
             'name' => 'Kulkas 2 Pintu Updated',
@@ -43,7 +43,7 @@ class ProductCrudTest extends TestCase
 
     public function test_public_catalog_lists_published_product(): void
     {
-        [$seller, $store] = $this->actingAsSeller();
+        $seller = $this->actingAsSeller();
 
         $this->postJson('/api/v1/catalog/seller/products', [
             'name' => 'Tas Ransel',
@@ -72,7 +72,7 @@ class ProductCrudTest extends TestCase
 
     public function test_public_catalog_sets_cache_headers(): void
     {
-        [$seller, $store] = $this->actingAsSeller();
+        $seller = $this->actingAsSeller();
 
         $this->postJson('/api/v1/catalog/seller/products', [
             'name' => 'Produk Cache',

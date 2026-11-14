@@ -78,14 +78,6 @@ export default function VoucherDropdown({
   return (
     <>
       <div className="mx-auto h-[460px] max-w-[1200px] overflow-y-auto overscroll-contain bg-white p-6">
-        <div className="mb-5 border-b border-gray-100 pb-3">
-          <h3 className="text-xl font-bold tracking-tight text-gray-900">
-            Voucher
-          </h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Pilih voucher yang tersedia untuk mendapatkan potongan belanja.
-          </p>
-        </div>
 
         {!loading && error ? (
           <div className="flex h-[300px] items-center justify-center text-sm text-red-500">

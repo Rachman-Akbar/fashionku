@@ -1,5 +1,4 @@
 import { Link, Outlet } from "react-router-dom";
-import { useAuth } from "@/features/auth/context/AuthContext";
 import { useSellerStore } from "@/features/seller/store/services/sellerStoreService";
 
 function LoadingScreen() {
@@ -23,20 +22,14 @@ function StoreUnavailableScreen({ title, message }) {
   );
 }
 
-/**
- * Fashionku adalah marketplace single-store: toko utama dibuat saat
- * instalasi/seeding, bukan lewat pendaftaran mandiri seller. Guard ini hanya
- * memastikan toko tersedia dan tidak ditangguhkan sebelum panel seller dibuka.
- */
 export default function SellerStoreGuard({ children }) {
-  const { store: sessionStore } = useAuth();
   const storeQuery = useSellerStore();
 
-  if (!sessionStore?.id && storeQuery.isLoading) {
+  if (storeQuery.isLoading) {
     return <LoadingScreen />;
   }
 
-  const store = storeQuery.data || sessionStore;
+  const store = storeQuery.data;
 
   if (!store?.id) {
     return (

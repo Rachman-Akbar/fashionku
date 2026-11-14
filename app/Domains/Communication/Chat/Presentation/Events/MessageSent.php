@@ -40,22 +40,16 @@ final class MessageSent implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
-        $store = $this->message->relationLoaded('conversation') && $this->message->conversation?->relationLoaded('store')
-            ? $this->message->conversation->store
-            : null;
-        $storeIdentity = $store !== null && (string) $store->user_id === (string) $this->message->sender_id;
-
         return [
             'id' => $this->message->id,
             'conversation_id' => $this->message->conversation_id,
             'conversation_type' => $this->message->conversation?->type,
-            'store_id' => $this->message->conversation?->store_id,
             'order_id' => $this->message->conversation?->order_id,
             'subject' => $this->message->conversation?->subject,
             'sender_id' => $this->message->sender_id,
-            'sender_name' => $storeIdentity ? $store->name : $this->message->sender?->name,
-            'sender_avatar' => $storeIdentity ? $store->logo : $this->message->sender?->avatar,
-            'sender_identity_type' => $storeIdentity ? 'store' : 'user',
+            'sender_name' => $this->message->sender?->name,
+            'sender_avatar' => $this->message->sender?->avatar,
+            'sender_identity_type' => 'user',
             'message_type' => $this->message->message_type,
             'message' => $this->message->message,
             'attachments' => $this->message->attachments,

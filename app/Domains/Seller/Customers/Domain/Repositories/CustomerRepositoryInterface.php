@@ -9,13 +9,13 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface CustomerRepositoryInterface
 {
-    public function paginate(array $filters, int $perPage, ?int $storeId): LengthAwarePaginator;
+    public function paginate(array $filters, int $perPage): LengthAwarePaginator;
 
-    public function findForStore(string $userId, ?int $storeId): ?User;
+    public function find(string $userId): ?User;
 
-    public function createManual(array $data, int $storeId): User;
+    public function createManual(array $data): User;
 
-    public function updateProfile(string $userId, array $data, ?int $storeId): ?User;
+    public function updateProfile(string $userId, array $data): ?User;
 
-    public function deleteForStore(string $userId, ?int $storeId): bool;
+    public function deleteCustomer(string $userId): bool;
 }

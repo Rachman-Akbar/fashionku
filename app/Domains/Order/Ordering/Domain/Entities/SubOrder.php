@@ -8,8 +8,6 @@ final class SubOrder
 {
     public function __construct(
         public ?int $id,
-        public int $storeId,
-        public string $storeName,
         public string $subOrderNumber,
         public float $totalItemsPrice,
         public float $shippingCost,

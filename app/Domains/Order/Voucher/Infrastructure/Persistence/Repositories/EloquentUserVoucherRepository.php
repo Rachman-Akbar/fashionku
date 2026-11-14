@@ -11,12 +11,12 @@ use Illuminate\Support\Collection;
 
 final class EloquentUserVoucherRepository implements UserVoucherRepositoryInterface
 {
-    private const VOUCHER_FIELDS = 'id,code,name,image,voucher_scope,discount_target,discount_type,discount_value,min_spend,min_items,min_distinct_products,terms,max_discount,starts_at,ends_at,usage_limit,used_count,is_active,created_at,store_id';
+    private const VOUCHER_FIELDS = 'id,code,name,image,discount_target,discount_type,discount_value,min_spend,min_items,min_distinct_products,terms,max_discount,starts_at,ends_at,usage_limit,used_count,is_active,created_at';
 
     private function baseQuery()
     {
         return UserVoucher::query()
-            ->with('voucher:'.self::VOUCHER_FIELDS, 'voucher.store:id,name');
+            ->with('voucher:'.self::VOUCHER_FIELDS);
     }
 
     public function forUser(string $userId): Collection
@@ -54,6 +54,6 @@ final class EloquentUserVoucherRepository implements UserVoucherRepositoryInterf
             ])->save();
         }
 
-        return $row->refresh()->load('voucher:'.self::VOUCHER_FIELDS, 'voucher.store:id,name');
+        return $row->refresh()->load('voucher:'.self::VOUCHER_FIELDS);
     }
 }

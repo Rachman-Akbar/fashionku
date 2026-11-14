@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domains\Order\Voucher\Domain\Entities;
 
-use App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\HasActiveStatus;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -23,8 +21,6 @@ final class Voucher extends Model
     protected $table = 'vouchers';
 
     protected $fillable = [
-        'store_id',
-        'voucher_scope',
         'code',
         'name',
         'image',
@@ -46,7 +42,6 @@ final class Voucher extends Model
     ];
 
     protected $casts = [
-        'store_id' => 'integer',
         'discount_value' => 'float',
         'min_spend' => 'float',
         'min_items' => 'integer',
@@ -61,22 +56,9 @@ final class Voucher extends Model
         'deleted_at' => 'datetime',
     ];
 
-    public function store(): BelongsTo
-    {
-        return $this->belongsTo(StoreModel::class, 'store_id');
-    }
-
     protected static function booted(): void
     {
         self::saving(function (Voucher $voucher): void {
-            if ($voucher->voucher_scope === 'platform' && $voucher->store_id !== null) {
-                throw new InvalidArgumentException('Voucher platform tidak boleh memiliki store_id.');
-            }
-
-            if ($voucher->voucher_scope === 'store' && $voucher->store_id === null) {
-                throw new InvalidArgumentException('Voucher toko wajib memiliki store_id.');
-            }
-
             if (! in_array($voucher->discount_target, ['product', 'shipping'], true)) {
                 throw new InvalidArgumentException('Target diskon voucher tidak valid.');
             }

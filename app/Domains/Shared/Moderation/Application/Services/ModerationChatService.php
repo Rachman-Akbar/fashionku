@@ -14,40 +14,6 @@ final class ModerationChatService
     public function __construct(private readonly ConversationService $conversation) {}
 
     /**
-     * Kirim pesan moderasi ke dalam chat toko (owner store + admin).
-     *
-     * @return array{conversation: ConversationModel, message: string}
-     */
-    public function notifyStoreStatus(int $storeId, string $action, string $actorId, ?string $customMessage = null): array
-    {
-        $store = DB::table('stores')->where('id', $storeId)->whereNull('deleted_at')->first();
-        if (! $store) {
-            throw new InvalidArgumentException('Toko untuk notifikasi moderasi tidak ditemukan.');
-        }
-
-        $owner = DB::table('users')->where('id', $store->user_id)->whereNull('deleted_at')->first();
-        $template = $this->template('store.'.$action);
-
-        $message = $this->render($customMessage ?? $template['message'], [
-            '{store_name}' => (string) $store->name,
-            '{owner_name}' => (string) ($owner->name ?? 'Seller'),
-        ]);
-
-        $conversation = $this->conversation->startModeration([
-            'type' => 'store',
-            'store_id' => $storeId,
-            'subject' => $template['subject'],
-        ], $actorId);
-
-        $this->conversation->send($conversation->id, [
-            'message_type' => 'text',
-            'message' => $message,
-        ], $actorId, true);
-
-        return ['conversation' => $conversation, 'message' => $message];
-    }
-
-    /**
      * Kirim pesan moderasi ke dalam chat langsung admin -> user.
      *
      * @return array{conversation: ConversationModel, message: string}

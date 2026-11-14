@@ -1,11 +1,10 @@
 import { useMutation } from "@tanstack/react-query";
 import { apiClient, getApiMessage, unwrapCollection } from "@/core/utils/apiClient";
-import { useAuth } from "@/features/auth/context/AuthContext";
 import { useInfiniteList } from "@/shared/hooks/useInfiniteList";
 
 export const orderManagementKeys = {
   admin: (params = {}) => ["admin", "orders", params],
-  seller: (storeId, params = {}) => ["seller", "orders", storeId, params],
+  seller: (params = {}) => ["seller", "orders", params],
 };
 
 export function normalizeOrderItem(item = {}, index = 0) {
@@ -31,9 +30,6 @@ export function normalizeOrder(row = {}) {
     preorderReleaseAt: row.preorder_release_at || row.preorderReleaseAt || null,
     scheduledAt: row.scheduled_at || row.scheduledAt || null,
     receivedAt: row.received_at || row.receivedAt || null,
-    subOrderNumber: row.sub_order_number || row.subOrderNumber || "",
-    storeId: Number(row.store_id || row.storeId || 0),
-    storeName: row.store_name || row.storeName || row.store?.name || "",
     customerName: row.user?.name || row.customer_name || row.customerName || "",
     total: Number(row.grand_total ?? row.total ?? row.total_items_price ?? 0) + Number(row.shipping_cost || 0),
     status: row.status || "pending",
@@ -63,8 +59,8 @@ export async function getAdminOrders(params = {}) {
   return normalizePage(response.data);
 }
 
-export async function getSellerOrders(storeId, params = {}) {
-  const response = await apiClient.get(`/api/v1/order/orderings/stores/${storeId}`, { params });
+export async function getSellerOrders(params = {}) {
+  const response = await apiClient.get("/api/v1/order/orderings", { params });
   return normalizePage(response.data);
 }
 
@@ -97,14 +93,12 @@ export function useAdminOrders(params = {}) {
 }
 
 export function useSellerOrders(params = {}) {
-  const { store, activeRole } = useAuth();
   const { enabled = true, ...queryParams } = params;
-  const storeId = Number(store?.id || 0);
   return useInfiniteList({
-    queryKey: ["seller", "orders", storeId],
-    queryFn: (queryParams) => getSellerOrders(storeId, queryParams),
+    queryKey: ["seller", "orders"],
+    queryFn: (queryParams) => getSellerOrders(queryParams),
     params: queryParams,
-    enabled: enabled && activeRole === "seller" && Boolean(storeId),
+    enabled,
   });
 }
 

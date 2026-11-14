@@ -15,7 +15,6 @@ use App\Domains\Catalog\Product\Presentation\Http\Requests\UpdateProductVariantR
 use App\Domains\Catalog\Product\Presentation\Http\Resources\ProductVariantResource;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\DB;
 
 final class ProductVariantController extends Controller
 {
@@ -129,15 +128,5 @@ final class ProductVariantController extends Controller
 
         $user = $request->user();
         abort_if(! $user, 401, 'Unauthenticated.');
-
-        $sellerStoreId = DB::table('stores')
-            ->where('user_id', (string) $user->getAuthIdentifier())
-            ->value('id');
-
-        abort_if(
-            $product->storeId() !== ($sellerStoreId ? (int) $sellerStoreId : null),
-            303,
-            'Forbidden. This product does not belong to your store.'
-        );
     }
 }

@@ -23,9 +23,7 @@ interface ProductRepositoryInterface
 
     public function findBySlug(string $slug, bool $includeInactive = false): ?Product;
 
-    public function nameExistsForStore(string $name, int $storeId, ?int $ignoreId = null): bool;
-
-    public function findPublishedByStoreId(int $storeId): Collection;
+    public function nameExists(string $name, ?int $ignoreId = null): bool;
 
     public function findPublishedByCategorySlug(
         string $categorySlug,

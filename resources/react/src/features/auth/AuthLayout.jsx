@@ -10,7 +10,7 @@ const BENEFITS = [
 
 export default function AuthLayout() {
   return (
-    <div className="min-h-screen bg-[#f3f4f6]">
+    <div className="min-h-screen bg-white">
       <PageTransitionLoader />
       <main className="flex min-h-screen items-center justify-center px-4 py-8">
         <div className="grid w-full max-w-6xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.12)] lg:grid-cols-[1.08fr_0.92fr]">

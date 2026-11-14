@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Catalog\Product\Presentation\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 final class StoreProductVariantRequest extends FormRequest
@@ -26,14 +25,12 @@ final class StoreProductVariantRequest extends FormRequest
     {
         $productId = $this->route('productId');
 
-        $storeId = DB::table('products')->where('id', $productId)->value('store_id');
-
         return [
             'sku' => [
                 'nullable',
                 'string',
                 'max:100',
-                Rule::unique('product_variants', 'sku')->where(fn ($query) => $query->where('store_id', $storeId)),
+                Rule::unique('product_variants', 'sku'),
             ],
             'name' => [
                 'nullable',

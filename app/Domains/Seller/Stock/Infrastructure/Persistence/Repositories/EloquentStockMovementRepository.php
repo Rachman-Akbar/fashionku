@@ -11,11 +11,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class EloquentStockMovementRepository implements StockMovementRepositoryInterface
 {
-    public function paginate(array $filters, int $perPage, ?int $storeId): LengthAwarePaginator
+    public function paginate(array $filters, int $perPage): LengthAwarePaginator
     {
         return StockMovementModel::query()
-            ->with(['store:id,name', 'product:id,name', 'variant:id,name,sku,stock', 'order:id,order_number'])
-            ->when($storeId !== null, fn (Builder $query) => $query->where('store_id', $storeId))
+            ->with(['product:id,name', 'variant:id,name,sku,stock', 'order:id,order_number'])
             ->when(! empty($filters['type']), fn (Builder $query) => $query->where('type', $filters['type']))
             ->when(! empty($filters['product_id']), fn (Builder $query) => $query->where('product_id', (int) $filters['product_id']))
             ->when(! empty($filters['variant_id']), fn (Builder $query) => $query->where('variant_id', (int) $filters['variant_id']))
@@ -39,7 +38,7 @@ final class EloquentStockMovementRepository implements StockMovementRepositoryIn
     {
         $model->save();
 
-        return $model->refresh()->load(['store:id,name', 'product:id,name', 'variant:id,name,sku,stock', 'order:id,order_number']);
+        return $model->refresh()->load(['product:id,name', 'variant:id,name,sku,stock', 'order:id,order_number']);
     }
 
     public function existsForOrderItem(int $orderItemId, string $movementKey): bool

@@ -187,7 +187,7 @@ export function SellerStoreSettingsPanel({ store }) {
     if (banner) data.append("banner", banner);
 
     if (!store?.id) {
-      toastError("Simpan Pengaturan Toko", "Data toko tidak ditemukan. Selesaikan onboarding seller terlebih dahulu.");
+      toastError("Simpan Pengaturan Toko", "Data toko tidak ditemukan. Hubungi administrator untuk menyiapkan toko.");
       return;
     }
 

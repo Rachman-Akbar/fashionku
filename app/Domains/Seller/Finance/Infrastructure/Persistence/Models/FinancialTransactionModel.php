@@ -6,7 +6,6 @@ namespace App\Domains\Seller\Finance\Infrastructure\Persistence\Models;
 
 use App\Domains\Identity\User\Domain\Entities\User;
 use App\Domains\Order\Ordering\Infrastructure\Persistence\Models\OrderModel;
-use App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\HasActiveStatus;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Model;
@@ -23,7 +22,6 @@ final class FinancialTransactionModel extends Model
     protected $table = 'financial_transactions';
 
     protected $fillable = [
-        'store_id',
         'order_id',
         'user_id',
         'reference_number',
@@ -44,7 +42,6 @@ final class FinancialTransactionModel extends Model
     ];
 
     protected $casts = [
-        'store_id' => 'integer',
         'order_id' => 'integer',
         'amount' => 'decimal:2',
         'paid_amount' => 'decimal:2',
@@ -55,11 +52,6 @@ final class FinancialTransactionModel extends Model
         'metadata' => 'array',
         'deleted_at' => 'datetime',
     ];
-
-    public function store(): BelongsTo
-    {
-        return $this->belongsTo(StoreModel::class, 'store_id');
-    }
 
     public function order(): BelongsTo
     {

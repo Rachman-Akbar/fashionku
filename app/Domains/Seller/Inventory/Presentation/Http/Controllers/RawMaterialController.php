@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Seller\Inventory\Presentation\Http\Controllers;
 
 use App\Domains\Seller\Inventory\Application\Services\RawMaterialService;
-use App\Domains\Shared\Presentation\Http\Concerns\ResolvesActiveRole;
-use App\Domains\Shared\Presentation\Http\Concerns\ResolvesSellerStoreContext;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,14 +12,11 @@ use InvalidArgumentException;
 
 final class RawMaterialController extends Controller
 {
-    use ResolvesActiveRole;
-    use ResolvesSellerStoreContext;
-
     public function __construct(private RawMaterialService $service) {}
 
     public function index(Request $request): JsonResponse
     {
-        return response()->json($this->service->paginate($request->only(['search']), min(100, max(1, (int) $request->query('per_page', 20))), $this->scope($request)));
+        return response()->json($this->service->paginate($request->only(['search']), min(100, max(1, (int) $request->query('per_page', 20)))));
     }
 
     public function store(Request $request): JsonResponse
@@ -37,7 +32,7 @@ final class RawMaterialController extends Controller
     public function destroy(Request $request, int $id): JsonResponse
     {
         try {
-            return response()->json(['success' => true, 'data' => $this->service->delete($id, $this->scope($request))]);
+            return response()->json(['success' => true, 'data' => $this->service->delete($id)]);
         } catch (InvalidArgumentException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
@@ -55,7 +50,7 @@ final class RawMaterialController extends Controller
             'occurred_at' => ['nullable', 'date'],
         ]);
         try {
-            return response()->json(['success' => true, 'data' => $this->service->adjust($id, $data, $this->scope($request))]);
+            return response()->json(['success' => true, 'data' => $this->service->adjust($id, $data)]);
         } catch (InvalidArgumentException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
@@ -63,18 +58,17 @@ final class RawMaterialController extends Controller
 
     public function movements(Request $request): JsonResponse
     {
-        return response()->json($this->service->movements($request->only(['raw_material_id']), min(100, max(1, (int) $request->query('per_page', 20))), $this->scope($request)));
+        return response()->json($this->service->movements($request->only(['raw_material_id']), min(100, max(1, (int) $request->query('per_page', 20)))));
     }
 
     public function costImpacts(Request $request): JsonResponse
     {
-        return response()->json($this->service->costImpacts($request->only(['direction', 'product_id']), min(100, max(1, (int) $request->query('per_page', 20))), $this->scope($request)));
+        return response()->json($this->service->costImpacts($request->only(['direction', 'product_id']), min(100, max(1, (int) $request->query('per_page', 20)))));
     }
 
     private function save(Request $request, ?int $id): JsonResponse
     {
         $data = $request->validate([
-            'store_id' => ['nullable', 'integer', 'exists:stores,id'],
             'code' => ['nullable', 'string', 'max:100'],
             'name' => ['required', 'string', 'max:255'],
             'unit' => ['required', 'string', 'max:50'],
@@ -83,14 +77,9 @@ final class RawMaterialController extends Controller
             'is_active' => ['nullable', 'boolean'],
         ]);
         try {
-            return response()->json(['success' => true, 'data' => $this->service->save($data, $id, $this->scope($request))], $id ? 200 : 201);
+            return response()->json(['success' => true, 'data' => $this->service->save($data, $id)], $id ? 200 : 201);
         } catch (InvalidArgumentException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
-    }
-
-    private function scope(Request $request): ?int
-    {
-        return $this->hasActiveRole($request, 'seller') ? $this->resolveSellerStoreId($request) : null;
     }
 }

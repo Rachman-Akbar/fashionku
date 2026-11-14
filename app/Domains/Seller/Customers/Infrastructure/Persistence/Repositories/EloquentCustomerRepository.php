@@ -8,23 +8,19 @@ use App\Domains\Identity\User\Domain\Entities\User;
 use App\Domains\Seller\Customers\Domain\Repositories\CustomerRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 final class EloquentCustomerRepository implements CustomerRepositoryInterface
 {
-    public function paginate(array $filters, int $perPage, ?int $storeId): LengthAwarePaginator
+    public function paginate(array $filters, int $perPage): LengthAwarePaginator
     {
         $candidateIds = DB::table('orders')
-            ->join('sub_orders', 'sub_orders.order_id', '=', 'orders.id')
             ->select('orders.user_id')
-            ->when($storeId !== null, fn (QueryBuilder $query) => $query->where('sub_orders.store_id', $storeId))
             ->whereNotIn('orders.status', ['cancelled'])
+            ->whereNotNull('orders.user_id')
             ->union(
-                DB::table('seller_customers')
-                    ->select('user_id')
-                    ->when($storeId !== null, fn (QueryBuilder $query) => $query->where('store_id', $storeId))
+                DB::table('seller_customers')->select('user_id')
             );
 
         $summary = DB::table('orders')
@@ -34,8 +30,7 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
             ->whereNotIn('orders.status', ['cancelled'])
             ->groupBy('orders.user_id');
 
-        $manualExists = 'EXISTS (SELECT 1 FROM seller_customers sc WHERE sc.user_id = users.id'.
-            ($storeId !== null ? ' AND sc.store_id = '.(int) $storeId : '').')';
+        $manualExists = 'EXISTS (SELECT 1 FROM seller_customers sc WHERE sc.user_id = users.id)';
 
         $primaryAddress = DB::table('addresses as address_pick')
             ->select('address_pick.user_id', 'address_pick.id as address_id')
@@ -110,20 +105,14 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
         return "CONCAT_WS(', ', ".implode(', ', $columns).')';
     }
 
-    public function findForStore(string $userId, ?int $storeId): ?User
-    {        if ($storeId === null) {
-            return null;
-        }
-
+    public function find(string $userId): ?User
+    {
         $hasBuyerHistory = DB::table('orders')
-            ->join('sub_orders', 'sub_orders.order_id', '=', 'orders.id')
-            ->where('orders.user_id', $userId)
-            ->where('sub_orders.store_id', $storeId)
+            ->where('user_id', $userId)
             ->exists();
 
         $isManual = DB::table('seller_customers')
             ->where('user_id', $userId)
-            ->where('store_id', $storeId)
             ->exists();
 
         if (! $hasBuyerHistory && ! $isManual) {
@@ -133,10 +122,12 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
         return User::query()->find($userId);
     }
 
-    public function createManual(array $data, int $storeId): User
+    public function createManual(array $data): User
     {
-        return DB::transaction(function () use ($data, $storeId): User {
+        return DB::transaction(function () use ($data): User {
             $userId = (string) Str::uuid();
+            $actorId = auth()->id();
+
             $user = new User;
             $user->id = $userId;
             $user->forceFill([
@@ -164,9 +155,10 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
             }
 
             DB::table('seller_customers')->insert([
-                'store_id' => $storeId,
                 'user_id' => $userId,
                 'note' => $data['note'] ?? null,
+                'created_by' => $actorId,
+                'updated_by' => $actorId,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -175,9 +167,9 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
         });
     }
 
-    public function updateProfile(string $userId, array $data, ?int $storeId): ?User
+    public function updateProfile(string $userId, array $data): ?User
     {
-        $user = $this->findForStore($userId, $storeId);
+        $user = $this->find($userId);
 
         if (! $user) {
             return null;
@@ -190,23 +182,28 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
             'is_active' => (bool) ($data['is_active'] ?? true),
         ])->save();
 
+        if (array_key_exists('note', $data)) {
+            DB::table('seller_customers')
+                ->where('user_id', $user->id)
+                ->update(['note' => $data['note'], 'updated_by' => auth()->id(), 'updated_at' => now()]);
+        }
+
         return $user->refresh();
     }
 
-    public function deleteForStore(string $userId, ?int $storeId): bool
+    public function deleteCustomer(string $userId): bool
     {
-        $user = $this->findForStore($userId, $storeId);
+        $user = $this->find($userId);
 
         if (! $user) {
             return false;
         }
 
-        return DB::transaction(function () use ($user, $storeId): bool {
+        return DB::transaction(function () use ($user): bool {
             $user->tokens()->delete();
 
             DB::table('seller_customers')
                 ->where('user_id', $user->id)
-                ->where('store_id', $storeId)
                 ->delete();
 
             return (bool) $user->delete();

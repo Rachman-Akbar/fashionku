@@ -43,52 +43,42 @@ final class ConversationService
                 ->unique()
                 ->values();
             $participantIds = $admin ? $requestedParticipantIds : collect();
-            $storeId = isset($data['store_id']) && $data['store_id'] !== null ? (int) $data['store_id'] : null;
             $orderId = isset($data['order_id']) && $data['order_id'] !== null ? (int) $data['order_id'] : null;
-
-            if (! $admin && ! $storeId && ! $orderId) {
-                throw new InvalidArgumentException('Percakapan buyer dan seller harus terhubung dengan toko atau order.');
-            }
 
             if ($orderId) {
                 $type = 'order';
-                [$storeId, $orderParticipants] = $this->resolveOrderParticipants($orderId, $storeId, $userId, $admin);
-                $participantIds = $participantIds->merge($orderParticipants);
-            } elseif ($storeId) {
+                $participantIds = $participantIds->merge($this->orderParticipants($orderId, $userId, $admin));
+            } elseif (! $admin) {
                 $type = 'store';
-                $storeOwnerId = $this->activeStoreOwner($storeId);
+                $otherParticipantIds = $requestedParticipantIds->reject(fn (string $id): bool => $id === $userId)->values();
 
-                if ($admin) {
-                    $participantIds->push($storeOwnerId);
-                } elseif ($storeOwnerId === $userId) {
-                    $buyerIds = $requestedParticipantIds
-                        ->reject(fn (string $id): bool => $id === $userId)
-                        ->values();
-
-                    if ($buyerIds->count() !== 1) {
-                        throw new InvalidArgumentException('Seller harus memilih satu buyer tujuan.');
-                    }
-
-                    $buyerId = (string) $buyerIds->first();
-                    $this->assertStoreCustomer($storeId, $buyerId);
-                    $participantIds = collect([$storeOwnerId, $buyerId]);
+                if ($otherParticipantIds->isEmpty()) {
+                    // Buyer membuka percakapan dengan operator toko tunggal.
+                    $participantIds = $participantIds->merge($this->storeOperatorIds());
+                } elseif ($otherParticipantIds->count() === 1) {
+                    // Seller memilih satu buyer tujuan.
+                    $buyerId = (string) $otherParticipantIds->first();
+                    $this->assertCustomer($buyerId);
+                    $participantIds = collect([$userId, $buyerId]);
                 } else {
-                    $participantIds = collect([$userId, $storeOwnerId]);
+                    throw new InvalidArgumentException('Seller harus memilih satu buyer tujuan.');
                 }
+            } elseif ($type === 'store') {
+                $participantIds = $participantIds->merge($this->storeOperatorIds());
             }
 
             $participantIds->push($userId);
             $participantIds = $participantIds->map(fn ($id) => (string) $id)->filter()->unique()->values();
 
-            if (! $admin && $participantIds->count() < 2) {
-                throw new InvalidArgumentException('Percakapan membutuhkan seller atau buyer tujuan.');
+            if ($participantIds->count() < 2) {
+                throw new InvalidArgumentException('Percakapan membutuhkan admin toko atau buyer tujuan.');
             }
 
             $this->assertParticipantsActive($participantIds);
 
             $existing = $type === 'announcement'
                 ? null
-                : $this->findMatchingConversation($type, $storeId, $orderId, $participantIds);
+                : $this->findMatchingConversation($type, $orderId, $participantIds);
 
             if ($existing) {
                 return $this->repository->findForUser($existing->id, $userId, $admin) ?? $existing;
@@ -96,7 +86,6 @@ final class ConversationService
 
             $model = $this->repository->save(new ConversationModel([
                 'type' => $type,
-                'store_id' => $storeId,
                 'order_id' => $orderId,
                 'subject' => $data['subject'] ?? null,
                 'target_role' => $data['target_role'] ?? null,
@@ -116,7 +105,6 @@ final class ConversationService
     {
         return DB::transaction(function () use ($data, $adminId): ConversationModel {
             $type = strtolower(trim((string) ($data['type'] ?? 'direct')));
-            $storeId = isset($data['store_id']) && $data['store_id'] !== null ? (int) $data['store_id'] : null;
             $participantIds = collect($data['participant_ids'] ?? [])
                 ->map(fn ($id) => (string) $id)
                 ->filter()
@@ -124,26 +112,13 @@ final class ConversationService
                 ->values();
 
             if ($type === 'store') {
-                if (! $storeId) {
-                    throw new InvalidArgumentException('Moderasi toko memerlukan store_id.');
-                }
-
-                $ownerId = (string) DB::table('stores')
-                    ->where('id', $storeId)
-                    ->whereNull('deleted_at')
-                    ->value('user_id');
-
-                if ($ownerId === '') {
-                    throw new InvalidArgumentException('Toko untuk percakapan moderasi tidak ditemukan.');
-                }
-
-                $participantIds->push($ownerId);
+                $participantIds = $participantIds->merge($this->storeOperatorIds());
             }
 
             $participantIds->push($adminId);
             $participantIds = $participantIds->map(fn ($id) => (string) $id)->filter()->unique()->values();
 
-            $existing = $this->findMatchingConversation($type, $storeId, null, $participantIds);
+            $existing = $this->findMatchingConversation($type, null, $participantIds);
 
             if ($existing) {
                 return $this->repository->findForUser($existing->id, $adminId, true) ?? $existing;
@@ -151,7 +126,6 @@ final class ConversationService
 
             $model = $this->repository->save(new ConversationModel([
                 'type' => $type,
-                'store_id' => $storeId,
                 'order_id' => null,
                 'subject' => $data['subject'] ?? null,
                 'target_role' => $data['target_role'] ?? null,
@@ -229,7 +203,7 @@ final class ConversationService
             'message_type' => $data['message_type'] ?? 'text',
             'message' => $cleanMessage,
             'attachments' => $data['attachments'] ?? null,
-        ])->load(['sender:id,name,avatar', 'conversation.store:id,user_id,name,logo', 'conversation.participants:id']);
+        ])->load(['sender:id,name,avatar', 'conversation:id,type,subject,target_role', 'conversation.participants:id']);
 
         DB::table('conversations')->where('id', $conversation->id)->update(['updated_at' => now()]);
         $this->markRead($conversation->id, $userId, $admin);
@@ -297,75 +271,45 @@ final class ConversationService
         });
     }
 
-    private function resolveOrderParticipants(int $orderId, ?int $storeId, string $userId, bool $admin): array
+    private function orderParticipants(int $orderId, string $userId, bool $admin): Collection
     {
         $order = DB::table('orders')->where('id', $orderId)->first(['user_id']);
         if (! $order) {
             throw new InvalidArgumentException('Order untuk percakapan tidak ditemukan.');
         }
 
-        $stores = DB::table('sub_orders')
-            ->join('stores', 'stores.id', '=', 'sub_orders.store_id')
-            ->where('sub_orders.order_id', $orderId)
-            ->where('stores.is_active', true)
-            ->whereNull('stores.deleted_at')
-            ->get(['stores.id as store_id', 'stores.user_id']);
-
-        if ($stores->isEmpty()) {
-            throw new InvalidArgumentException('Order tidak memiliki toko aktif untuk percakapan.');
-        }
-
-        $ownerIds = $stores->pluck('user_id')->map(fn ($id) => (string) $id)->unique();
         $buyerId = (string) $order->user_id;
-        if (! $admin && $buyerId !== $userId && ! $ownerIds->contains($userId)) {
+        $operatorIds = $this->storeOperatorIds();
+
+        if (! $admin && $buyerId !== $userId && ! $operatorIds->contains($userId)) {
             throw new InvalidArgumentException('Anda tidak terlibat dalam order tersebut.');
         }
 
-        if (! $storeId) {
-            $ownedStore = $stores->first(fn ($row) => (string) $row->user_id === $userId);
-            if ($ownedStore) {
-                $storeId = (int) $ownedStore->store_id;
-            } elseif ($buyerId === $userId && $stores->count() === 1) {
-                $storeId = (int) $stores->first()->store_id;
-            } elseif (! $admin) {
-                throw new InvalidArgumentException('Pilih toko tujuan untuk chat order yang memiliki lebih dari satu seller.');
-            }
-        }
-
-        if ($storeId) {
-            $store = $stores->first(fn ($row) => (int) $row->store_id === $storeId);
-            if (! $store) {
-                throw new InvalidArgumentException('Toko tidak terhubung dengan order tersebut.');
-            }
-
-            return [$storeId, collect([$buyerId, (string) $store->user_id])];
-        }
-
-        return [null, collect([$buyerId])->merge($ownerIds)];
+        return collect([$buyerId])->merge($operatorIds);
     }
 
-    private function activeStoreOwner(int $storeId): string
+    /**
+     * @return Collection<int, string>
+     */
+    private function storeOperatorIds(): Collection
     {
-        $store = DB::table('stores')
-            ->where('id', $storeId)
-            ->where('is_active', true)
-            ->whereNull('deleted_at')
-            ->first(['user_id']);
-
-        if (! $store) {
-            throw new InvalidArgumentException('Toko untuk percakapan tidak ditemukan atau tidak aktif.');
-        }
-
-        return (string) $store->user_id;
+        return DB::table('user_roles')
+            ->join('roles', 'roles.id', '=', 'user_roles.role_id')
+            ->join('users', 'users.id', '=', 'user_roles.user_id')
+            ->whereIn('roles.name', ['admin', 'super_admin'])
+            ->where('roles.is_active', true)
+            ->where('users.is_active', true)
+            ->whereNull('users.deleted_at')
+            ->distinct()
+            ->pluck('users.id')
+            ->map(fn ($id): string => (string) $id);
     }
 
-    private function assertStoreCustomer(int $storeId, string $buyerId): void
+    private function assertCustomer(string $buyerId): void
     {
         $isCustomer = DB::table('orders')
-            ->join('sub_orders', 'sub_orders.order_id', '=', 'orders.id')
-            ->where('sub_orders.store_id', $storeId)
-            ->where('orders.user_id', $buyerId)
-            ->whereNotIn('orders.status', ['cancelled'])
+            ->where('user_id', $buyerId)
+            ->whereNotIn('status', ['cancelled'])
             ->exists();
 
         if (! $isCustomer) {
@@ -386,14 +330,13 @@ final class ConversationService
         }
     }
 
-    private function findMatchingConversation(string $type, ?int $storeId, ?int $orderId, Collection $participantIds): ?ConversationModel
+    private function findMatchingConversation(string $type, ?int $orderId, Collection $participantIds): ?ConversationModel
     {
         $ids = $participantIds->values()->all();
 
         return ConversationModel::query()
             ->where('type', $type)
             ->when($orderId, fn (Builder $query) => $query->where('order_id', $orderId), fn (Builder $query) => $query->whereNull('order_id'))
-            ->when($storeId, fn (Builder $query) => $query->where('store_id', $storeId), fn (Builder $query) => $query->whereNull('store_id'))
             ->whereHas('participants', fn (Builder $query) => $query->whereIn('users.id', $ids)->whereNull('conversation_participants.left_at'), '=', count($ids))
             ->whereDoesntHave('participants', fn (Builder $query) => $query->whereNotIn('users.id', $ids)->whereNull('conversation_participants.left_at'))
             ->first();
@@ -415,7 +358,7 @@ final class ConversationService
                 'reference_id' => $conversation->id,
                 'url' => '/admin/chat?conversation='.$conversation->id,
                 'meta' => ['conversation_type' => $conversation->type],
-            ], $userId, $conversation->store_id ? (int) $conversation->store_id : null);
+            ], $userId);
         } catch (Throwable $exception) {
             Log::warning('Admin chat notification skipped.', [
                 'conversation_id' => $conversation->id,

@@ -21,7 +21,7 @@ final class FinancialTransactionPolicy
 
     public function view(User $user, FinancialTransactionModel $transaction): bool
     {
-        return $this->ownsStore($user, $transaction->store_id);
+        return $this->canManage($user);
     }
 
     public function create(User $user): bool
@@ -31,22 +31,16 @@ final class FinancialTransactionPolicy
 
     public function update(User $user, FinancialTransactionModel $transaction): bool
     {
-        return $this->ownsStore($user, $transaction->store_id);
+        return $this->canManage($user);
     }
 
     public function delete(User $user, FinancialTransactionModel $transaction): bool
     {
-        return $this->ownsStore($user, $transaction->store_id);
+        return $this->canManage($user);
     }
 
-    private function ownsStore(User $user, ?int $storeId): bool
+    private function canManage(User $user): bool
     {
-        if ($user->hasRole('admin')) {
-            return true;
-        }
-
-        return $user->hasPermission('finance.manage')
-            && $storeId !== null
-            && (int) $user->store?->id === $storeId;
+        return $user->hasRole('admin') || $user->hasPermission('finance.manage');
     }
 }

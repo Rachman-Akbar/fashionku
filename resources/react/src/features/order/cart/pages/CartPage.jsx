@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   ShoppingCart,
   Star,
-  Store,
   Ticket,
   Trash2,
   XCircle,
@@ -93,7 +92,7 @@ function EmptyState({ icon: Icon, title, description }) {
 
 function TabNavigation({ activeTab, onChange }) {
   return (
-    <nav className="sticky z-[70] mx-auto max-w-[760px] px-4 pt-1 pb-4 transition-[top] duration-300 ease-in-out" style={{ top: "var(--main-nav-offset, 96px)" }}>
+    <nav className="sticky z-[70] mx-auto max-w-[1120px] px-4 pt-1 pb-4 transition-[top] duration-300 ease-in-out bg-white" style={{ top: "var(--main-nav-offset, 96px)" }}>
       <div className="flex items-center justify-between gap-2 border-b border-[#bccbb4] min-w-[0] overflow-x-auto scrollbar-hidden px-2">
         {tabs.map((tab) => {
           const active = activeTab === tab.key;
@@ -116,52 +115,6 @@ function TabNavigation({ activeTab, onChange }) {
         })}
       </div>
     </nav>
-  );
-}
-
-function StoreGroup({
-  storeName,
-  items,
-  selectedKeys,
-  onToggleStore,
-  onToggleItem,
-  onDecrease,
-  onIncrease,
-  onRemove,
-  syncingVariantIds,
-}) {
-  const allChecked = items.every((item) => selectedKeys.includes(getItemKey(item)));
-
-  return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-4">
-      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-        <input
-          type="checkbox"
-          checked={allChecked}
-          onChange={() => onToggleStore(items)}
-          className="h-4 w-4 rounded border-slate-300 text-[#047857] focus:ring-[#10B981]"
-        />
-        <Store size={16} className="text-[#10B981]" />
-        <span className="text-sm font-bold text-slate-800">{storeName}</span>
-        {storeName.toLowerCase().includes("official") ? (
-          <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-[#047857]">PRO</span>
-        ) : null}
-      </div>
-      <div className="divide-y divide-slate-50">
-        {items.map((item) => (
-          <CartItemRow
-            key={getItemKey(item)}
-            item={item}
-            checked={selectedKeys.includes(getItemKey(item))}
-            onToggle={onToggleItem}
-            onDecrease={onDecrease}
-            onIncrease={onIncrease}
-            onRemove={onRemove}
-            syncing={syncingVariantIds.includes(Number(item.variantId))}
-          />
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -211,7 +164,6 @@ function CartTab({
   items,
   selectedKeys,
   onToggleAll,
-  onToggleStore,
   onToggleItem,
   onDecrease,
   onIncrease,
@@ -223,13 +175,6 @@ function CartTab({
   onVoucherCodeChange,
 }) {
   const selectedItems = items.filter((item) => selectedKeys.includes(getItemKey(item)));
-  const storeGroups = useMemo(() => {
-    return items.reduce((acc, item) => {
-      const key = item.storeName || "Ziip Store";
-      acc[key] = [...(acc[key] || []), item];
-      return acc;
-    }, {});
-  }, [items]);
 
   if (!items.length) {
     return (
@@ -258,20 +203,22 @@ function CartTab({
             <Trash2 size={14} /> Hapus
           </button>
         </div>
-        {Object.entries(storeGroups).map(([storeName, storeItems]) => (
-          <StoreGroup
-            key={storeName}
-            storeName={storeName}
-            items={storeItems}
-            selectedKeys={selectedKeys}
-            onToggleStore={onToggleStore}
-            onToggleItem={onToggleItem}
-            onDecrease={onDecrease}
-            onIncrease={onIncrease}
-            onRemove={onRemove}
-            syncingVariantIds={syncingVariantIds}
-          />
-        ))}
+        <div className="rounded-2xl border border-slate-100 bg-white p-4">
+          <div className="divide-y divide-slate-50">
+            {items.map((item) => (
+              <CartItemRow
+                key={getItemKey(item)}
+                item={item}
+                checked={selectedKeys.includes(getItemKey(item))}
+                onToggle={onToggleItem}
+                onDecrease={onDecrease}
+                onIncrease={onIncrease}
+                onRemove={onRemove}
+                syncing={syncingVariantIds.includes(Number(item.variantId))}
+              />
+            ))}
+          </div>
+        </div>
       </div>
       <div className="col-span-12 lg:col-span-4">
         <CartSummary
@@ -309,7 +256,7 @@ function WishlistTab({ items, onAddToCart, onRemoveFromWishlist }) {
           title={item.productName}
           price={item.price}
           stock={item.stock}
-          location={item.location || item.storeName}
+          location={item.location || ""}
           wishlistBtn
           showAddToCart
           addToCartLabel="Masukkan Cart"
@@ -500,7 +447,7 @@ function OrderTab({ items, onOpen, statusFilter }) {
                     <p className="text-xs font-bold text-slate-400">{item.id}</p>
                     <h4 className="mt-0.5 line-clamp-1 text-sm font-bold text-slate-800">{item.productName}</h4>
                     <p className="mt-0.5 text-xs text-slate-400">
-                      {`${item.storeName} - ${item.variantLabel}`}
+                      {item.variantLabel}
                       {item.quantity ? ` x${item.quantity}` : ""}
                     </p>
                   </div>
@@ -575,7 +522,7 @@ function ReviewTab({ items, reviews = [], onReviewItem, onOpenProduct, ratingFil
                 )}
                 <div className="min-w-0 flex-1">
                   <h4 className="line-clamp-1 text-sm font-bold text-slate-800">{item.productName}</h4>
-                  <p className="text-[11px] text-slate-400">{item.variantLabel || "-"} - {item.storeName}</p>
+                  <p className="text-[11px] text-slate-400">{item.variantLabel || "-"}</p>
                 </div>
                 <button type="button" onClick={() => onReviewItem?.(item)} className="flex shrink-0 items-center gap-1 rounded-xl bg-[#10B981] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#059669]">
                   <Star size={12} className="fill-white" /> Review
@@ -664,7 +611,7 @@ export default function CartPage() {
         orderId: order.id,
         date: order.createdAt ? new Date(order.createdAt).toLocaleDateString("id-ID") : "-",
         _rawDate: order.createdAt,
-        storeName: firstItem.storeName || order.subOrders[0]?.storeName || "Toko",
+        storeName: "Toko",
         status: labels[order.status] || order.status,
         rawStatus: order.status,
         productName: firstItem.productName || "Pesanan",
@@ -695,7 +642,7 @@ export default function CartPage() {
           productName: item.productName || "Produk",
           variantLabel: item.variantLabel || item.sku || "-",
           imageUrl: item.imageUrl || "",
-          storeName: item.storeName || order.subOrders?.[0]?.storeName || "Toko",
+          storeName: "Toko",
           orderNumber: order.orderNumber || "-",
           reviewed: reviewedItemIds.has(String(item.id)),
         });
@@ -762,17 +709,12 @@ export default function CartPage() {
   const goCheckout = () => navigate("/checkout", { state: { cartItemIds: selectedItems.map((item) => item.cartItemId).filter(Boolean), voucherCode } });
 
   const handleToggleAll = () => setSelectedKeys((current) => current.length === sortedCartItems.length ? [] : sortedCartItems.map(getItemKey));
-  const handleToggleStore = (storeItems) => {
-    const storeKeys = storeItems.map(getItemKey);
-    const allChecked = storeKeys.every((key) => selectedKeys.includes(key));
-    setSelectedKeys((current) => allChecked ? current.filter((key) => !storeKeys.includes(key)) : Array.from(new Set([...current, ...storeKeys])));
-  };
   const handleToggleItem = (itemKey) => setSelectedKeys((current) => current.includes(itemKey) ? current.filter((key) => key !== itemKey) : [...current, itemKey]);
   const handleDecrease = (item) => { const q = Math.max(1, Number(item.quantity || 1) - 1); if (q !== item.quantity) updateQty(item.productId, item.variantId, q); };
   const handleIncrease = (item) => { const q = Math.min(Number(item.stock || Infinity), Math.max(1, Number(item.quantity || 1)) + 1); if (q !== item.quantity) updateQty(item.productId, item.variantId, q); };
 
   return (
-    <div className="min-h-screen bg-slate-50/30">
+    <div className="min-h-screen bg-white">
       <main className="mx-auto max-w-[1120px] px-4 py-5 sm:px-6">
         <TabNavigation activeTab={activeTab} onChange={changeTab} />
 
@@ -795,7 +737,6 @@ export default function CartPage() {
                 items={sortedCartItems}
                 selectedKeys={selectedKeys}
                 onToggleAll={handleToggleAll}
-                onToggleStore={handleToggleStore}
                 onToggleItem={handleToggleItem}
                 onDecrease={handleDecrease}
                 onIncrease={handleIncrease}

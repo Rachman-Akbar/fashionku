@@ -13,8 +13,6 @@ final class PromotionPaymentResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'store_id' => $this->store_id,
-            'store' => $this->whenLoaded('store', fn () => ['id' => $this->store?->id, 'name' => $this->store?->name]),
             'user' => $this->whenLoaded('user', fn () => ['id' => $this->user?->id, 'name' => $this->user?->name, 'email' => $this->user?->email]),
             'payment_number' => $this->payment_number,
             'package_name' => $this->package_name,

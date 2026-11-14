@@ -46,11 +46,6 @@ final class AdminNotificationCreated implements ShouldBroadcastNow
                 'name' => $this->notification->actor->name,
                 'avatar' => $this->notification->actor->avatar,
             ] : null,
-            'store' => $this->notification->store ? [
-                'id' => $this->notification->store->id,
-                'name' => $this->notification->store->name,
-                'logo' => $this->notification->store->logo,
-            ] : null,
             'read_at' => null,
             'created_at' => $this->notification->created_at?->toIso8601String(),
             'delta' => 1,

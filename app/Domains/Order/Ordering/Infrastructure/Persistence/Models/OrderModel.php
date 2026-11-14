@@ -19,8 +19,6 @@ class OrderModel extends Model
         'total_amount' => 'decimal:2',
         'discount_amount' => 'decimal:2',
         'shipping_discount_amount' => 'decimal:2',
-        'admin_fee' => 'decimal:2',
-        'seller_net' => 'decimal:2',
         'preorder_release_at' => 'datetime',
         'scheduled_at' => 'datetime',
         'received_at' => 'datetime',

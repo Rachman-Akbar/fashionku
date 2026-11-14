@@ -9,9 +9,9 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface FinancialTransactionRepositoryInterface
 {
-    public function paginate(array $filters, int $perPage, ?int $storeId): LengthAwarePaginator;
+    public function paginate(array $filters, int $perPage): LengthAwarePaginator;
 
-    public function find(int $id, ?int $storeId): ?FinancialTransactionModel;
+    public function find(int $id): ?FinancialTransactionModel;
 
     public function save(FinancialTransactionModel $model): FinancialTransactionModel;
 

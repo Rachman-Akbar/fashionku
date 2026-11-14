@@ -10,7 +10,7 @@ final class RawMaterialCostHistoryModel extends Model
 {
     protected $table = 'raw_material_cost_histories';
 
-    protected $fillable = ['store_id', 'raw_material_id', 'raw_material_stock_movement_id', 'old_average_cost', 'new_average_cost', 'change_amount', 'change_percent', 'direction', 'reference_type', 'reference_number', 'occurred_at'];
+    protected $fillable = ['raw_material_id', 'raw_material_stock_movement_id', 'old_average_cost', 'new_average_cost', 'change_amount', 'change_percent', 'direction', 'reference_type', 'reference_number', 'occurred_at'];
 
     protected $casts = [
         'old_average_cost' => 'decimal:4',

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Support\Ticket\Presentation\Http\Controllers;
 
 use App\Domains\Shared\Presentation\Http\Concerns\ResolvesActiveRole;
-use App\Domains\Shared\Presentation\Http\Concerns\ResolvesSellerStoreContext;
 use App\Domains\Support\Ticket\Application\Services\TicketService;
 use App\Domains\Support\Ticket\Presentation\Http\Requests\TicketRequest;
 use App\Domains\Support\Ticket\Presentation\Http\Resources\TicketResource;
@@ -18,7 +17,6 @@ use InvalidArgumentException;
 final class TicketController extends Controller
 {
     use ResolvesActiveRole;
-    use ResolvesSellerStoreContext;
 
     public function __construct(private TicketService $service) {}
 
@@ -37,12 +35,11 @@ final class TicketController extends Controller
     public function context(Request $request): JsonResponse
     {
         $role = $this->activeRole($request) ?: 'buyer';
-        $storeId = $role === 'seller' ? $this->resolveSellerStoreId($request, false) : null;
 
         try {
             return response()->json([
                 'success' => true,
-                'data' => $this->service->context((string) $request->user()->id, $role, $storeId),
+                'data' => $this->service->context((string) $request->user()->id, $role),
             ]);
         } catch (InvalidArgumentException $exception) {
             return response()->json(['success' => false, 'message' => $exception->getMessage()], 422);
@@ -52,14 +49,12 @@ final class TicketController extends Controller
     public function store(TicketRequest $request): JsonResponse
     {
         $role = $this->activeRole($request) ?: 'buyer';
-        $storeId = $role === 'seller' ? $this->resolveSellerStoreId($request, false) : null;
 
         try {
             $row = $this->service->create(
                 $request->validated(),
                 (string) $request->user()->id,
-                $role,
-                $storeId
+                $role
             );
 
             return (new TicketResource($row))->additional(['success' => true, 'message' => 'Help berhasil dibuat.'])->response()->setStatusCode(201);

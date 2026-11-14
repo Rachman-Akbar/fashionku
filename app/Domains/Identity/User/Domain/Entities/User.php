@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domains\Identity\User\Domain\Entities;
 
-use App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\HasActiveStatus;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -75,15 +73,6 @@ final class User extends Authenticatable
     {
         return $this->belongsToMany(Role::class, 'user_roles', 'user_id', 'role_id')
             ->withTimestamps();
-    }
-
-    public function store(): HasOne
-    {
-        return $this->hasOne(
-            StoreModel::class,
-            'user_id',
-            'id'
-        );
     }
 
     public function hasRole(string $role): bool

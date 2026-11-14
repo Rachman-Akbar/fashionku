@@ -91,8 +91,6 @@ function normalizeDirectItem(item = {}) {
     variantId: Number(item.variantId ?? item.variant_id ?? 0),
     productName: item.productName || item.product_name || item.name || "Produk",
     variantLabel: item.variantLabel || item.variant_label || item.sku || "",
-    storeId: Number(item.storeId ?? item.store_id ?? 0),
-    storeName: item.storeName || item.store_name || "Toko",
     sku: item.sku || "",
     price,
     quantity,
@@ -187,13 +185,7 @@ export default function CheckoutPage() {
       ),
     [selectedItems],
   );
-  const checkoutStoreIds = useMemo(
-    () =>
-      [...new Set(selectedItems.map((item) => String(item.storeId || "")))]
-        .filter(Boolean),
-    [selectedItems],
-  );
-  const vouchersQuery = useCheckoutVouchers(checkoutStoreIds, {
+  const vouchersQuery = useCheckoutVouchers([], {
     enabled: selectedItems.length > 0,
   });
   const vouchers = vouchersQuery.data || [];
@@ -248,7 +240,6 @@ export default function CheckoutPage() {
     ) || shippingOptions[0];
   const availablePaymentMethods = useMemo(() => PAYMENT_METHODS, []);
   const shippingPrice = Number(shipping?.price || shipping?.cost || 0);
-  const shippingBreakdown = shipping?.storeBreakdown || shipping?.store_breakdown || null;
   const availableVouchers = useMemo(
     () => getAvailableCheckoutVouchers(vouchers, selectedItems),
     [selectedItems, vouchers],
@@ -259,9 +250,8 @@ export default function CheckoutPage() {
         vouchers: availableVouchers,
         items: selectedItems,
         shippingPrice,
-        shippingBreakdown,
       }),
-    [availableVouchers, selectedItems, shippingBreakdown, shippingPrice],
+    [availableVouchers, selectedItems, shippingPrice],
   );
   const bestVoucher = bestVoucherResult?.voucher || null;
   const selectedVoucher = useMemo(() => {
@@ -286,9 +276,8 @@ export default function CheckoutPage() {
         voucher: selectedVoucher,
         items: selectedItems,
         shippingPrice,
-        shippingBreakdown,
       }),
-    [selectedItems, selectedVoucher, shippingBreakdown, shippingPrice],
+    [selectedItems, selectedVoucher, shippingPrice],
   );
   const voucherDiscount = voucherCalculation.discount;
   const totalBeforeVoucher = subtotal + shippingPrice;

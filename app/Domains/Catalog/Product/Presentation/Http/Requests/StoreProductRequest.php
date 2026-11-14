@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Catalog\Product\Presentation\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 final class StoreProductRequest extends FormRequest
@@ -13,15 +12,6 @@ final class StoreProductRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $payload = [];
-        $user = $this->user();
-
-        if (! $this->input('store_id') && $user) {
-            $storeId = DB::table('stores')->where('user_id', $user->id)->value('id');
-
-            if ($storeId) {
-                $payload['store_id'] = (int) $storeId;
-            }
-        }
 
         if ($this->has('name')) {
             $payload['name'] = trim((string) preg_replace('/\s+/u', ' ', (string) $this->input('name')));
@@ -51,22 +41,19 @@ final class StoreProductRequest extends FormRequest
 
     public function rules(): array
     {
-        $storeId = $this->input('store_id');
-
         return [
-            'store_id' => ['required', 'integer', 'exists:stores,id'],
             'primary_category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'sku' => [
                 'nullable',
                 'string',
                 'max:100',
-                Rule::unique('product_variants', 'sku')->where(fn ($query) => $query->where('store_id', $storeId)),
+                Rule::unique('product_variants', 'sku'),
             ],
             'name' => [
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('products', 'name')->where(fn ($query) => $query->where('store_id', $storeId)),
+                Rule::unique('products', 'name'),
             ],
             'slug' => ['nullable', 'string', 'max:255', 'unique:products,slug'],
             'description' => ['nullable', 'string'],
@@ -96,7 +83,7 @@ final class StoreProductRequest extends FormRequest
                 'string',
                 'max:100',
                 'distinct',
-                Rule::unique('product_variants', 'sku')->where(fn ($query) => $query->where('store_id', $storeId)),
+                Rule::unique('product_variants', 'sku'),
             ],
             'variants.*.name' => ['required_with:variants', 'string', 'max:255', 'distinct'],
             'variants.*.price' => ['nullable', 'numeric', 'min:0'],

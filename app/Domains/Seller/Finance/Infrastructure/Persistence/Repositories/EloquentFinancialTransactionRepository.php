@@ -11,11 +11,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class EloquentFinancialTransactionRepository implements FinancialTransactionRepositoryInterface
 {
-    public function paginate(array $filters, int $perPage, ?int $storeId): LengthAwarePaginator
+    public function paginate(array $filters, int $perPage): LengthAwarePaginator
     {
         return FinancialTransactionModel::query()
-            ->with(['store:id,name', 'order:id,order_number', 'counterparty:id,name,email'])
-            ->when($storeId !== null, fn (Builder $query) => $query->where('store_id', $storeId))
+            ->with(['order:id,order_number', 'counterparty:id,name,email'])
             ->when(! empty($filters['type']), fn (Builder $query) => $query->whereIn('type', collect(explode(',', (string) $filters['type']))->map(fn (string $type): string => trim($type))->filter()->values()->all()))
             ->when(! empty($filters['status']), fn (Builder $query) => $query->where('status', $filters['status']))
             ->when(isset($filters['is_active']), fn (Builder $query) => $query->where('is_active', filter_var($filters['is_active'], FILTER_VALIDATE_BOOLEAN)))
@@ -34,11 +33,10 @@ final class EloquentFinancialTransactionRepository implements FinancialTransacti
             ->paginate($perPage);
     }
 
-    public function find(int $id, ?int $storeId): ?FinancialTransactionModel
+    public function find(int $id): ?FinancialTransactionModel
     {
         return FinancialTransactionModel::query()
-            ->with(['store:id,name', 'order:id,order_number', 'counterparty:id,name,email'])
-            ->when($storeId !== null, fn (Builder $query) => $query->where('store_id', $storeId))
+            ->with(['order:id,order_number', 'counterparty:id,name,email'])
             ->find($id);
     }
 
@@ -46,7 +44,7 @@ final class EloquentFinancialTransactionRepository implements FinancialTransacti
     {
         $model->save();
 
-        return $model->refresh()->load(['store:id,name', 'order:id,order_number', 'counterparty:id,name,email']);
+        return $model->refresh()->load(['order:id,order_number', 'counterparty:id,name,email']);
     }
 
     public function delete(FinancialTransactionModel $model): bool

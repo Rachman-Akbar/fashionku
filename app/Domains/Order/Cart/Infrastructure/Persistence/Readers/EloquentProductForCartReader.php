@@ -16,14 +16,10 @@ final class EloquentProductForCartReader implements ProductForCartReaderInterfac
     {
         $stock = DB::table('product_variants')
             ->join('products', 'products.id', '=', 'product_variants.product_id')
-            ->join('stores', 'stores.id', '=', 'product_variants.store_id')
             ->where('product_variants.id', $productVariantId)
             ->where('products.is_active', true)
             ->where('products.status', 'published')
             ->whereNull('products.deleted_at')
-            ->where('stores.status', 'approved')
-            ->where('stores.is_active', true)
-            ->whereNull('stores.deleted_at')
             ->value('product_variants.stock');
 
         return $stock === null ? null : (int) $stock;
@@ -44,13 +40,11 @@ final class EloquentProductForCartReader implements ProductForCartReaderInterfac
             'product_variants.id',
             'product_variants.product_id',
             'product_variants.name as variant_name',
-            'product_variants.store_id',
             'product_variants.sku',
             'product_variants.price',
             'product_variants.stock',
             'products.name as product_name',
             'products.thumbnail',
-            'stores.name as store_name',
         ];
 
         $weightColumn = null;
@@ -64,15 +58,11 @@ final class EloquentProductForCartReader implements ProductForCartReaderInterfac
 
         $variants = DB::table('product_variants')
             ->join('products', 'products.id', '=', 'product_variants.product_id')
-            ->join('stores', 'stores.id', '=', 'product_variants.store_id')
             ->select($select)
             ->whereIn('product_variants.id', $productVariantIds)
             ->where('products.is_active', true)
             ->where('products.status', 'published')
             ->whereNull('products.deleted_at')
-            ->where('stores.status', 'approved')
-            ->where('stores.is_active', true)
-            ->whereNull('stores.deleted_at')
             ->get();
 
         if ($variants->isEmpty()) {
@@ -100,8 +90,6 @@ final class EloquentProductForCartReader implements ProductForCartReaderInterfac
                 productId: (int) $variant->product_id,
                 name: (string) ($variant->variant_name ?: $variant->product_name),
                 productName: (string) $variant->product_name,
-                storeId: (int) $variant->store_id,
-                storeName: (string) $variant->store_name,
                 sku: (string) $variant->sku,
                 price: new Money((int) $variant->price),
                 stock: (int) $variant->stock,

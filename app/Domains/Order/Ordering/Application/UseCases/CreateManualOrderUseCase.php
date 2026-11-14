@@ -10,10 +10,11 @@ use App\Domains\Order\Ordering\Domain\Entities\Order;
 use App\Domains\Order\Ordering\Domain\Entities\OrderItem;
 use App\Domains\Order\Ordering\Domain\Entities\SubOrder;
 use App\Domains\Order\Ordering\Domain\Repositories\OrderRepositoryInterface;
-use App\Domains\Shared\Codes\Application\Services\CodePatternService;
 use App\Domains\Order\Payment\Domain\Entities\Payment;
 use App\Domains\Order\Payment\Domain\Repositories\PaymentRepositoryInterface;
 use App\Domains\Seller\Stock\Application\Services\StockMovementService;
+use App\Domains\Shared\Codes\Application\Services\CodePatternService;
+use App\Domains\Shared\Settings\Application\Services\AppSettingService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -32,7 +33,8 @@ final class CreateManualOrderUseCase
         private ProductForCartReaderInterface $productReader,
         private PaymentRepositoryInterface $paymentRepository,
         private StockMovementService $stockMovementService,
-        private CodePatternService $codePatterns
+        private CodePatternService $codePatterns,
+        private AppSettingService $settings
     ) {}
 
     /**
@@ -40,7 +42,6 @@ final class CreateManualOrderUseCase
      * @param  array{name?: string, phone?: string, email?: ?string, address?: string}  $customer
      */
     public function execute(
-        int $storeId,
         array $itemInputs,
         array $customer,
         string $courier,
@@ -99,10 +100,6 @@ final class CreateManualOrderUseCase
             /** @var VariantDetails $details */
             $details = $detailsMap[$variantId];
 
-            if ($details->getStoreId() !== $storeId) {
-                throw new RuntimeException("Produk {$details->getProductName()} bukan milik toko Anda.");
-            }
-
             $stockRow = $stockRows[(int) $variantId] ?? null;
             $available = $stockRow
                 ? max(0, (int) $stockRow->stock - (int) $stockRow->stock_reserved - (int) $stockRow->stock_booked)
@@ -122,7 +119,6 @@ final class CreateManualOrderUseCase
                 id: null,
                 productId: $details->getProductId(),
                 variantId: (int) $variantId,
-                storeId: $storeId,
                 productName: $label,
                 sku: $details->getSku(),
                 thumbnail: $details->getThumbnail(),
@@ -133,15 +129,15 @@ final class CreateManualOrderUseCase
             $itemsTotal += (float) $details->getPrice()->getAmount() * $quantity;
         }
 
-        $userId = $this->resolveCustomerUserId($storeId, $customer);
+        $userId = $this->resolveCustomerUserId($customer);
 
         $providedOrderNumber = strtoupper(trim((string) $orderNumber));
         $orderNumber = $providedOrderNumber !== ''
             ? $providedOrderNumber
-            : $this->codePatterns->unique('order_number', $storeId, [
+            : $this->codePatterns->unique('order_number', [
                 'type' => 'MAN',
-                'store' => (string) ($customer['store_name'] ?? ''),
-                'seq' => (int) DB::table('orders')->where('store_id', $storeId)->count() + 1,
+                'store' => (string) $this->settings->storeProfile()['name'],
+                'seq' => $this->codePatterns->sequenceFor('orders', 'created_at'),
             ], fn (string $candidate): bool => DB::table('orders')->where('order_number', $candidate)->exists());
         $shippingAddress = $this->shippingAddress($customer, $courier);
         $grossAmount = max(0.0, $itemsTotal + $shippingCost);
@@ -167,14 +163,12 @@ final class CreateManualOrderUseCase
             subOrders: [
                 new SubOrder(
                     id: null,
-                    storeId: $storeId,
-                    storeName: (string) $customer['store_name'],
-                    subOrderNumber: $orderNumber.'-S'.$storeId,
+                    subOrderNumber: $orderNumber.'-S1',
                     totalItemsPrice: $itemsTotal,
                     shippingCost: $shippingCost,
                     courier: $courier,
                     service: $service ? strtoupper(trim($service)) : null,
-                    destinationId: 'MANUAL-'.$storeId,
+                    destinationId: 'MANUAL',
                     status: $paid ? $this->effectiveActiveStatus($status) : 'pending',
                     trackingNumber: null,
                     items: $items
@@ -227,7 +221,7 @@ final class CreateManualOrderUseCase
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
-    private function resolveCustomerUserId(int $storeId, array $customer): string
+    private function resolveCustomerUserId(array $customer): string
     {
         $email = strtolower(trim((string) ($customer['email'] ?? '')));
 
@@ -238,7 +232,7 @@ final class CreateManualOrderUseCase
             }
         }
 
-        $candidateEmail = $email !== '' ? $email : 'guest-'.$storeId.'-'.Str::lower(Str::random(12)).'@manual.order';
+        $candidateEmail = $email !== '' ? $email : 'guest-'.Str::lower(Str::random(12)).'@manual.order';
 
         $userId = (string) Str::uuid();
         $userName = trim((string) ($customer['name'] ?? ''));

@@ -8,11 +8,10 @@ use App\Domains\Order\Addresses\Application\DTOs\AddressDTO;
 
 final class AddressMapper
 {
-    public static function fromRequestArray(array $data, ?string $userId = null, ?string $storeId = null): AddressDTO
+    public static function fromRequestArray(array $data, ?string $userId = null): AddressDTO
     {
         return new AddressDTO(
             user_id: $userId,
-            store_id: $storeId,
             label: $data['label'],
             recipient_name: $data['recipient_name'],
             phone_number: $data['phone_number'],
@@ -34,7 +33,6 @@ final class AddressMapper
     {
         return [
             'user_id' => $dto->user_id,
-            'store_id' => $dto->store_id,
             'label' => $dto->label,
             'recipient_name' => $dto->recipient_name,
             'phone_number' => $dto->phone_number,

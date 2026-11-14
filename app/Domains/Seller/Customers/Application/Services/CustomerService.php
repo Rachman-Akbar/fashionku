@@ -12,28 +12,28 @@ final class CustomerService
 {
     public function __construct(private CustomerRepositoryInterface $repository) {}
 
-    public function paginate(array $filters, int $perPage, ?int $storeId): LengthAwarePaginator
+    public function paginate(array $filters, int $perPage): LengthAwarePaginator
     {
-        return $this->repository->paginate($filters, $perPage, $storeId);
+        return $this->repository->paginate($filters, $perPage);
     }
 
-    public function findForStore(string $userId, ?int $storeId): ?User
+    public function find(string $userId): ?User
     {
-        return $this->repository->findForStore($userId, $storeId);
+        return $this->repository->find($userId);
     }
 
-    public function create(array $data, int $storeId): User
+    public function create(array $data): User
     {
-        return $this->repository->createManual($data, $storeId);
+        return $this->repository->createManual($data);
     }
 
-    public function update(string $userId, array $data, ?int $storeId): ?User
+    public function update(string $userId, array $data): ?User
     {
-        return $this->repository->updateProfile($userId, $data, $storeId);
+        return $this->repository->updateProfile($userId, $data);
     }
 
-    public function delete(string $userId, ?int $storeId): bool
+    public function delete(string $userId): bool
     {
-        return $this->repository->deleteForStore($userId, $storeId);
+        return $this->repository->deleteCustomer($userId);
     }
 }

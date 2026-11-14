@@ -30,7 +30,6 @@ class EloquentOrderRepository implements OrderRepositoryInterface
             foreach ($order->subOrders as $subOrder) {
                 $subOrderModel = SubOrderModel::create([
                     'order_id' => $orderModel->id,
-                    'store_id' => $subOrder->storeId,
                     'sub_order_number' => $subOrder->subOrderNumber,
                     'total_items_price' => $subOrder->totalItemsPrice,
                     'shipping_cost' => $subOrder->shippingCost,
@@ -54,7 +53,7 @@ class EloquentOrderRepository implements OrderRepositoryInterface
                 }
             }
 
-            $savedModel = OrderModel::with(['subOrders.items', 'subOrders.store'])->findOrFail($orderModel->id);
+            $savedModel = OrderModel::with(['subOrders.items'])->findOrFail($orderModel->id);
 
             return $this->mapper->toDomain($savedModel);
         });
@@ -106,14 +105,14 @@ class EloquentOrderRepository implements OrderRepositoryInterface
 
     public function findById(int $id): ?DomainOrder
     {
-        $model = OrderModel::with(['subOrders.items', 'subOrders.store'])->find($id);
+        $model = OrderModel::with(['subOrders.items'])->find($id);
 
         return $model ? $this->mapper->toDomain($model) : null;
     }
 
     public function findByOrderNumber(string $orderNumber, bool $lock = false): ?DomainOrder
     {
-        $query = OrderModel::with(['subOrders.items', 'subOrders.store'])
+        $query = OrderModel::with(['subOrders.items'])
             ->where('order_number', $orderNumber);
 
         if ($lock) {
@@ -127,7 +126,7 @@ class EloquentOrderRepository implements OrderRepositoryInterface
 
     public function getByUserId(string $userId): array
     {
-        return OrderModel::with(['subOrders.items', 'subOrders.store'])
+        return OrderModel::with(['subOrders.items'])
             ->where('user_id', $userId)
             ->get()
             ->map(fn ($model) => $this->mapper->toDomain($model))
@@ -143,7 +142,7 @@ class EloquentOrderRepository implements OrderRepositoryInterface
             'filters' => $filters,
         ]));
 
-        $query = OrderModel::with(['subOrders.items', 'subOrders.store']);
+        $query = OrderModel::with(['subOrders.items']);
 
         if ($userId) {
             $query->where('user_id', $userId);

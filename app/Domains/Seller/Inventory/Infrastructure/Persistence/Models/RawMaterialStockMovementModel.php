@@ -10,7 +10,7 @@ final class RawMaterialStockMovementModel extends Model
 {
     protected $table = 'raw_material_stock_movements';
 
-    protected $fillable = ['store_id', 'raw_material_id', 'type', 'quantity_delta', 'balance_after', 'unit_cost', 'total_cost', 'reference_type', 'reference_number', 'notes', 'occurred_at'];
+    protected $fillable = ['raw_material_id', 'type', 'quantity_delta', 'balance_after', 'unit_cost', 'total_cost', 'reference_type', 'reference_number', 'notes', 'occurred_at'];
 
     public function material()
     {

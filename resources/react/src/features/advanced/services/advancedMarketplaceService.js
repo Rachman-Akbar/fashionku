@@ -329,22 +329,24 @@ export function useReviewPromotionPayment() {
   }, advancedKeys.promotionPayments);
 }
 
-export function useConversations(params = {}) {
+export function useConversations(params = {}, options = {}) {
   return useQuery({
     queryKey: [...advancedKeys.conversations, params],
     queryFn: () => communicationList("/conversations", params),
-    refetchInterval: () => getEchoStatus() === "connected" ? false : 10000,
+    refetchInterval: () => getEchoStatus() === "connected" ? false : 15000,
     refetchOnWindowFocus: true,
+    ...options,
   });
 }
 
-export function useConversation(id) {
+export function useConversation(id, options = {}) {
   return useQuery({
     queryKey: [...advancedKeys.conversations, id],
     queryFn: () => communicationOne(`/conversations/${id}`),
     enabled: Boolean(id),
     refetchInterval: () => getEchoStatus() === "connected" ? false : 15000,
     refetchOnWindowFocus: true,
+    ...options,
   });
 }
 

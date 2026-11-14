@@ -6,7 +6,6 @@ namespace App\Domains\Communication\Chat\Infrastructure\Persistence\Models;
 
 use App\Domains\Identity\User\Domain\Entities\User;
 use App\Domains\Order\Ordering\Infrastructure\Persistence\Models\OrderModel;
-use App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\HasActiveStatus;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Model;
@@ -25,7 +24,6 @@ final class ConversationModel extends Model
 
     protected $fillable = [
         'type',
-        'store_id',
         'order_id',
         'subject',
         'target_role',
@@ -35,16 +33,10 @@ final class ConversationModel extends Model
     ];
 
     protected $casts = [
-        'store_id' => 'integer',
         'order_id' => 'integer',
         'is_active' => 'boolean',
         'deleted_at' => 'datetime',
     ];
-
-    public function store(): BelongsTo
-    {
-        return $this->belongsTo(StoreModel::class, 'store_id');
-    }
 
     public function order(): BelongsTo
     {

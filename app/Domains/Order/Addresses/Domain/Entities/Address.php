@@ -13,7 +13,6 @@ class Address extends Model
 
     protected $fillable = [
         'user_id',
-        'store_id',
         'label',
         'recipient_name',
         'phone_number',
@@ -40,39 +39,19 @@ class Address extends Model
     protected static function booted(): void
     {
         static::saving(function (Address $address): void {
-            $hasUser = $address->user_id !== null && $address->user_id !== '';
-            $hasStore = $address->store_id !== null && $address->store_id !== '';
-
-            if ($hasUser === $hasStore) {
-                throw new InvalidArgumentException('Alamat harus dimiliki tepat oleh satu user atau satu toko.');
-            }
-
-            if ($hasStore) {
-                $duplicate = static::query()
-                    ->where('store_id', $address->store_id)
-                    ->when($address->exists, fn ($query) => $query->where($address->getKeyName(), '<>', $address->getKey()))
-                    ->exists();
-
-                if ($duplicate) {
-                    throw new InvalidArgumentException('Satu toko hanya boleh memiliki satu alamat.');
-                }
-
-                $address->is_primary = true;
+            if ($address->user_id === null || $address->user_id === '') {
+                throw new InvalidArgumentException('Alamat harus dimiliki oleh seorang user.');
             }
         });
     }
 
     public function markAsPrimary(): void
     {
-        $query = static::query()->whereKeyNot($this->getKey());
+        static::query()
+            ->where('user_id', $this->user_id)
+            ->whereKeyNot($this->getKey())
+            ->update(['is_primary' => false]);
 
-        if ($this->user_id) {
-            $query->where('user_id', $this->user_id);
-        } else {
-            $query->where('store_id', $this->store_id);
-        }
-
-        $query->update(['is_primary' => false]);
         $this->forceFill(['is_primary' => true])->saveQuietly();
     }
 }

@@ -31,7 +31,6 @@ final class ProductResource extends JsonResource
             $targetVariant = $variants[0];
         }
 
-        $store = $product->store();
         $internal = ProductVariantResource::isInternalRequest($request);
         $available = $targetVariant ? $targetVariant->availableStock() : 0;
         $targetMaxOrderQty = $targetVariant ? $targetVariant->maxOrderQty() : 999999;
@@ -40,13 +39,6 @@ final class ProductResource extends JsonResource
 
         return [
             'id' => $product->id(),
-            'store_id' => $product->storeId(),
-            'store' => $store !== [] ? $store : null,
-            'store_name' => $store['name'] ?? null,
-            'store_slug' => $store['slug'] ?? null,
-            'store_logo' => $store['logo'] ?? null,
-            'store_city' => $store['city'] ?? null,
-            'store_province' => $store['province'] ?? null,
             'primary_category_id' => $product->primaryCategoryId(),
             'name' => $product->name(),
             'slug' => $product->slug(),

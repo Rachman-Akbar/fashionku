@@ -21,19 +21,11 @@ final class StockMovementPolicy
 
     public function view(User $user, StockMovementModel $movement): bool
     {
-        return $this->ownsStore($user, (int) $movement->store_id);
+        return $user->hasRole('admin') || $user->hasPermission('stock.manage');
     }
 
     public function create(User $user): bool
     {
         return $user->hasPermission('stock.manage');
-    }
-
-    private function ownsStore(User $user, int $storeId): bool
-    {
-        return $user->hasRole('admin') || (
-            $user->hasPermission('stock.manage')
-            && (int) $user->store?->id === $storeId
-        );
     }
 }

@@ -112,7 +112,7 @@ export function Navbar() {
   function toggleCategory(event) {
     event.preventDefault();
     event.stopPropagation();
-    setProfileOpen(false);
+    setProfileHover(false);
     setCategoryOpen((current) => !current);
   }
 

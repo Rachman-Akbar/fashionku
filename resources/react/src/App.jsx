@@ -37,7 +37,6 @@ const AddressesPage = lazyWithRetry(() => import("@/features/profile/address/pag
 const GroupChatPage = lazyWithRetry(() => import("@/features/profile/chat/pages/GroupChatPage"));
 const NotificationsPage = lazyWithRetry(() => import("@/features/profile/notifications/pages/NotificationsPage"));
 const PaymentsPage = lazyWithRetry(() => import("@/features/profile/payments/pages/PaymentsPage"));
-const VouchersPage = lazyWithRetry(() => import("@/features/profile/vouchers/pages/VouchersPage"));
 const FinancePage = lazyWithRetry(() => import("@/features/advanced/pages/FinancePage"));
 const StockPage = lazyWithRetry(() => import("@/features/advanced/pages/StockPage"));
 const CodePatternSettingsPage = lazyWithRetry(() => import("@/features/advanced/pages/CodePatternSettingsPage"));
@@ -104,7 +103,6 @@ function renderAccountRoutes() {
         <Route path="/profile/wishlist" element={<Navigate to="/cart?tab=wishlist" replace />} />
         <Route path="/profile/notifications" element={<NotificationsPage />} />
         <Route path="/profile/payments" element={<PaymentsPage />} />
-        <Route path="/profile/vouchers" element={<VouchersPage />} />
         <Route path="/profile/help" element={<BuyerHelpPage />} />
         <Route path="/chat" element={<RealtimeChatPage />} />
         <Route path="/chat/groups" element={<GroupChatPage />} />

@@ -16,22 +16,7 @@ final class EloquentPromotionRepository implements PromotionRepositoryInterface
     public function getAll(array $filters = [], bool $includeInactive = false): array
     {
         return $this->applyFilters(PromotionModel::query(), $filters, $includeInactive)
-            ->when(! $includeInactive, function (Builder $query): void {
-                $query->where(function (Builder $visibilityQuery): void {
-                    $visibilityQuery->whereNull('store_id')
-                        ->orWhereHas('store', fn (Builder $storeQuery) => $storeQuery->publiclyAvailable());
-                });
-            })
             ->orderBy('sort_order')
-            ->orderByDesc('id')
-            ->get()
-            ->map(fn (PromotionModel $model): Promotion => PromotionMapper::toEntity($model))
-            ->all();
-    }
-
-    public function getByStoreId(int $storeId, array $filters = [], bool $includeInactive = true): array
-    {
-        return $this->applyFilters(PromotionModel::query()->where('store_id', $storeId), $filters, $includeInactive)
             ->orderByDesc('id')
             ->get()
             ->map(fn (PromotionModel $model): Promotion => PromotionMapper::toEntity($model))
@@ -62,7 +47,6 @@ final class EloquentPromotionRepository implements PromotionRepositoryInterface
             : new PromotionModel;
 
         $model->fill([
-            'store_id' => $promotion->storeId,
             'promotion_payment_id' => $promotion->promotionPaymentId,
             'name' => $promotion->name,
             'image_url' => $promotion->imageUrl,
@@ -89,7 +73,6 @@ final class EloquentPromotionRepository implements PromotionRepositoryInterface
         return $query
             ->when(! $includeInactive, fn (Builder $query) => $query->active())
             ->when(array_key_exists('is_active', $filters), fn (Builder $query) => $query->where('is_active', filter_var($filters['is_active'], FILTER_VALIDATE_BOOLEAN)))
-            ->when(isset($filters['store_id']) && $filters['store_id'] !== '', fn (Builder $query) => $query->where('store_id', (int) $filters['store_id']))
             ->when(trim((string) ($filters['search'] ?? '')) !== '', function (Builder $query) use ($filters): void {
                 $search = trim((string) $filters['search']);
                 $query->where(function (Builder $query) use ($search): void {

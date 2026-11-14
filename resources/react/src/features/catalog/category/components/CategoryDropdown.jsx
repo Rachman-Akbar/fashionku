@@ -34,21 +34,12 @@ export function CategoryDropdown({
   const voucherLoading = vouchersQuery.isLoading;
   const voucherError = vouchersQuery.error?.message || "";
 
-  const navGroups = useMemo(() => [VOUCHER_GROUP, ...groups], [groups]);
-  const l1List = useMemo(() => {
-    if (isVoucherActive) return [];
-    const list =
-      categoriesByGroup[activeGroupKey] ??
-      categoriesByGroup[Number(activeGroupKey)] ??
-      [];
-    return Array.isArray(list) ? list : [];
-  }, [activeGroupKey, categoriesByGroup, isVoucherActive]);
+  const rootCategories = useMemo(() => {
+    const allGroup = categoriesByGroup.all || [];
+    return Array.isArray(allGroup) ? allGroup : [];
+  }, [categoriesByGroup]);
 
-  const levelTwoList = useMemo(() => {
-    return (l1List || []).flatMap((l1) =>
-      Array.isArray(l1.children) ? l1.children : []
-    );
-  }, [l1List]);
+  const navGroups = useMemo(() => [VOUCHER_GROUP, ...rootCategories], [rootCategories]);
 
   const handleSetActiveGroup = useCallback(
     (groupKey) => {
@@ -104,6 +95,8 @@ export function CategoryDropdown({
   }, [handleClose, open]);
 
   if (!rendered) return null;
+
+  const placeholderSvg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";
 
   return (
     <>
@@ -175,73 +168,93 @@ export function CategoryDropdown({
               <div className="px-4 py-2 text-xs text-red-500">{error}</div>
             )}
 
-            {!loading && !error && !levelTwoList.length && (
+            {!loading && !error && !rootCategories.length && (
               <div className="py-2 text-sm text-gray-400">
                 Kategori belum tersedia
               </div>
             )}
 
-            {!loading && !error && levelTwoList.length > 0 && (
-              <div className="columns-2 gap-8 space-y-7 md:columns-3 xl:columns-4">
-                {levelTwoList.map((levelTwo) => (
-                  <div
-                    key={levelTwo.key || levelTwo.id || levelTwo.slug}
-                    className="break-inside-avoid"
-                  >
-                    <Link
-                      to={getCategoryHref(levelTwo)}
-                      onClick={handleClose}
-                      className="mb-2 flex items-center gap-2 text-sm font-bold text-gray-900 transition-colors duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#10B981]"
-                    >
-                      {levelTwo.image_url && (
-                        <img
-                          src={resolveMediaUrl(levelTwo.image_url)}
-                          alt=""
-                          className="h-5 w-5 flex-shrink-0 rounded object-cover"
-                          loading="lazy"
-                          onError={(e) => {
-                            e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";
-                          }}
-                        />
-                      )}
-                      {levelTwo.name}
-                    </Link>
+            {!loading && !error && rootCategories.length > 0 && (
+              <div className="space-y-8">
+                {rootCategories.map((levelOne) => {
+                  const levelTwoChildren = Array.isArray(levelOne.children) ? levelOne.children : [];
+                  if (!levelTwoChildren.length) return null;
 
-                    {Array.isArray(levelTwo.children) &&
-                    levelTwo.children.length ? (
-                      <ul className="space-y-1.5">
-                        {levelTwo.children.map((levelThree) => (
-                          <li
-                            key={
-                              levelThree.key ||
-                              levelThree.id ||
-                              levelThree.slug
-                            }
-                          >
-                            <Link
-                              to={getCategoryHref(levelThree)}
-                              onClick={handleClose}
-                              className="flex items-center gap-1.5 text-xs text-gray-500 transition-colors duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#10B981]"
+                  const isActive = activeGroupKey === String(levelOne.key ?? levelOne.id ?? levelOne.slug);
+                  if (!isActive) return null;
+
+                  return (
+                    <div
+                      key={levelOne.key || levelOne.id || levelOne.slug}
+                      className="space-y-4"
+                    >
+                      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                        {levelTwoChildren.map((levelTwo) => {
+                          const levelThreeChildren = Array.isArray(levelTwo.children) ? levelTwo.children : [];
+
+                          return (
+                            <div
+                              key={levelTwo.key || levelTwo.id || levelTwo.slug}
+                              className="space-y-2"
                             >
-                              {levelThree.image_url && (
-                                <img
-                                  src={resolveMediaUrl(levelThree.image_url)}
-                                  alt=""
-                                  className="h-4 w-4 flex-shrink-0 rounded object-cover"
-                                  loading="lazy"
-                                  onError={(e) => {
-                                    e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";
-                                  }}
-                                />
+                              <Link
+                                to={getCategoryHref(levelTwo)}
+                                onClick={handleClose}
+                                className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 transition-colors duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#10B981]"
+                              >
+                                {levelTwo.image_url && (
+                                  <img
+                                    src={resolveMediaUrl(levelTwo.image_url)}
+                                    alt=""
+                                    className="h-4 w-4 flex-shrink-0 rounded object-cover"
+                                    loading="lazy"
+                                    onError={(e) => {
+                                      e.currentTarget.src = placeholderSvg;
+                                    }}
+                                  />
+                                )}
+                                {levelTwo.name}
+                              </Link>
+
+                              {levelThreeChildren.length > 0 && (
+                                <ul className="space-y-1.5 pl-2">
+                                  {levelThreeChildren.map((levelThree) => (
+                                    <li
+                                      key={
+                                        levelThree.key ||
+                                        levelThree.id ||
+                                        levelThree.slug
+                                      }
+                                    >
+                                      <Link
+                                        to={getCategoryHref(levelThree)}
+                                        onClick={handleClose}
+                                        className="flex items-center gap-1.5 text-xs text-gray-500 transition-colors duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#10B981]"
+                                      >
+                                        {levelThree.image_url && (
+                                          <img
+                                            src={resolveMediaUrl(levelThree.image_url)}
+                                            alt=""
+                                            className="h-3 w-3 flex-shrink-0 rounded object-cover"
+                                            loading="lazy"
+                                            onError={(e) => {
+                                              e.currentTarget.src = placeholderSvg;
+                                            }}
+                                          />
+                                        )}
+                                        {levelThree.name}
+                                      </Link>
+                                    </li>
+                                  ))}
+                                </ul>
                               )}
-                              {levelThree.name}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
-                ))}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -29,9 +29,6 @@ final class CatalogServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        $this->loadMigrationsFrom(
-            __DIR__.'/Product/Infrastructure/Persistence/Migrations'
-        );
         Gate::policy(PromotionPaymentModel::class, PromotionPaymentPolicy::class);
     }
 

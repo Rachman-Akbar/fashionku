@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Catalog\Product\Presentation\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 final class UpdateProductVariantRequest extends FormRequest
@@ -26,16 +25,12 @@ final class UpdateProductVariantRequest extends FormRequest
     {
         $variantId = (int) $this->route('variantId');
 
-        $storeId = DB::table('product_variants')->where('id', $variantId)->value('store_id');
-
         return [
             'sku' => [
                 'nullable',
                 'string',
                 'max:100',
-                Rule::unique('product_variants', 'sku')
-                    ->ignore($variantId)
-                    ->where(fn ($query) => $query->where('store_id', $storeId)),
+                Rule::unique('product_variants', 'sku')->ignore($variantId),
             ],
             'name' => [
                 'nullable',

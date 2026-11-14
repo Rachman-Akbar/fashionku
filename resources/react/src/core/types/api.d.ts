@@ -97,8 +97,6 @@ export interface CartItem {
   quantity: number;
   stock: number;
   weight: number;
-  storeId: number;
-  storeName: string;
   subtotal: number;
 }
 
@@ -126,20 +124,6 @@ export interface OrderItem {
   subtotal: number;
 }
 
-export interface SubOrder {
-  id: number;
-  storeId: number;
-  storeName: string;
-  number: string;
-  totalItemsPrice: number;
-  shippingCost: number;
-  courier: string;
-  service: string;
-  status: string;
-  trackingNumber: string | null;
-  items: OrderItem[];
-}
-
 export interface Order {
   id: string | number;
   orderNumber: string;
@@ -157,7 +141,7 @@ export interface Order {
   shippingDiscountAmount: number;
   finalAmount: number;
   shippingAddress: string;
-  subOrders: SubOrder[];
+  items: OrderItem[];
   createdAt: string | null;
   updatedAt: string | null;
 }

@@ -26,11 +26,6 @@ final class AdminNotificationResource extends JsonResource
                 'name' => $this->actor->name,
                 'avatar' => $this->actor->avatar,
             ] : null),
-            'store' => $this->whenLoaded('store', fn () => $this->store ? [
-                'id' => $this->store->id,
-                'name' => $this->store->name,
-                'logo' => $this->store->logo,
-            ] : null),
             'read_at' => $this->read_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
         ];

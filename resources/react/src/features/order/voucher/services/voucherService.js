@@ -5,7 +5,7 @@ import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 
 export const voucherKeys = {
   active: (params = {}) => ["order", "vouchers", "active", params],
-  checkout: (storeIds = []) => ["order", "vouchers", "checkout", [...storeIds].map(String).sort()],
+  checkout: () => ["order", "vouchers", "checkout"],
   mine: () => ["order", "vouchers", "mine"],
 };
 
@@ -23,7 +23,6 @@ function toBoolean(value, fallback = false) {
 
 export function normalizeVoucher(voucher = {}) {
   const maxDiscount = voucher.maxDiscount ?? voucher.max_discount;
-  const storeId = voucher.storeId ?? voucher.store_id ?? null;
 
   return {
     id: Number(voucher.id),
@@ -33,7 +32,6 @@ export function normalizeVoucher(voucher = {}) {
     terms: voucher.terms || voucher.terms_and_conditions || voucher.termsAndConditions || voucher.conditions || "",
     image: voucher.image || "",
     imageUrl: resolveMediaUrl(voucher.imageUrl || voucher.image_url || voucher.image || ""),
-    voucherScope: voucher.voucherScope || voucher.voucher_scope || (storeId ? "store" : "platform"),
     discountTarget: voucher.discountTarget || voucher.discount_target || "product",
     discountType: voucher.discountType || voucher.discount_type || "fixed",
     discountValue: toNumber(voucher.discountValue ?? voucher.discount_value),
@@ -43,8 +41,6 @@ export function normalizeVoucher(voucher = {}) {
     endsAt: voucher.endsAt || voucher.ends_at || null,
     usageLimit: toNumber(voucher.usageLimit ?? voucher.usage_limit),
     usedCount: toNumber(voucher.usedCount ?? voucher.used_count),
-    storeId,
-    storeName: voucher.storeName || voucher.store_name || voucher.store?.name || "",
     isActive: toBoolean(voucher.isActive ?? voucher.is_active, true),
     status: voucher.status || "active",
     approvalStatus: voucher.approvalStatus || voucher.approval_status || "approved",
@@ -70,19 +66,13 @@ export function useActiveVouchers(options = {}) {
   });
 }
 
-export function useCheckoutVouchers(storeIds = [], options = {}) {
-  const normalizedStoreIds = [...new Set(storeIds.map(String).filter(Boolean))];
+export function useCheckoutVouchers(_storeIds = [], options = {}) {
   const { enabled = true, ...queryOptions } = options;
-  const params = normalizedStoreIds.length === 1
-    ? { store_id: normalizedStoreIds[0] }
-    : normalizedStoreIds.length > 1
-      ? { store_ids: normalizedStoreIds.join(",") }
-      : {};
 
   return useQuery({
-    queryKey: voucherKeys.checkout(normalizedStoreIds),
-    queryFn: () => getActiveVouchers(params),
-    enabled: Boolean(enabled && normalizedStoreIds.length > 0),
+    queryKey: voucherKeys.checkout(),
+    queryFn: () => getActiveVouchers(),
+    enabled: Boolean(enabled),
     ...publicQueryOptions,
     ...queryOptions,
   });

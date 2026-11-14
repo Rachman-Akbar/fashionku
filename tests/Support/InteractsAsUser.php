@@ -6,16 +6,13 @@ namespace Tests\Support;
 
 use App\Domains\Identity\User\Domain\Entities\Role;
 use App\Domains\Identity\User\Domain\Entities\User;
-use App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel;
 use Illuminate\Support\Str;
 
 /**
- * Helpers to build realistic users/stores for HTTP feature tests.
+ * Helpers to build realistic users for HTTP feature tests.
  *
- * The app's auth middleware (`active.role`, `role`, `seller.store.available`)
- * inspects the Sanctum token `abilities` for an `active-role:{role}` entry and
- * requires a non-suspended store for sellers, so these helpers mirror the real
- * token issued by IssueApiTokenUseCase and the real seller store setup.
+ * The app's auth middleware (`active.role`, `role`) inspects the Sanctum token
+ * `abilities` for an `active-role:{role}` entry.
  */
 trait InteractsAsUser
 {
@@ -64,39 +61,10 @@ trait InteractsAsUser
     }
 
     /**
-     * Fashionku is a single-store marketplace: every seller operates the one
-     * main store. Reuse a shared store so seller flows match production.
+     * Create a seller and authenticate as them.
      */
-    private function makeStore(?User $user = null, array $attributes = []): StoreModel
+    private function actingAsSeller(array $userAttributes = []): User
     {
-        $existing = StoreModel::query()->whereNull('deleted_at')->orderBy('id')->first();
-
-        if ($existing !== null && $attributes === []) {
-            return $existing;
-        }
-
-        return StoreModel::query()->create(array_merge([
-            'user_id' => $user?->id ?? $this->makeUser([], ['seller'])->id,
-            'name' => 'Fashionku',
-            'slug' => 'fashionku-'.strtolower((string) Str::random(6)),
-            'phone' => '08123456789',
-            'city' => 'Bandung',
-            'province' => 'Jawa Barat',
-            'address' => 'Jl. Cihampelas No. 120',
-            'status' => 'approved',
-            'is_active' => true,
-        ], $attributes));
-    }
-
-    /**
-     * Create a seller linked to the main store and authenticate as them.
-     */
-    private function actingAsSeller(array $userAttributes = [], array $storeAttributes = []): array
-    {
-        $seller = $this->actingAsRole('seller', $userAttributes);
-        $store = $this->makeStore($seller, $storeAttributes);
-        $seller->unsetRelation('store');
-
-        return [$seller, $store];
+        return $this->actingAsRole('seller', $userAttributes);
     }
 }

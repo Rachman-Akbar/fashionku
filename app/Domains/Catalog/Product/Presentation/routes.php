@@ -31,7 +31,7 @@ Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:seller
         Route::delete('/{id}', [ProductAttributeController::class, 'destroy'])->whereNumber('id')->name('destroy');
     });
 
-Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'active.role:seller', 'seller.store.available'])
+Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'active.role:seller'])
     ->prefix('seller/products')
     ->name('seller.products.')
     ->group(function (): void {

@@ -32,15 +32,4 @@ final class Order
     {
         return max(0.0, $this->totalAmount - $this->discountAmount - $this->shippingDiscountAmount);
     }
-
-    public function getShippingCostByStore(int $storeId): float
-    {
-        foreach ($this->subOrders as $subOrder) {
-            if ($subOrder->storeId === $storeId) {
-                return $subOrder->shippingCost;
-            }
-        }
-
-        return 0.0;
-    }
 }

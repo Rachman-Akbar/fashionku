@@ -20,17 +20,13 @@ class SellerCustomerTest extends TestCase
     use InteractsAsUser;
     use RefreshDatabase;
 
-    private int $storeId;
-
-    private $seller;
+    private User $seller;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        [$seller, $store] = $this->actingAsSeller();
-        $this->seller = $seller;
-        $this->storeId = (int) $store->id;
+        $this->seller = $this->actingAsSeller();
         $this->makeRole('buyer');
         $this->grantSellerPermissions(['orders.view']);
     }
@@ -57,7 +53,7 @@ class SellerCustomerTest extends TestCase
         }
     }
 
-    private function makeOrderForBuyer(string $userId, int $storeId, float $total = 100000, string $status = 'completed'): void
+    private function makeOrderForBuyer(string $userId, float $total = 100000, string $status = 'completed'): void
     {
         $orderId = (int) DB::table('orders')->insertGetId([
             'order_number' => 'CUS-'.Str::upper(Str::random(6)),
@@ -73,7 +69,6 @@ class SellerCustomerTest extends TestCase
 
         DB::table('sub_orders')->insert([
             'order_id' => $orderId,
-            'store_id' => $storeId,
             'sub_order_number' => 'CUS-SUB-'.Str::upper(Str::random(6)),
             'total_items_price' => $total,
             'shipping_cost' => 0,
@@ -88,7 +83,7 @@ class SellerCustomerTest extends TestCase
     public function test_seller_can_list_customers_from_transactions(): void
     {
         $buyer = $this->makeUser(['name' => 'Pembeli Aktif']);
-        $this->makeOrderForBuyer($buyer->id, $this->storeId, 250000, 'completed');
+        $this->makeOrderForBuyer($buyer->id, 250000, 'completed');
 
         $response = $this->getJson('/api/v1/seller/customers?per_page=20');
 
@@ -113,7 +108,7 @@ class SellerCustomerTest extends TestCase
         $id = $response->json('data.id');
 
         $this->assertDatabaseHas('users', ['id' => $id, 'email' => 'manual@example.test', 'name' => 'Pelanggan Manual']);
-        $this->assertDatabaseHas('seller_customers', ['store_id' => $this->storeId, 'user_id' => $id]);
+        $this->assertDatabaseHas('seller_customers', ['user_id' => $id]);
 
         $user = User::query()->find($id);
         $this->assertTrue($user->hasRole('buyer'));
@@ -155,7 +150,7 @@ class SellerCustomerTest extends TestCase
 
         $response->assertStatus(200)->assertJsonPath('success', true);
         $this->assertSoftDeleted('users', ['id' => $created]);
-        $this->assertDatabaseMissing('seller_customers', ['store_id' => $this->storeId, 'user_id' => $created]);
+        $this->assertDatabaseMissing('seller_customers', ['user_id' => $created]);
 
         $list = $this->getJson('/api/v1/seller/customers')->json('data');
         $this->assertEmpty(collect($list)->first(fn (array $row) => $row['id'] === $created));
@@ -169,27 +164,6 @@ class SellerCustomerTest extends TestCase
             'name' => 'Duplikat',
             'email' => $existing->email,
         ])->assertStatus(422);
-    }
-
-    public function test_customer_of_other_store_cannot_be_updated_or_deleted(): void
-    {
-        $otherSeller = $this->makeUser([], ['seller']);
-        $foreignStore = $this->makeStore($otherSeller, [
-            'name' => 'Toko Asing',
-            'slug' => 'toko-asing-'.strtolower(\Illuminate\Support\Str::random(6)),
-            'is_active' => false,
-        ]);
-        $buyer = $this->makeUser();
-        $this->makeOrderForBuyer($buyer->id, (int) $foreignStore->id);
-
-        $this->patchJson('/api/v1/seller/customers/'.$buyer->id, [
-            'name' => 'Curi Data',
-            'email' => 'curi@example.test',
-        ])->assertStatus(422);
-
-        $this->deleteJson('/api/v1/seller/customers/'.$buyer->id)->assertStatus(422);
-
-        $this->assertNotSoftDeleted('users', ['id' => $buyer->id]);
     }
 
     public function test_admin_cannot_mutate_customers(): void

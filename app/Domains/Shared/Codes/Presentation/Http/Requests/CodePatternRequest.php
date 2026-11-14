@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domains\Shared\Codes\Presentation\Http\Requests\CodePatternRequest;
+namespace App\Domains\Shared\Codes\Presentation\Http\Requests;
 
 use App\Domains\Shared\Codes\Application\Services\CodePatternFormatter;
 use Illuminate\Foundation\Http\FormRequest;
@@ -18,7 +18,6 @@ final class CodePatternRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'store_id' => ['nullable', 'integer', 'exists:stores,id'],
             'patterns' => ['required', 'array', 'min:1'],
             'patterns.*' => [
                 'nullable',

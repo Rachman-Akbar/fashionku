@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Catalog;
 
+use App\Domains\Shared\Settings\Application\Services\AppSettingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\InteractsAsUser;
 use Tests\TestCase;
@@ -15,7 +16,7 @@ class ProductSearchAndFacetsTest extends TestCase
 
     public function test_public_catalog_returns_facets(): void
     {
-        [$seller, $store] = $this->actingAsSeller([], ['city' => 'Surabaya', 'province' => 'Jawa Timur']);
+        $seller = $this->actingAsSeller();
 
         $this->postJson('/api/v1/catalog/seller/products', [
             'name' => 'Speaker Portable',
@@ -30,45 +31,12 @@ class ProductSearchAndFacetsTest extends TestCase
         $facets = $response->json('facets');
         $this->assertIsArray($facets);
         $this->assertArrayHasKey('locations', $facets);
-        $this->assertArrayHasKey('store_types', $facets);
         $this->assertArrayHasKey('price_range', $facets);
-        $this->assertContains('Surabaya', $facets['locations']);
-    }
-
-    public function test_public_catalog_filters_by_store_type_and_discount(): void
-    {
-        [$seller, $store] = $this->actingAsSeller([], ['store_type' => 'power_merchant']);
-        $store->forceFill(['store_type' => 'power_merchant'])->save();
-
-        $this->postJson('/api/v1/catalog/seller/products', [
-            'name' => 'Produk Promo',
-            'price' => 100000,
-            'price_original' => 125000,
-            'status' => 'published',
-            'variants' => [
-                ['name' => 'Standar', 'price' => 100000, 'price_original' => 125000],
-            ],
-        ])->assertOk();
-
-        $plain = $this->getJson('/api/v1/catalog/products');
-        $plain->assertOk();
-
-        $byType = $this->getJson('/api/v1/catalog/products?store_type=power_merchant');
-        $byType->assertOk();
-        $this->assertContains('Produk Promo', collect($byType->json('data'))->pluck('name')->all());
-
-        $byTypeOther = $this->getJson('/api/v1/catalog/products?store_type=official');
-        $byTypeOther->assertOk();
-        $this->assertNotContains('Produk Promo', collect($byTypeOther->json('data'))->pluck('name')->all());
-
-        $byDiscount = $this->getJson('/api/v1/catalog/products?has_discount=1');
-        $byDiscount->assertOk();
-        $this->assertContains('Produk Promo', collect($byDiscount->json('data'))->pluck('name')->all());
     }
 
     public function test_public_catalog_filters_by_price_range(): void
     {
-        [$seller, $store] = $this->actingAsSeller();
+        $seller = $this->actingAsSeller();
 
         foreach ([100000, 500000, 900000] as $price) {
             $this->postJson('/api/v1/catalog/seller/products', [
@@ -89,7 +57,7 @@ class ProductSearchAndFacetsTest extends TestCase
 
     public function test_public_catalog_sort_values(): void
     {
-        [$seller, $store] = $this->actingAsSeller();
+        $seller = $this->actingAsSeller();
 
         foreach ([300000, 100000, 200000] as $price) {
             $this->postJson('/api/v1/catalog/seller/products', [
@@ -115,9 +83,15 @@ class ProductSearchAndFacetsTest extends TestCase
         );
     }
 
-    public function test_public_catalog_filters_by_location_array(): void
+    public function test_public_catalog_facets_include_shop_location_when_configured(): void
     {
-        [$seller, $store] = $this->actingAsSeller([], ['city' => 'Bandung', 'province' => 'Jawa Barat']);
+        $seller = $this->actingAsSeller();
+
+        // Set up shop profile with location
+        app(\App\Domains\Shared\Settings\Application\Services\AppSettingService::class)->putMany([
+            'store.city' => 'Bandung',
+            'store.province' => 'Jawa Barat',
+        ], 'store');
 
         $this->postJson('/api/v1/catalog/seller/products', [
             'name' => 'Keripik Bandung',
@@ -126,35 +100,18 @@ class ProductSearchAndFacetsTest extends TestCase
             'variants' => [['name' => 'Standar', 'price' => 50000]],
         ])->assertOk();
 
-        $ok = $this->getJson('/api/v1/catalog/products?locations[]=Bandung');
+        // Facets should include shop location from app_settings
+        $response = $this->getJson('/api/v1/catalog/products')->assertOk();
+        $facets = $response->json('facets');
+        $this->assertIsArray($facets['locations']);
+        $this->assertNotEmpty($facets['locations']);
+        $this->assertContains('Bandung', $facets['locations']);
+        $this->assertContains('Jawa Barat', $facets['locations']);
+
+        // All products belong to the single shop, so location filter returns all products
+        $location = $facets['locations'][0];
+        $ok = $this->getJson("/api/v1/catalog/products?locations[]={$location}");
         $ok->assertOk();
         $this->assertContains('Keripik Bandung', collect($ok->json('data'))->pluck('name')->all());
-
-        $miss = $this->getJson('/api/v1/catalog/products?locations[]=Medan');
-        $miss->assertOk();
-        $this->assertNotContains('Keripik Bandung', collect($miss->json('data'))->pluck('name')->all());
-    }
-
-    public function test_public_catalog_filters_by_store_id_keeps_facets(): void
-    {
-        [$seller, $store] = $this->actingAsSeller([], ['city' => 'Surabaya', 'province' => 'Jawa Timur']);
-
-        $this->postJson('/api/v1/catalog/seller/products', [
-            'name' => 'Produk Toko',
-            'price' => 175000,
-            'status' => 'published',
-            'variants' => [['name' => 'Standar', 'price' => 175000]],
-        ])->assertOk();
-
-        $response = $this->getJson('/api/v1/catalog/products?store_id='.$store->id)
-            ->assertOk();
-
-        $facets = $response->json('facets');
-        $this->assertIsArray($facets);
-        $this->assertArrayHasKey('price_range', $facets);
-        $this->assertSame(
-            ['Produk Toko'],
-            collect($response->json('data'))->pluck('name')->all(),
-        );
     }
 }

@@ -7,7 +7,6 @@ import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { useEntityEditor } from "@/shared/hooks/useEntityEditor";
 import { useColumnVisibility, useRefreshOnListActivation, useTableSelection } from "@/shared/hooks";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
-import { useAuth } from "@/features/auth/context/AuthContext";
 import { VoucherFormDialog } from "@/features/order/voucher/components/VoucherFormDialog";
 import { VOUCHER_TABLE_COLUMNS, VoucherManagementTable } from "@/features/order/voucher/components/VoucherManagementTable";
 import { getVoucherManagementError, useDeleteVoucher, useManagedVouchers, useUpdateVoucher } from "@/features/order/voucher/services/voucherManagementService";
@@ -17,7 +16,6 @@ import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOpera
 import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
 
 export function VoucherManagementPage({ portal, children: wrap }) {
-  const { store } = useAuth();
   const notifications = useNotificationCenter();
   const vouchersQuery = useManagedVouchers(portal, { include_inactive: 1 });
   const deleteMutation = useDeleteVoucher(portal);
@@ -31,13 +29,10 @@ export function VoucherManagementPage({ portal, children: wrap }) {
     refetch: vouchersQuery.refetch,
   });
 
-  const rows = (vouchersQuery.data || []).filter((row) => {
-    if (portal === "seller") return row.voucherScope === "store" && Number(row.storeId) === Number(store?.id);
-    return true;
-  });
+  const rows = vouchersQuery.data || [];
   const total = useListTotalCount(undefined, { fallbackTotal: rows.length, label: "Voucher" });
-  const { query, setQuery, filteredRows } = useTableSearch(rows, ["name", "code", "discountType", "storeName"]);
-  const columns = useMemo(() => mergeColumns(VOUCHER_TABLE_COLUMNS, buildRawColumns(rows, ["id", "code", "name", "image", "image_url", "voucher_scope", "discount_target", "discount_type", "discount_value", "min_spend", "max_discount", "starts_at", "ends_at", "usage_limit", "used_count", "store_id", "is_active"])), [rows]);
+  const { query, setQuery, filteredRows } = useTableSearch(rows, ["name", "code", "discountType"]);
+  const columns = useMemo(() => mergeColumns(VOUCHER_TABLE_COLUMNS, buildRawColumns(rows, ["id", "code", "name", "image", "image_url", "discount_target", "discount_type", "discount_value", "min_spend", "max_discount", "starts_at", "ends_at", "usage_limit", "used_count", "is_active"])), [rows]);
   const selection = useTableSelection(filteredRows);
   const columnVisibility = useColumnVisibility(columns, `${portal}-vouchers`);
   const spreadsheet = useSpreadsheetWorkspace({ module: "voucher", label: "Voucher", selectedRows: selection.selectedRows, onCompleted: () => { selection.clear(); vouchersQuery.refetch(); } });

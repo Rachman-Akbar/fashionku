@@ -19,7 +19,6 @@ const NAV_ITEMS = [
   { href: "/profile/chat", label: "Chat", icon: MessageSquare },
   { href: "/profile/notifications", label: "Notifikasi", icon: BellRing },
   { href: "/profile/payments", label: "Pembayaran", icon: WalletCards },
-  { href: "/profile/vouchers", label: "Voucher", icon: TicketPercent },
   { href: "/profile/help", label: "Pusat Bantuan", icon: LifeBuoy },
 ];
 

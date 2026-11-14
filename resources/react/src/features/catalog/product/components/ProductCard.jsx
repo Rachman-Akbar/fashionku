@@ -114,9 +114,6 @@ export const ProductCard = memo(function ProductCard({
   sold,
   location,
   storeName,
-  storeId,
-  store_id: storeIdSnake,
-  store,
   brand,
   stock,
   onWishlistToggle,
@@ -163,13 +160,9 @@ export const ProductCard = memo(function ProductCard({
       : formatPrice(price));
   const displayImage = image || thumbnail;
   const displayDiscount = discountPct || badge;
-  const displayLocation =
-    location || storeName || store?.name || "Official Store";
+  const displayLocation = location || storeName || "Official Store";
   const resolvedStoreName = toTitleCase(
-    storeName || store?.name || brand || displayLocation || "Toko",
-  );
-  const resolvedStoreId = Number(
-    storeId ?? storeIdSnake ?? store?.id ?? 0,
+    storeName || brand || displayLocation || "Toko",
   );
   const promoText =
     badgeVariant === "flash" ? "Bisa COD" : "Hemat s.d 15% Pakai Bonus";
@@ -293,8 +286,6 @@ export const ProductCard = memo(function ProductCard({
           productId: resolvedProductId,
           variantId: selectedVariantId,
           productName: displayTitle,
-          storeId: resolvedStoreId,
-          storeName: resolvedStoreName,
           slug,
           brand,
           price: selectedPrice,
@@ -359,8 +350,6 @@ export const ProductCard = memo(function ProductCard({
                 targetVariant?.image_url ||
                 displayImage ||
                 "",
-              storeId: resolvedStoreId,
-              storeName: resolvedStoreName,
             },
           ],
         },
@@ -373,8 +362,6 @@ export const ProductCard = memo(function ProductCard({
       price,
       productStock,
       resolvedProductId,
-      resolvedStoreId,
-      resolvedStoreName,
       variantId,
     ],
   );

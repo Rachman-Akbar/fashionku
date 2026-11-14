@@ -18,12 +18,4 @@ final class GetPromotionQuery
             $this->repository->getAll($filters, $includeInactive)
         );
     }
-
-    public function executeForSeller(int $storeId, array $filters = []): array
-    {
-        return array_map(
-            fn ($entity): PromotionData => PromotionData::fromArray($entity->toArray()),
-            $this->repository->getByStoreId($storeId, $filters, true)
-        );
-    }
 }

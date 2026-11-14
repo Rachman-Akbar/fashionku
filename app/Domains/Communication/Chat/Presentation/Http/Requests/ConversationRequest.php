@@ -18,7 +18,6 @@ final class ConversationRequest extends FormRequest
     {
         return [
             'type' => ['nullable', Rule::in(['direct', 'order', 'store'])],
-            'store_id' => ['nullable', 'integer', 'exists:stores,id'],
             'order_id' => ['nullable', 'integer', 'exists:orders,id'],
             'subject' => ['nullable', 'string', 'max:180'],
             'participant_ids' => ['nullable', 'array'],

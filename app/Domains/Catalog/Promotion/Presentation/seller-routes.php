@@ -5,7 +5,7 @@ declare(strict_types=1);
 use App\Domains\Catalog\Promotion\Presentation\Http\Controllers\PromotionController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'active.role:seller', 'seller.store.available'])
+Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'active.role:seller'])
     ->prefix('promotions')
     ->name('seller.promotions.')
     ->group(function (): void {

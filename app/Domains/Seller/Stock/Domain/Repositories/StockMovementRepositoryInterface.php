@@ -9,7 +9,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface StockMovementRepositoryInterface
 {
-    public function paginate(array $filters, int $perPage, ?int $storeId): LengthAwarePaginator;
+    public function paginate(array $filters, int $perPage): LengthAwarePaginator;
 
     public function save(StockMovementModel $model): StockMovementModel;
 

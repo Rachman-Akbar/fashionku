@@ -56,60 +56,69 @@ final class FashionDemoSeeder extends Seeder
             $this->createUser($id, $email, $name, [($buyerRoleId ?? 0)], $now);
         }
 
-        // ── Toko utama Fashionku (single-store) ─────────────────────────────
-        $existingStoreId = DB::table('stores')->whereNull('deleted_at')->orderBy('id')->value('id');
+        // ── Profil toko tunggal Fashionku (app_settings) ─────────────────────
+        $storeSettings = [
+            'store.name' => ['Fashionku', 'store'],
+            'store.slug' => ['fashionku', 'store'],
+            'store.description' => ['Fashionku adalah destination fashion modern untuk pria dan wanita. Kami menghadirkan pakaian, alas kaki, tas, dan aksesori berkualitas dengan ukuran lengkap, warna trendi, dan pengiriman ke seluruh Indonesia.', 'store'],
+            'store.short_description' => ['Destination fashion pria & wanita. Ukuran lengkap, pengiriman ke seluruh Indonesia.', 'store'],
+            'store.phone' => ['081234567890', 'store'],
+            'store.email' => ['halo@fashionku.id', 'store'],
+            'store.city' => ['Bandung', 'store'],
+            'store.province' => ['Jawa Barat', 'store'],
+            'store.address' => ['Jl. Cihampelas No. 120, Bandung', 'store'],
+            'store.is_active' => ['1', 'store'],
+            'store.logo' => ['https://picsum.photos/seed/fashionku-logo/400/400', 'store'],
+            'store.banner_url' => ['https://picsum.photos/seed/fashionku-banner/1440/400', 'store'],
+            'store.owner_name' => ['Nadia Prameswari', 'store'],
+            'store.owner_phone' => ['081234567890', 'store'],
+            'store.detail_description' => ['Butik fashion online dengan koleksi pria dan wanita, ukuran lengkap S-XXL, dan pengiriman cepat.', 'store'],
+            'store.shipping_policy' => ['Pesanan diproses maksimal 2x24 jam kerja. Gratis ongkir untuk pembelian di atas Rp300.000.', 'store'],
+            'store.return_policy' => ['Pengembalian maksimal 7 hari setelah diterima dengan kondisi asli, label utuh, belum dipakai, dan kemasan lengkap.', 'store'],
+            'store.open_days' => ['Senin s/d Minggu', 'store'],
+            'store.open_time' => ['08:00:00', 'store'],
+            'store.close_time' => ['21:00:00', 'store'],
+            'store.whatsapp_url' => ['https://wa.me/6281234567890', 'store'],
+            'store.instagram_url' => ['https://instagram.com/fashionku.id', 'store'],
+            'store.updated_at' => [$now, 'store'],
+        ];
 
-        if ($existingStoreId === null) {
-            $storeId = DB::table('stores')->insertGetId([
-                'user_id' => $ownerId,
-                'name' => 'Fashionku',
-                'slug' => 'fashionku',
-                'description' => 'Fashionku adalah destination fashion modern untuk pria dan wanita. Kami menghadirkan pakaian, alas kaki, tas, dan aksesori berkualitas dengan ukuran lengkap, warna trendi, dan pengiriman ke seluruh Indonesia.',
-                'short_description' => 'Destination fashion pria & wanita. Ukuran lengkap, pengiriman ke seluruh Indonesia.',
-                'phone' => '081234567890',
-                'email' => 'halo@fashionku.id',
-                'city' => 'Bandung',
-                'province' => 'Jawa Barat',
-                'address' => 'Jl. Cihampelas No. 120, Bandung',
-                'status' => 'approved',
-                'is_active' => true,
-                'store_type' => 'power_merchant',
-                'logo' => 'https://picsum.photos/seed/fashionku-logo/400/400',
-                'banner_url' => 'https://picsum.photos/seed/fashionku-banner/1440/400',
-                'created_by' => $ownerId,
-                'updated_by' => $ownerId,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+        foreach ($storeSettings as $key => [$value, $group]) {
+            DB::table('app_settings')->updateOrInsert(
+                ['key' => $key],
+                [
+                    'group' => $group,
+                    'value' => $value,
+                    'type' => $key === 'store.is_active' ? 'boolean' : 'string',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]
+            );
+        }
 
-            DB::table('store_details')->insert([
-                'store_id' => $storeId,
-                'owner_name' => 'Nadia Prameswari',
-                'owner_phone' => '081234567890',
-                'description' => 'Butik fashion online dengan koleksi pria dan wanita, ukuran lengkap S-XXL, dan pengiriman cepat.',
-                'shipping_policy' => 'Pesanan diproses maksimal 2x24 jam kerja. Gratis ongkir untuk pembelian di atas Rp300.000.',
-                'return_policy' => 'Pengembalian maksimal 7 hari setelah diterima dengan kondisi asli, label utuh, belum dipakai, dan kemasan lengkap.',
-                'open_days' => 'Senin s/d Minggu',
-                'open_time' => '08:00:00',
-                'close_time' => '21:00:00',
-                'whatsapp_url' => 'https://wa.me/6281234567890',
-                'instagram_url' => 'https://instagram.com/fashionku.id',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
-
+        if (! DB::table('shipping_settings')->exists()) {
             DB::table('shipping_settings')->insert([
-                'store_id' => $storeId,
+                'origin_destination_id' => null,
                 'store_latitude' => -6.90342770,
                 'store_longitude' => 107.61806640,
                 'free_shipping_max_distance' => 5,
                 'default_flat_rate' => 12000,
+                'rate_per_km' => 0,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
+        }
 
+        $hasShopAddress = DB::table('addresses')
+            ->where('user_id', $ownerId)
+            ->where('label', 'Toko')
+            ->exists();
+
+        if ($hasShopAddress) {
+            $this->command?->info('Fashionku: alamat toko sudah tersedia, dilewati.');
+        } else {
             DB::table('addresses')->insert([
-                'store_id' => $storeId,
+                'user_id' => $ownerId,
                 'country' => 'Indonesia',
                 'province' => 'Jawa Barat',
                 'city_or_regency' => 'Bandung',
@@ -123,6 +132,7 @@ final class FashionDemoSeeder extends Seeder
                 'phone_number' => '081234567890',
                 'latitude' => -6.90342770,
                 'longitude' => 107.61806640,
+                'komerce_destination_id' => 'KMB-4013',
                 'is_primary' => true,
                 'created_at' => $now,
                 'updated_at' => $now,

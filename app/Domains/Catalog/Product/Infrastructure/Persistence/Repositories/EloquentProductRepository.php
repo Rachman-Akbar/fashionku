@@ -11,7 +11,7 @@ use App\Domains\Catalog\Product\Infrastructure\Persistence\Mappers\ProductMapper
 use App\Domains\Catalog\Product\Infrastructure\Persistence\Models\ProductModel;
 use App\Domains\Catalog\Product\Infrastructure\Persistence\Models\ProductVariantModel;
 use App\Domains\Order\Review\Infrastructure\Persistence\Models\ProductReviewModel;
-use App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel;
+use App\Domains\Shared\Settings\Application\Services\AppSettingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -74,7 +74,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
 
         $facets = [
             'locations' => [],
-            'store_types' => ['regular', 'official', 'power_merchant'],
             'price_range' => null,
         ];
 
@@ -86,27 +85,12 @@ final class EloquentProductRepository implements ProductRepositoryInterface
 
     private function facetLocations(array $filters): array
     {
-        $query = ProductModel::query()
-            ->join('stores', 'stores.id', '=', 'products.store_id')
-            ->select('stores.city', 'stores.province')
-            ->whereNotNull('stores.city')
-            ->distinct();
+        $profile = app(AppSettingService::class)->storeProfile();
 
-        $this->applyPublicStoreFilter($query);
-        $this->applyCommonFilters($query, $filters, false);
-
-        return $query
-            ->get()
-            ->map(static fn (ProductModel $model): array => array_values(array_filter([
-                $model->city,
-                $model->province,
-            ])))
-            ->flatten()
-            ->unique()
-            ->filter()
-            ->sort()
-            ->values()
-            ->all();
+        return array_values(array_filter([
+            $profile['city'] ?? null,
+            $profile['province'] ?? null,
+        ]));
     }
 
     private function facetPriceRange(array $filters): ?array
@@ -115,7 +99,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
             ->join('product_variants', 'product_variants.product_id', '=', 'products.id')
             ->where('product_variants.is_default', true);
 
-        $this->applyPublicStoreFilter($query);
         $this->applyCommonFilters($query, $filters, false);
 
         $minPrice = (clone $query)->min('product_variants.price');
@@ -138,7 +121,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
             ->withCount('reviews')
             ->when(! $includeInactive, function (Builder $query): void {
                 $query->active()->where('products.status', 'published');
-                $this->applyPublicStoreFilter($query);
             })
             ->with($this->relationsForDetail($includeInactive))
             ->find($id);
@@ -153,7 +135,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
             ->withCount('reviews')
             ->when(! $includeInactive, function (Builder $query): void {
                 $query->active()->where('products.status', 'published');
-                $this->applyPublicStoreFilter($query);
             })
             ->with($this->relationsForDetail($includeInactive))
             ->where('slug', $slug)
@@ -162,29 +143,12 @@ final class EloquentProductRepository implements ProductRepositoryInterface
         return $model ? ProductMapper::toEntity($model) : null;
     }
 
-    public function nameExistsForStore(string $name, int $storeId, ?int $ignoreId = null): bool
+    public function nameExists(string $name, ?int $ignoreId = null): bool
     {
         return ProductModel::withTrashed()
-            ->where('store_id', $storeId)
             ->whereRaw('LOWER(TRIM(name)) = ?', [Str::lower(trim($name))])
             ->when($ignoreId !== null, fn (Builder $query) => $query->where($query->getModel()->getQualifiedKeyName(), '!=', $ignoreId))
             ->exists();
-    }
-
-    public function findPublishedByStoreId(int $storeId): Collection
-    {
-        return ProductModel::query()
-            ->withAvg('reviews', 'rating')
-            ->withCount('reviews')
-            ->active()
-            ->whereHas('store', fn (Builder $query) => $query->publiclyAvailable())
-            ->with($this->relationsForList(['include' => 'summary']))
-            ->where('store_id', $storeId)
-            ->where('products.status', 'published')
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->get()
-            ->map(fn (ProductModel $model): Product => ProductMapper::toEntity($model));
     }
 
     public function findPublishedByCategorySlug(
@@ -205,7 +169,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
 
         $query = ProductModel::query()
             ->active()
-            ->whereHas('store', fn (Builder $query) => $query->publiclyAvailable())
             ->with($this->relationsForList($filters))
             ->where('products.status', 'published');
 
@@ -239,7 +202,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
 
         $query = ProductModel::query()
             ->active()
-            ->whereHas('store', fn (Builder $query) => $query->publiclyAvailable())
             ->with($this->relationsForList($filters))
             ->where('products.status', 'published');
 
@@ -264,7 +226,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
 
         $query = ProductModel::query()
             ->active()
-            ->whereHas('store', fn (Builder $query) => $query->publiclyAvailable())
             ->with($this->relationsForList($filters))
             ->where('products.status', 'published');
 
@@ -287,7 +248,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
         if (! $model) {
             $model = ProductMapper::toModel($product);
         } else {
-            $model->store_id = $product->storeId();
             $model->primary_category_id = $product->primaryCategoryId();
             $model->name = $product->name();
             $model->slug = $product->slug();
@@ -335,10 +295,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
             ->withCount('reviews')
             ->with($this->relationsForList($filters, $includeInactive));
 
-        if (! $includeInactive) {
-            $this->applyPublicStoreFilter($query);
-        }
-
         $this->applyCommonFilters($query, $filters, $includeInactive);
 
         return $query;
@@ -353,14 +309,13 @@ final class EloquentProductRepository implements ProductRepositoryInterface
         }
 
         return [
-            'store:id,name,slug,logo,city,province,status,is_active',
             'images' => fn ($query) => $query
                 ->select(['id', 'product_id', 'url', 'alt_text', 'is_primary', 'sort_order', 'created_at', 'updated_at'])
                 ->orderByDesc('is_primary')
                 ->orderBy('sort_order')
                 ->orderBy('id'),
             'variants' => fn ($query) => $query
-                ->select(['id', 'product_id', 'store_id', 'sku', 'name', 'price', 'stock', 'is_default', 'created_at', 'updated_at'])
+                ->select(['id', 'product_id', 'sku', 'name', 'price', 'stock', 'is_default', 'created_at', 'updated_at'])
                 ->orderByDesc('is_default')
                 ->orderBy('id'),
         ];
@@ -371,7 +326,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
         return [
             'primaryCategory' => fn ($query) => $query->when(! $includeInactive, fn ($query) => $query->active()),
             'categories' => fn ($query) => $query->when(! $includeInactive, fn ($query) => $query->active()),
-            'store',
             'attributeValues.attribute',
             'variants.values.attribute',
             'images',
@@ -445,35 +399,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
 
     private function applyOptionalFilters(Builder $query, array $filters): void
     {
-        if (! empty($filters['store_id'])) {
-            $query->where('products.store_id', (int) $filters['store_id']);
-        }
-
-        $storeType = Str::lower(trim((string) ($filters['store_type'] ?? '')));
-
-        if (in_array($storeType, ['regular', 'official', 'power_merchant'], true)) {
-            $query->whereHas('store', fn (Builder $storeQuery) => $storeQuery->where('stores.store_type', $storeType));
-        }
-
-        $locations = $this->normalizeListFilter($filters['locations'] ?? null);
-
-        if ($locations !== []) {
-            $query->whereHas('store', function (Builder $storeQuery) use ($locations): void {
-                $storeQuery->where(function (Builder $query) use ($locations): void {
-                    foreach ($locations as $index => $location) {
-                        $wrapped = trim((string) $location);
-                        $query->when($index === 0, static fn (Builder $query) => $query->where(function (Builder $query) use ($wrapped): void {
-                            $query->where('city', 'like', "%{$wrapped}%")
-                                ->orWhere('province', 'like', "%{$wrapped}%");
-                        }), static fn (Builder $query) => $query->orWhere(function (Builder $query) use ($wrapped): void {
-                            $query->where('city', 'like', "%{$wrapped}%")
-                                ->orWhere('province', 'like', "%{$wrapped}%");
-                        }));
-                    }
-                });
-            });
-        }
-
         if (filter_var($filters['has_discount'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
             $query->whereHas('variants', function (Builder $variantQuery): void {
                 $variantQuery->whereNotNull('price_original')
@@ -512,11 +437,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
                     ->where('min_stock', '>', 0)
                     ->whereColumn('stock', '<=', 'min_stock');
             });
-        }
-
-        if (! empty($filters['seller_id'])) {
-            $sellerId = (string) $filters['seller_id'];
-            $query->whereHas('store', fn (Builder $storeQuery) => $storeQuery->where('user_id', $sellerId));
         }
 
         $search = trim((string) ($filters['search'] ?? $filters['q'] ?? ''));
@@ -615,17 +535,7 @@ final class EloquentProductRepository implements ProductRepositoryInterface
             return;
         }
 
-        if ($sortBy === 'store_name') {
-            $query->leftJoinSub(
-                StoreModel::query()
-                    ->select('id as sort_store_id')
-                    ->addSelect('name as sort_store_name'),
-                'stores_sort',
-                fn ($join) => $join->on('stores_sort.sort_store_id', '=', 'products.store_id')
-            )->addSelect('stores_sort.sort_store_name as sort_store_name')
-                ->orderBy('stores_sort.sort_store_name', $direction)
-                ->orderBy('products.id', $direction);
-        } elseif ($sortBy === 'price' || $sortBy === 'stock') {
+        if ($sortBy === 'price' || $sortBy === 'stock') {
             $query->leftJoinSub(
                 ProductVariantModel::query()
                     ->select('product_id as sort_product_id')
@@ -722,10 +632,5 @@ final class EloquentProductRepository implements ProductRepositoryInterface
         }
 
         return array_values(array_unique(array_map('intval', $ids)));
-    }
-
-    private function applyPublicStoreFilter(Builder $query): void
-    {
-        $query->whereHas('store', fn (Builder $storeQuery) => $storeQuery->publiclyAvailable());
     }
 }

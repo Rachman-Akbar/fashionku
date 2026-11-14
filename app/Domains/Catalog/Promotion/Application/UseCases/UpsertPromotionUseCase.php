@@ -18,38 +18,26 @@ final class UpsertPromotionUseCase
         private PromotionPaymentService $paymentService
     ) {}
 
-    public function execute(
-        PromotionData $dto,
-        ?int $id = null,
-        ?int $sellerStoreId = null,
-        bool $sellerSubmission = false,
-        ?string $actorId = null
-    ): PromotionData {
+    public function execute(PromotionData $dto, ?int $id = null): PromotionData
+    {
         $existing = $id !== null ? $this->repository->findById($id, true) : null;
 
         if ($id !== null && ! $existing) {
             throw new InvalidArgumentException('Promosi tidak ditemukan.');
         }
 
-        if ($sellerSubmission && $existing && $existing->storeId !== $sellerStoreId) {
-            throw new InvalidArgumentException('Anda tidak memiliki akses ke promosi ini.');
-        }
-
         if ($this->repository->nameExists($dto->name, $id)) {
             throw new InvalidArgumentException("Nama promosi '{$dto->name}' sudah digunakan.");
         }
 
-        $storeId = $sellerSubmission ? $sellerStoreId : $dto->storeId;
-
-        if ($sellerSubmission && $dto->promotionPaymentId && $storeId) {
-            $this->paymentService->approvedForPromotion($dto->promotionPaymentId, $storeId, $id);
+        if ($dto->promotionPaymentId) {
+            $this->paymentService->approvedForPromotion($dto->promotionPaymentId, $id);
         }
 
-        $this->validateTarget($dto, $storeId, $sellerSubmission);
+        $this->validateTarget($dto);
 
         $entity = new Promotion(
             id: $id,
-            storeId: $storeId,
             promotionPaymentId: $dto->promotionPaymentId ?? $existing?->promotionPaymentId,
             name: $dto->name,
             imageUrl: $dto->imageUrl,
@@ -64,25 +52,22 @@ final class UpsertPromotionUseCase
         return PromotionData::fromArray($this->repository->save($entity)->toArray());
     }
 
-    private function validateTarget(PromotionData $dto, ?int $storeId, bool $sellerSubmission): void
+    private function validateTarget(PromotionData $dto): void
     {
         if ($dto->clickAction === 'product') {
             if (! $dto->targetId) {
                 throw new InvalidArgumentException('Produk target wajib dipilih.');
             }
 
-            $query = DB::table('products')
+            $exists = DB::table('products')
                 ->where('id', $dto->targetId)
                 ->where('is_active', true)
                 ->where('status', 'published')
-                ->whereNull('deleted_at');
+                ->whereNull('deleted_at')
+                ->exists();
 
-            if ($sellerSubmission) {
-                $query->where('store_id', $storeId);
-            }
-
-            if (! $query->exists()) {
-                throw new InvalidArgumentException('Produk target tidak valid atau bukan milik toko Anda.');
+            if (! $exists) {
+                throw new InvalidArgumentException('Produk target tidak valid.');
             }
         }
 

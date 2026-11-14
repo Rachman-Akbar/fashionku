@@ -10,6 +10,7 @@ use App\Domains\Order\Addresses\Domain\Repositories\AddressRepositoryInterface;
 use App\Domains\Order\Cart\Application\Readers\ProductForCartReaderInterface;
 use App\Domains\Order\Cart\Infrastructure\Persistence\Models\CartModel;
 use App\Domains\Order\Ordering\Domain\Services\ShippingCostCalculator;
+use App\Domains\Shared\Settings\Application\Services\AppSettingService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
@@ -26,53 +27,22 @@ final class GetShippingOptionsUseCase
 
     public function execute(string $userId, int $addressId, array $cartItemIds, ?array $items = null): array
     {
-        $contexts = $items === null
-            ? $this->buildStoreContexts($userId, $addressId, $cartItemIds)
-            : $this->buildDirectStoreContexts($userId, $addressId, $items);
-        $aggregated = [];
+        $context = $items === null
+            ? $this->buildCartContext($userId, $addressId, $cartItemIds)
+            : $this->buildDirectContext($userId, $addressId, $items);
+
         $warnings = [];
 
-        foreach ($contexts as $storeId => $context) {
-            try {
-                $quote = $this->shippingCalculator->quote($context);
-                $storeOptions = $quote['options'];
-
-                foreach ($quote['warnings'] as $warning) {
-                    $warnings[] = "Toko {$context['store_name']}: {$warning}";
-                }
-            } catch (Throwable $exception) {
-                $warnings[] = "Toko {$context['store_name']}: {$exception->getMessage()}";
-
-                continue;
-            }
-
-            foreach ($storeOptions as $option) {
-                $id = (string) $option['id'];
-
-                if (! isset($aggregated[$id])) {
-                    $aggregated[$id] = array_merge($option, [
-                        'cost' => 0.0,
-                        'store_breakdown' => [],
-                        'stores_available' => 0,
-                    ]);
-                }
-
-                $aggregated[$id]['cost'] += (float) $option['cost'];
-                $aggregated[$id]['stores_available']++;
-                $aggregated[$id]['store_breakdown'][] = [
-                    'store_id' => (int) $storeId,
-                    'store_name' => $context['store_name'],
-                    'weight' => $context['weight'],
-                    'cost' => (float) $option['cost'],
-                ];
-            }
+        try {
+            $quote = $this->shippingCalculator->quote($context);
+            $options = $quote['options'];
+            $warnings = $quote['warnings'];
+        } catch (Throwable $exception) {
+            throw new RuntimeException($exception->getMessage());
         }
 
-        $storeCount = count($contexts);
-        $options = collect($aggregated)
-            ->filter(fn (array $option): bool => (int) $option['stores_available'] === $storeCount)
+        $options = collect($options)
             ->map(function (array $option): array {
-                unset($option['stores_available']);
                 $option['price'] = $option['cost'];
 
                 return $option;
@@ -84,7 +54,7 @@ final class GetShippingOptionsUseCase
             ->all();
 
         if (! $options) {
-            throw new RuntimeException($warnings[0] ?? 'Tidak ada layanan pengiriman yang tersedia untuk semua toko.');
+            throw new RuntimeException($warnings[0] ?? 'Tidak ada layanan pengiriman yang tersedia.');
         }
 
         return [
@@ -103,14 +73,9 @@ final class GetShippingOptionsUseCase
             || strtolower(trim((string) ($option['provider'] ?? ''))) === 'pickup';
     }
 
-    public function buildStoreContexts(string $userId, int $addressId, array $cartItemIds): array
+    private function buildCartContext(string $userId, int $addressId, array $cartItemIds): array
     {
-        $address = $this->addressRepository->findByIdAndOwner($addressId, $userId, null);
-        if (! $address) {
-            throw new RuntimeException('Alamat pengiriman tidak ditemukan.');
-        }
-
-        $this->refreshDestinationId($address);
+        $address = $this->resolveDestination($userId, $addressId);
 
         $cart = CartModel::where('user_id', $userId)->first();
         if (! $cart) {
@@ -128,11 +93,10 @@ final class GetShippingOptionsUseCase
             throw new RuntimeException('Sebagian item checkout tidak ditemukan di keranjang Anda.');
         }
 
-        $contexts = [];
-
         $variantIds = $selectedItems->pluck('product_variant_id')->map(fn ($id) => (int) $id)->all();
         $detailsMap = $this->productReader->getVariantsDetails($variantIds);
 
+        $context = $this->baseContext($address);
         foreach ($selectedItems as $item) {
             $details = $detailsMap[(int) $item->product_variant_id] ?? null;
 
@@ -144,27 +108,16 @@ final class GetShippingOptionsUseCase
                 throw new RuntimeException("Stok {$details->getProductName()} tidak mencukupi.");
             }
 
-            $storeId = $details->getStoreId();
-
-            if (! isset($contexts[$storeId])) {
-                $contexts[$storeId] = $this->storeContext($storeId, $details->getStoreName(), $address);
-            }
-
-            $contexts[$storeId]['weight'] += $details->getWeight() * (int) $item->quantity;
-            $contexts[$storeId]['item_value'] += $details->getPrice()->getAmount() * (int) $item->quantity;
+            $context['weight'] += $details->getWeight() * (int) $item->quantity;
+            $context['item_value'] += $details->getPrice()->getAmount() * (int) $item->quantity;
         }
 
-        return $contexts;
+        return $context;
     }
 
-    public function buildDirectStoreContexts(string $userId, int $addressId, array $items): array
+    private function buildDirectContext(string $userId, int $addressId, array $items): array
     {
-        $address = $this->addressRepository->findByIdAndOwner($addressId, $userId, null);
-        if (! $address) {
-            throw new RuntimeException('Alamat pengiriman tidak ditemukan.');
-        }
-
-        $this->refreshDestinationId($address);
+        $address = $this->resolveDestination($userId, $addressId);
 
         $quantities = [];
         foreach ($items as $line) {
@@ -187,8 +140,7 @@ final class GetShippingOptionsUseCase
             throw new RuntimeException('Beberapa produk tidak tersedia untuk dibeli.');
         }
 
-        $contexts = [];
-
+        $context = $this->baseContext($address);
         foreach ($quantities as $variantId => $quantity) {
             $details = $detailsMap[(int) $variantId] ?? null;
 
@@ -200,67 +152,40 @@ final class GetShippingOptionsUseCase
                 throw new RuntimeException("Stok {$details->getProductName()} tidak mencukupi.");
             }
 
-            $storeId = $details->getStoreId();
-
-            if (! isset($contexts[$storeId])) {
-                $contexts[$storeId] = $this->storeContext($storeId, $details->getStoreName(), $address);
-            }
-
-            $contexts[$storeId]['weight'] += $details->getWeight() * $quantity;
-            $contexts[$storeId]['item_value'] += $details->getPrice()->getAmount() * $quantity;
+            $context['weight'] += $details->getWeight() * $quantity;
+            $context['item_value'] += $details->getPrice()->getAmount() * $quantity;
         }
 
-        return $contexts;
+        return $context;
     }
 
-    private function storeContext(int $storeId, string $storeName, Address $destination): array
+    private function resolveDestination(string $userId, int $addressId): Address
     {
-        $originAddress = Address::query()
-            ->where('store_id', (string) $storeId)
-            ->orderByDesc('is_primary')
-            ->orderBy('id')
-            ->first();
-
-        if ($originAddress) {
-            $this->refreshDestinationId($originAddress);
+        $address = $this->addressRepository->findByIdAndOwner($addressId, $userId);
+        if (! $address) {
+            throw new RuntimeException('Alamat pengiriman tidak ditemukan.');
         }
 
-        $setting = $this->shippingSetting($storeId);
-        $storeLocation = $this->storeLocation($storeId);
-        $originLatitude = $this->firstCoordinate(
-            $setting?->store_latitude,
-            $originAddress?->latitude,
-            $storeLocation['latitude'] ?? null,
-            $storeLocation['store_latitude'] ?? null,
-            $storeLocation['address_latitude'] ?? null,
-            $storeLocation['lat'] ?? null
-        );
-        $originLongitude = $this->firstCoordinate(
-            $setting?->store_longitude,
-            $originAddress?->longitude,
-            $storeLocation['longitude'] ?? null,
-            $storeLocation['store_longitude'] ?? null,
-            $storeLocation['address_longitude'] ?? null,
-            $storeLocation['lng'] ?? null,
-            $storeLocation['lon'] ?? null
-        );
+        $this->refreshDestinationId($address);
+
+        return $address;
+    }
+
+    private function baseContext(Address $destination): array
+    {
+        $setting = $this->shippingSetting();
+        $profile = app(AppSettingService::class)->storeProfile();
+
         $originDestinationId = $this->firstText(
-            $originAddress?->komerce_destination_id,
-            $storeLocation['komerce_destination_id'] ?? null,
-            $storeLocation['destination_id'] ?? null
+            $setting?->origin_destination_id,
+            $profile['detail']['komerce_destination_id'] ?? null
         );
-
-        if ($originDestinationId === '') {
-            $originDestinationId = $this->resolveStoreDestinationId($storeLocation);
-        }
 
         return [
-            'store_id' => $storeId,
-            'store_name' => $storeName,
             'origin_destination_id' => $originDestinationId,
             'destination_id' => trim((string) $destination->komerce_destination_id),
-            'origin_latitude' => $originLatitude,
-            'origin_longitude' => $originLongitude,
+            'origin_latitude' => $this->firstCoordinate($setting?->store_latitude),
+            'origin_longitude' => $this->firstCoordinate($setting?->store_longitude),
             'latitude' => $this->firstCoordinate($destination->latitude),
             'longitude' => $this->firstCoordinate($destination->longitude),
             'free_shipping_max_distance' => (float) ($setting?->free_shipping_max_distance ?? 0),
@@ -275,85 +200,16 @@ final class GetShippingOptionsUseCase
         ];
     }
 
-    private function shippingSetting(int $storeId): ?object
+    private function shippingSetting(): ?object
     {
         try {
             if (! Schema::hasTable('shipping_settings')) {
                 return null;
             }
 
-            return DB::table('shipping_settings')->where('store_id', $storeId)->first();
+            return DB::table('shipping_settings')->orderBy('id')->first();
         } catch (Throwable) {
             return null;
-        }
-    }
-
-    private function storeLocation(int $storeId): array
-    {
-        try {
-            if (! Schema::hasTable('stores')) {
-                return [];
-            }
-
-            $available = Schema::getColumnListing('stores');
-            $columns = collect([
-                'latitude',
-                'longitude',
-                'store_latitude',
-                'store_longitude',
-                'address_latitude',
-                'address_longitude',
-                'lat',
-                'lng',
-                'lon',
-                'komerce_destination_id',
-                'destination_id',
-                'country',
-                'province',
-                'city_or_regency',
-                'city',
-                'district',
-                'subdistrict',
-                'postal_code',
-            ])->filter(fn (string $column): bool => in_array($column, $available, true))->values()->all();
-
-            if (! $columns) {
-                return [];
-            }
-
-            $row = DB::table('stores')->where('id', $storeId)->first($columns);
-
-            return $row ? (array) $row : [];
-        } catch (Throwable) {
-            return [];
-        }
-    }
-
-    private function resolveStoreDestinationId(array $storeLocation): string
-    {
-        $province = $this->firstText($storeLocation['province'] ?? null);
-        $cityOrRegency = $this->firstText(
-            $storeLocation['city_or_regency'] ?? null,
-            $storeLocation['city'] ?? null
-        );
-        $district = $this->firstText($storeLocation['district'] ?? null);
-        $subdistrict = $this->firstText($storeLocation['subdistrict'] ?? null);
-
-        if ($province === '' || $cityOrRegency === '' || $district === '' || $subdistrict === '') {
-            return '';
-        }
-
-        try {
-            return $this->resolveDestinationUseCase->execute([
-                'country' => $this->firstText($storeLocation['country'] ?? null, 'Indonesia'),
-                'province' => $province,
-                'city_or_regency' => $cityOrRegency,
-                'district' => $district,
-                'subdistrict' => $subdistrict,
-                'postal_code' => $this->firstText($storeLocation['postal_code'] ?? null),
-            ])->id;
-        } catch (Throwable) {
-            return '';
         }
     }
 

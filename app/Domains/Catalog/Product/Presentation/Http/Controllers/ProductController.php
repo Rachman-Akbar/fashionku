@@ -17,7 +17,6 @@ use App\Domains\Catalog\Product\Presentation\Http\Requests\UpdateProductRequest;
 use App\Domains\Catalog\Product\Presentation\Http\Resources\ProductResource;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\DB;
 
 final class ProductController extends Controller
 {
@@ -26,13 +25,6 @@ final class ProductController extends Controller
         $userId = $request->user()?->id;
 
         return $userId ? (string) $userId : null;
-    }
-
-    private function resolveStoreIdBySellerId(string $sellerId): ?int
-    {
-        $storeId = DB::table('stores')->where('user_id', $sellerId)->value('id');
-
-        return $storeId ? (int) $storeId : null;
     }
 
     public function index(Request $request, ListProductsQuery $query, ProductRepositoryInterface $products)
@@ -133,8 +125,6 @@ final class ProductController extends Controller
         }
 
         $payload = $request->validated();
-        unset($payload['store_id']);
-        $payload['seller_id'] = $sellerId;
 
         try {
             $product = $useCase->execute($payload);
@@ -157,13 +147,7 @@ final class ProductController extends Controller
             return response()->json(['message' => "Produk dengan ID {$id} tidak ditemukan."], 404);
         }
 
-        $storeId = $this->resolveStoreIdBySellerId($sellerId);
-        if ($product->storeId() !== $storeId) {
-            return response()->json(['message' => 'Forbidden. Produk ini bukan milik toko Anda.'], 403);
-        }
-
         $payload = $request->validated();
-        unset($payload['seller_id'], $payload['store_id']);
 
         if (isset($payload['sku'])) {
             $payload['sku'] = is_string($payload['sku']) ? trim($payload['sku']) : $payload['sku'];
@@ -187,11 +171,6 @@ final class ProductController extends Controller
         $product = $query->execute($id, true);
         if (! $product) {
             return response()->json(['message' => "Produk dengan ID {$id} tidak ditemukan."], 404);
-        }
-
-        $storeId = $this->resolveStoreIdBySellerId($sellerId);
-        if ($product->storeId() !== $storeId) {
-            return response()->json(['message' => 'Forbidden. Produk ini bukan milik toko Anda.'], 403);
         }
 
         $useCase->execute($id);

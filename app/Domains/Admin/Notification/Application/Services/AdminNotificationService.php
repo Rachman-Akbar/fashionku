@@ -29,7 +29,7 @@ final class AdminNotificationService
         ];
     }
 
-    public function notifyAdmins(array $data, ?string $actorId = null, ?int $storeId = null): Collection
+    public function notifyAdmins(array $data, ?string $actorId = null): Collection
     {
         $adminIds = DB::table('users')
             ->join('user_roles', 'user_roles.user_id', '=', 'users.id')
@@ -43,10 +43,10 @@ final class AdminNotificationService
             ->pluck('users.id')
             ->map(fn ($id): string => (string) $id);
 
-        return $this->notifyAdminUsers($adminIds, $data, $actorId, $storeId);
+        return $this->notifyAdminUsers($adminIds, $data, $actorId);
     }
 
-    public function notifyAdminUsers(iterable $userIds, array $data, ?string $actorId = null, ?int $storeId = null): Collection
+    public function notifyAdminUsers(iterable $userIds, array $data, ?string $actorId = null): Collection
     {
         $required = ['module', 'type', 'title'];
         foreach ($required as $key) {
@@ -59,11 +59,10 @@ final class AdminNotificationService
             ->map(fn ($id): string => (string) $id)
             ->filter()
             ->unique()
-            ->map(function (string $userId) use ($data, $actorId, $storeId): AdminNotificationModel {
+            ->map(function (string $userId) use ($data, $actorId): AdminNotificationModel {
                 return $this->repository->save(new AdminNotificationModel([
                     'user_id' => $userId,
                     'actor_id' => $actorId,
-                    'store_id' => $storeId,
                     'module' => trim((string) $data['module']),
                     'type' => trim((string) $data['type']),
                     'title' => trim((string) $data['title']),

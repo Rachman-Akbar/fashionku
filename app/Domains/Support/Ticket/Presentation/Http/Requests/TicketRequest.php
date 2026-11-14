@@ -29,7 +29,6 @@ final class TicketRequest extends FormRequest
                 ? ['nullable', 'uuid', 'exists:users,id']
                 : ['prohibited'],
             'seller_id' => ['prohibited'],
-            'store_id' => ['nullable', 'integer', 'exists:stores,id'],
             'order_id' => ['nullable', 'integer', 'exists:orders,id'],
             'category' => ['required', Rule::in(['order', 'payment', 'product', 'store', 'account', 'technical', 'other'])],
             'subject' => ['required', 'string', 'max:180'],

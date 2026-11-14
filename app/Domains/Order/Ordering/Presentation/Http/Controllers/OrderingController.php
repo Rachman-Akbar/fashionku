@@ -20,7 +20,6 @@ use App\Domains\Order\Ordering\Presentation\Http\Requests\CreateOrderRequest;
 use App\Domains\Order\Ordering\Presentation\Http\Resources\OrderResource;
 use App\Domains\Seller\Finance\Application\Services\AutoOrderIncomeService;
 use App\Domains\Seller\Stock\Application\Services\StockMovementService;
-use App\Domains\Shared\Presentation\Http\Concerns\ResolvesSellerStoreContext;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,8 +28,6 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class OrderingController extends Controller
 {
-    use ResolvesSellerStoreContext;
-
     public function __construct(
         private CreateOrderUseCase $createOrderUseCase,
         private CreateManualOrderUseCase $createManualOrderUseCase,
@@ -106,19 +103,16 @@ class OrderingController extends Controller
             throw new AccessDeniedHttpException('Hanya seller yang dapat membuat order manual.');
         }
 
-        $storeId = $this->sellerStoreId($request);
         $data = $request->validated();
 
         try {
             $order = $this->createManualOrderUseCase->execute(
-                storeId: $storeId,
                 itemInputs: $data['items'],
                 customer: array_filter([
                     'name' => $data['customer_name'] ?? null,
                     'phone' => $data['customer_phone'] ?? null,
                     'email' => $data['customer_email'] ?? null,
                     'address' => $data['address'] ?? null,
-                    'store_name' => $request->user()?->store?->name ?? 'Toko',
                 ]),
                 courier: (string) $data['courier'],
                 service: $data['service'] ?? null,
@@ -190,60 +184,8 @@ class OrderingController extends Controller
         if ($role === 'buyer' && $order->userId !== (string) $request->user()->id) {
             throw new AccessDeniedHttpException('Anda tidak dapat melihat pesanan ini.');
         }
-        if ($role === 'seller') {
-            $storeId = $this->sellerStoreId($request);
-            if (! collect($order->subOrders)->contains(fn ($subOrder) => $subOrder->storeId === $storeId)) {
-                throw new AccessDeniedHttpException('Pesanan ini bukan milik toko Anda.');
-            }
-        }
 
         return (new OrderResource($order))->additional(['success' => true])->response();
-    }
-
-    public function getByStore(Request $request, int $storeId): JsonResponse
-    {
-        $role = $this->activeRole($request);
-        if ($role !== 'admin' && ($role !== 'seller' || $storeId !== $this->sellerStoreId($request))) {
-            throw new AccessDeniedHttpException('Anda tidak dapat melihat pesanan toko ini.');
-        }
-
-        $query = SubOrderModel::query()
-            ->where('store_id', $storeId)
-            ->with(['parentOrder', 'parentOrder.user', 'items', 'store']);
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->query('status'));
-        }
-        if ($request->filled('order_number')) {
-            $search = trim((string) $request->query('order_number'));
-            $query->whereHas('parentOrder', fn ($builder) => $builder->where('order_number', 'like', "%{$search}%"));
-        }
-
-        $rows = $query->latest()->paginate(min(100, max(1, (int) $request->query('per_page', 15))));
-        $rows->through(fn ($row) => [
-            'id' => $row->id,
-            'order_id' => $row->order_id,
-            'order_number' => $row->parentOrder?->order_number,
-            'order_type' => (string) ($row->parentOrder?->order_type ?? 'normal'),
-            'is_manual' => $this->isManualOrder($row->parentOrder),
-            'sub_order_number' => $row->sub_order_number,
-            'store_id' => $row->store_id,
-            'store_name' => $row->store?->name,
-            'total_items_price' => (float) $row->total_items_price,
-            'shipping_cost' => (float) $row->shipping_cost,
-            'courier' => $row->courier,
-            'service' => $row->service,
-            'status' => $row->status,
-            'payment_status' => $row->parentOrder?->payment_status,
-            'shipping_address' => $row->parentOrder?->shipping_address,
-            'payment_method' => $row->parentOrder?->payment_method,
-            'user_email' => $row->parentOrder?->user?->email,
-            'tracking_number' => $row->tracking_number,
-            'items' => $row->items,
-            'created_at' => $row->created_at?->toIso8601String(),
-        ]);
-
-        return response()->json(['success' => true, 'data' => $rows]);
     }
 
     public function cancel(Request $request, int $id): JsonResponse
@@ -268,13 +210,6 @@ class OrderingController extends Controller
         $subOrder = SubOrderModel::query()->with('parentOrder')->find($id);
         if (! $subOrder) {
             return response()->json(['success' => false, 'message' => 'Pesanan tidak ditemukan.'], 404);
-        }
-
-        if ($role === 'seller') {
-            $storeId = $this->sellerStoreId($request);
-            if ((int) $subOrder->store_id !== $storeId) {
-                throw new AccessDeniedHttpException('Pesanan ini bukan milik toko Anda.');
-            }
         }
 
         $parent = $subOrder->parentOrder;
@@ -337,16 +272,14 @@ class OrderingController extends Controller
         }
 
         if ($role === 'seller') {
-            $storeId = $this->sellerStoreId($request);
-            $result = DB::transaction(function () use ($id, $storeId, $validated): array {
+            $result = DB::transaction(function () use ($id, $validated): array {
                 $subOrder = SubOrderModel::query()
                     ->where('id', $id)
-                    ->where('store_id', $storeId)
                     ->lockForUpdate()
                     ->first();
 
                 if (! $subOrder) {
-                    throw new AccessDeniedHttpException('Sub-order tidak ditemukan untuk toko Anda.');
+                    throw new AccessDeniedHttpException('Sub-order tidak ditemukan.');
                 }
 
                 $previousStatus = (string) $subOrder->status;
@@ -454,19 +387,10 @@ class OrderingController extends Controller
             throw new AccessDeniedHttpException('Hanya seller atau admin yang dapat mengubah detail pesanan.');
         }
 
-        if ($role === 'seller') {
-            $storeId = $this->sellerStoreId($request);
-            $subOrder = SubOrderModel::query()
-                ->where('id', $id)
-                ->where('store_id', $storeId)
-                ->with('parentOrder')
-                ->first();
-        } else {
-            $subOrder = SubOrderModel::query()->with('parentOrder')->find($id);
-        }
+        $subOrder = SubOrderModel::query()->with('parentOrder')->find($id);
 
         if (! $subOrder) {
-            throw new AccessDeniedHttpException('Pesanan tidak ditemukan untuk toko Anda.');
+            throw new AccessDeniedHttpException('Pesanan tidak ditemukan.');
         }
 
         $parent = $subOrder->parentOrder;
@@ -667,13 +591,6 @@ class OrderingController extends Controller
             throw new AccessDeniedHttpException('Anda tidak dapat mengirim notifikasi order ini.');
         }
 
-        if ($role === 'seller') {
-            $storeId = $this->sellerStoreId($request);
-            if (! collect($order->subOrders)->contains(fn ($subOrder) => $subOrder->storeId === $storeId)) {
-                throw new AccessDeniedHttpException('Pesanan ini bukan milik toko Anda.');
-            }
-        }
-
         $status = strtolower(trim((string) ($validated['status'] ?? $order->status)));
 
         $result = $this->statusNotifier->notifyStatus($id, $status);
@@ -703,14 +620,5 @@ class OrderingController extends Controller
     private function activeRole(Request $request): string
     {
         return (string) ($this->userRepository->getActiveRoleFromCurrentToken($request->user()) ?: 'buyer');
-    }
-
-    private function sellerStoreId(Request $request): int
-    {
-        if (! $this->userRepository->hasSellerAccess($request->user())) {
-            throw new AccessDeniedHttpException('Toko aktif tidak ditemukan.');
-        }
-
-        return $this->resolveSellerStoreId($request);
     }
 }

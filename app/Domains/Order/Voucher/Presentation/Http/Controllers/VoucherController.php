@@ -11,22 +11,16 @@ use App\Domains\Order\Voucher\Domain\Entities\Voucher;
 use App\Domains\Order\Voucher\Presentation\Http\Requests\StoreVoucherRequest;
 use App\Domains\Order\Voucher\Presentation\Http\Resources\MyVoucherResource;
 use App\Domains\Order\Voucher\Presentation\Http\Resources\VoucherResource;
-use App\Domains\Shared\Presentation\Http\Concerns\ResolvesActiveRole;
-use App\Domains\Shared\Presentation\Http\Concerns\ResolvesSellerStoreContext;
 use App\Http\Controllers\Controller;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use RuntimeException;
 use Throwable;
 
 final class VoucherController extends Controller
 {
-    use ResolvesActiveRole;
-    use ResolvesSellerStoreContext;
-
     public function __construct(
         private ManageVoucherUseCase $useCase,
         private UserVoucherUseCase $userVoucherUseCase,
@@ -34,18 +28,9 @@ final class VoucherController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $storeIds = collect(explode(',', (string) $request->query('store_ids', '')))
-            ->push($request->query('store_id'))
-            ->filter(fn (mixed $value): bool => is_numeric($value))
-            ->map(fn (mixed $value): int => (int) $value)
-            ->unique()
-            ->values()
-            ->all();
-
         $filters = [
             'active_now' => true,
             'is_active' => true,
-            'store_ids' => $storeIds,
         ];
 
         $vouchers = $this->useCase->listVouchers($filters);
@@ -114,19 +99,6 @@ final class VoucherController extends Controller
             $filters['is_active'] = $request->boolean('is_active');
         }
 
-        if ($this->activeRole($request) === 'seller') {
-            $filters['voucher_scope'] = 'store';
-            $filters['store_id'] = $this->resolveSellerStoreId($request);
-        } else {
-            if ($request->filled('voucher_scope')) {
-                $filters['voucher_scope'] = (string) $request->query('voucher_scope');
-            }
-
-            if ($request->filled('store_id')) {
-                $filters['store_id'] = $request->integer('store_id');
-            }
-        }
-
         return response()->json([
             'success' => true,
             'data' => VoucherResource::collection($this->useCase->listVouchers($filters)),
@@ -149,7 +121,7 @@ final class VoucherController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => $voucher->voucher_scope === 'store' ? 'Voucher toko berhasil dibuat.' : 'Voucher platform berhasil dibuat.',
+                'message' => 'Voucher berhasil dibuat.',
                 'data' => new VoucherResource($voucher),
             ], 201);
         } catch (Throwable $exception) {
@@ -165,7 +137,6 @@ final class VoucherController extends Controller
 
         try {
             $current = $this->useCase->showVoucher($id, true);
-            $this->assertOwnership($request, $current);
             $oldImage = $current->image;
             $voucher = $this->useCase->updateVoucher($id, new VoucherDTO(...$this->prepareData($request, $current)));
 
@@ -181,11 +152,10 @@ final class VoucherController extends Controller
         }
     }
 
-    public function destroy(Request $request, int $id): JsonResponse
+    public function destroy(int $id): JsonResponse
     {
         try {
             $voucher = $this->useCase->showVoucher($id, true);
-            $this->assertOwnership($request, $voucher);
             $image = $voucher->image;
             $this->useCase->deleteVoucher($id);
             $this->deleteUploadedImage($image);
@@ -199,20 +169,6 @@ final class VoucherController extends Controller
     private function prepareData(StoreVoucherRequest $request, ?Voucher $current = null): array
     {
         $data = $request->validated();
-        $role = $this->activeRole($request);
-
-        if ($role === 'seller') {
-            $data['voucher_scope'] = 'store';
-            $data['store_id'] = $this->resolveSellerStoreId($request);
-        } else {
-            $data['voucher_scope'] = $current?->voucher_scope ?? 'platform';
-            $data['store_id'] = $current?->store_id;
-
-            if ($current === null) {
-                $data['voucher_scope'] = 'platform';
-                $data['store_id'] = null;
-            }
-        }
 
         $data['is_active'] = array_key_exists('is_active', $data) ? (bool) $data['is_active'] : ($current?->is_active ?? true);
         $data['image'] = null;
@@ -225,7 +181,6 @@ final class VoucherController extends Controller
         return [
             'code' => (string) $data['code'],
             'name' => (string) $data['name'],
-            'voucher_scope' => (string) $data['voucher_scope'],
             'discount_target' => (string) $data['discount_target'],
             'discount_type' => (string) $data['discount_type'],
             'discount_value' => (float) $data['discount_value'],
@@ -237,24 +192,9 @@ final class VoucherController extends Controller
             'starts_at' => (string) $data['starts_at'],
             'ends_at' => (string) $data['ends_at'],
             'usage_limit' => (int) $data['usage_limit'],
-            'store_id' => $data['store_id'] !== null ? (int) $data['store_id'] : null,
             'is_active' => (bool) $data['is_active'],
             'image' => $data['image'],
         ];
-    }
-
-    private function assertOwnership(Request $request, Voucher $voucher): void
-    {
-        if ($this->activeRole($request) === 'seller') {
-            if ($voucher->voucher_scope !== 'store' || (int) $voucher->store_id !== $this->resolveSellerStoreId($request)) {
-                throw new RuntimeException('Anda tidak memiliki akses ke voucher ini.');
-            }
-        }
-    }
-
-    private function activeRole(Request $request): string
-    {
-        return strtolower((string) $request->attributes->get('active_role', 'admin'));
     }
 
     private function paginated($paginator): JsonResponse

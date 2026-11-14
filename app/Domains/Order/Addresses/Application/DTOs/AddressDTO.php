@@ -8,7 +8,6 @@ final class AddressDTO
 {
     public function __construct(
         public ?string $user_id,
-        public ?string $store_id,
         public string $label,
         public string $recipient_name,
         public string $phone_number,

@@ -45,7 +45,9 @@ meskipun fitur UI-nya sudah tidak ada.
   - `down()` mengaktifkan kembali `seller` (relasi user tidak dikembalikan — admin adalah superset).
 - `RolePermissionSeeder`: hanya `admin` + `buyer`; role lain di-`is_active=false`.
   - admin = permission operator toko + `users.manage`, `roles.manage`, `announcements.manage`.
-- `FashionDemoSeeder`, `FashionRealDataSeeder`: memakai role `admin` (bukan `seller`).
+- `FashionDemoSeeder`: memakai role `admin` (bukan `seller`).
+- `FashionRealDataSeeder`: **dihapus** — seeder itu seluruhnya bertumpu pada tabel multi-toko
+  (`stores`, `store_details`, `store_id`).
 
 ### 2.4 Rute & UI
 

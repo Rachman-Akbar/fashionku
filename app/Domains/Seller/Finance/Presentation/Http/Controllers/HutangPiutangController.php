@@ -16,49 +16,31 @@ class HutangPiutangController extends Controller
         private HutangPiutangService $service
     ) {}
 
-    public function summary(Request $request): JsonResponse
+    public function summary(): JsonResponse
     {
-        $storeId = $request->user()->store->id ?? null;
-
-        if (! $storeId) {
-            return response()->json(['success' => false, 'message' => 'Toko tidak ditemukan.'], 404);
-        }
-
         return response()->json([
             'success' => true,
-            'data' => $this->service->getSummary($storeId),
+            'data' => $this->service->getSummary(),
         ]);
     }
 
-    public function aging(Request $request): JsonResponse
+    public function aging(): JsonResponse
     {
-        $storeId = $request->user()->store->id ?? null;
-
-        if (! $storeId) {
-            return response()->json(['success' => false, 'message' => 'Toko tidak ditemukan.'], 404);
-        }
-
         return response()->json([
             'success' => true,
-            'data' => $this->service->getAging($storeId),
+            'data' => $this->service->getAging(),
         ]);
     }
 
-    public function detail(Request $request, string $type): JsonResponse
+    public function detail(string $type): JsonResponse
     {
         if (! in_array($type, ['payable', 'receivable'], true)) {
             return response()->json(['success' => false, 'message' => 'Tipe tidak valid.'], 400);
         }
 
-        $storeId = $request->user()->store->id ?? null;
-
-        if (! $storeId) {
-            return response()->json(['success' => false, 'message' => 'Toko tidak ditemukan.'], 404);
-        }
-
         return response()->json([
             'success' => true,
-            'data' => $this->service->getDetail($storeId, $type),
+            'data' => $this->service->getDetail($type),
         ]);
     }
 
@@ -68,14 +50,7 @@ class HutangPiutangController extends Controller
             return response('Tipe tidak valid.', 400);
         }
 
-        $storeId = $request->user()->store->id ?? null;
-
-        if (! $storeId) {
-            return response('Toko tidak ditemukan.', 404);
-        }
-
         $csv = $this->service->exportReport(
-            $storeId,
             $type,
             $request->query('from_date'),
             $request->query('to_date')

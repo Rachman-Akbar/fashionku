@@ -11,8 +11,6 @@ final class VariantDetails
         private readonly int $productId,
         private readonly string $name,
         private readonly string $productName,
-        private readonly int $storeId,
-        private readonly string $storeName,
         private readonly string $sku,
         private readonly Money $price,
         private readonly int $stock,
@@ -39,16 +37,6 @@ final class VariantDetails
     public function getProductName(): string
     {
         return $this->productName;
-    }
-
-    public function getStoreId(): int
-    {
-        return $this->storeId;
-    }
-
-    public function getStoreName(): string
-    {
-        return $this->storeName;
     }
 
     public function getSku(): string

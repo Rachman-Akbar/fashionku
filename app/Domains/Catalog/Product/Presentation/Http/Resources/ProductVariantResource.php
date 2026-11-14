@@ -25,10 +25,6 @@ final class ProductVariantResource extends JsonResource
         return [
             'id' => $variant->id(),
             'product_id' => $variant->productId(),
-
-            // TAMBAHAN: Menyertakan store_id sesuai arsitektur database baru
-            'store_id' => $variant->storeId(),
-
             'sku' => $variant->sku(),
             'name' => $variant->name(),
             'price' => $variant->price(),

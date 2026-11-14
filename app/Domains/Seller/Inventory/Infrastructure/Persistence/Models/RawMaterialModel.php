@@ -13,10 +13,9 @@ final class RawMaterialModel extends Model
 
     protected $table = 'raw_materials';
 
-    protected $fillable = ['store_id', 'code', 'name', 'unit', 'stock', 'minimum_stock', 'average_cost', 'is_active'];
+    protected $fillable = ['code', 'name', 'unit', 'stock', 'minimum_stock', 'average_cost', 'is_active'];
 
     protected $casts = [
-        'store_id' => 'integer',
         'stock' => 'decimal:4',
         'minimum_stock' => 'decimal:4',
         'average_cost' => 'decimal:4',

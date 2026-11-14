@@ -10,7 +10,6 @@ final class OrderItem
         public ?int $id,
         public int $productId,
         public int $variantId,
-        public int $storeId,
         public string $productName,
         public string $sku,
         public ?string $thumbnail,

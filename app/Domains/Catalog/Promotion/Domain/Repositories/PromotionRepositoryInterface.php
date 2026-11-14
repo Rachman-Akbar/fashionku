@@ -10,8 +10,6 @@ interface PromotionRepositoryInterface
 {
     public function getAll(array $filters = [], bool $includeInactive = false): array;
 
-    public function getByStoreId(int $storeId, array $filters = [], bool $includeInactive = true): array;
-
     public function findById(int $id, bool $includeInactive = true): ?Promotion;
 
     public function nameExists(string $name, ?int $ignoreId = null): bool;

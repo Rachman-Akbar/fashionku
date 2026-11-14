@@ -22,26 +22,24 @@ final class RawMaterialService
         private CodePatternService $codePatterns,
     ) {}
 
-    public function paginate(array $filters, int $perPage, ?int $storeId): LengthAwarePaginator
+    public function paginate(array $filters, int $perPage): LengthAwarePaginator
     {
         return RawMaterialModel::query()
-            ->when($storeId !== null, fn ($query) => $query->where('store_id', $storeId))
             ->when($filters['search'] ?? null, fn ($query, $search) => $query->where(fn ($inner) => $inner->where('name', 'like', "%{$search}%")->orWhere('code', 'like', "%{$search}%")))
             ->orderBy('name')
             ->paginate($perPage);
     }
 
-    public function movements(array $filters, int $perPage, ?int $storeId): LengthAwarePaginator
+    public function movements(array $filters, int $perPage): LengthAwarePaginator
     {
         return RawMaterialStockMovementModel::query()
             ->with('material')
-            ->when($storeId !== null, fn ($query) => $query->where('store_id', $storeId))
             ->when($filters['raw_material_id'] ?? null, fn ($query, $id) => $query->where('raw_material_id', $id))
             ->latest('occurred_at')
             ->paginate($perPage);
     }
 
-    public function costImpacts(array $filters, int $perPage, ?int $storeId): LengthAwarePaginator
+    public function costImpacts(array $filters, int $perPage): LengthAwarePaginator
     {
         return ProductCostingImpactModel::query()
             ->with([
@@ -49,7 +47,6 @@ final class RawMaterialService
                 'material:id,code,name,unit',
                 'costHistory:id,old_average_cost,new_average_cost,direction,reference_type,reference_number,occurred_at',
             ])
-            ->when($storeId !== null, fn ($query) => $query->where('store_id', $storeId))
             ->when(($filters['direction'] ?? null) === 'increase', fn ($query) => $query->where('hpp_change_amount', '>', 0))
             ->when(($filters['direction'] ?? null) === 'decrease', fn ($query) => $query->where('hpp_change_amount', '<', 0))
             ->when($filters['product_id'] ?? null, fn ($query, $id) => $query->where('product_id', $id))
@@ -57,26 +54,21 @@ final class RawMaterialService
             ->paginate($perPage);
     }
 
-    public function save(array $data, ?int $id, ?int $sellerStoreId): RawMaterialModel
+    public function save(array $data, ?int $id): RawMaterialModel
     {
-        return DB::transaction(function () use ($data, $id, $sellerStoreId): RawMaterialModel {
-            $storeId = $sellerStoreId ?? (int) ($data['store_id'] ?? 0);
-            if ($storeId <= 0) {
-                throw new InvalidArgumentException('Toko bahan baku tidak valid.');
-            }
-
-            $model = $id ? RawMaterialModel::query()->where('store_id', $storeId)->lockForUpdate()->find($id) : new RawMaterialModel;
+        return DB::transaction(function () use ($data, $id): RawMaterialModel {
+            $model = $id ? RawMaterialModel::query()->lockForUpdate()->find($id) : new RawMaterialModel;
             if ($id && ! $model) {
                 throw new InvalidArgumentException('Bahan baku tidak ditemukan.');
             }
 
             $code = trim((string) ($data['code'] ?? ''));
             if ($code === '') {
-                $code = $id ? (string) $model->code : $this->generateCode((string) ($data['name'] ?? ''), $storeId);
+                $code = $id ? (string) $model->code : $this->generateCode((string) ($data['name'] ?? ''));
             }
-            $duplicate = RawMaterialModel::query()->where('store_id', $storeId)->where('code', $code)->when($id, fn ($query) => $query->where('id', '<>', $id))->exists();
+            $duplicate = RawMaterialModel::query()->where('code', $code)->when($id, fn ($query) => $query->where('id', '<>', $id))->exists();
             if ($duplicate) {
-                throw new InvalidArgumentException('Kode bahan baku sudah digunakan pada toko ini.');
+                throw new InvalidArgumentException('Kode bahan baku sudah digunakan.');
             }
 
             $wasExisting = $model->exists;
@@ -88,7 +80,6 @@ final class RawMaterialService
             $newAverageCost = $wasExisting ? $oldAverageCost : $requestedAverageCost;
 
             $model->fill([
-                'store_id' => $storeId,
                 'code' => $code,
                 'name' => trim((string) $data['name']),
                 'unit' => trim((string) ($data['unit'] ?? 'pcs')),
@@ -101,13 +92,10 @@ final class RawMaterialService
         });
     }
 
-    public function delete(int $id, ?int $storeId): RawMaterialModel
+    public function delete(int $id): RawMaterialModel
     {
-        return DB::transaction(function () use ($id, $storeId): RawMaterialModel {
-            $material = RawMaterialModel::query()
-                ->when($storeId !== null, fn ($query) => $query->where('store_id', $storeId))
-                ->lockForUpdate()
-                ->find($id);
+        return DB::transaction(function () use ($id): RawMaterialModel {
+            $material = RawMaterialModel::query()->lockForUpdate()->find($id);
 
             if (! $material) {
                 throw new InvalidArgumentException('Bahan baku tidak ditemukan.');
@@ -119,10 +107,10 @@ final class RawMaterialService
         });
     }
 
-    public function adjust(int $id, array $data, ?int $storeId): RawMaterialModel
+    public function adjust(int $id, array $data): RawMaterialModel
     {
-        return DB::transaction(function () use ($id, $data, $storeId): RawMaterialModel {
-            $material = RawMaterialModel::query()->when($storeId !== null, fn ($query) => $query->where('store_id', $storeId))->lockForUpdate()->find($id);
+        return DB::transaction(function () use ($id, $data): RawMaterialModel {
+            $material = RawMaterialModel::query()->lockForUpdate()->find($id);
             if (! $material) {
                 throw new InvalidArgumentException('Bahan baku tidak ditemukan.');
             }
@@ -165,7 +153,6 @@ final class RawMaterialService
             $referenceNumber = $this->referenceNumber($material, $movementType, $data['reference_number'] ?? null);
 
             $movement = RawMaterialStockMovementModel::query()->create([
-                'store_id' => $material->store_id,
                 'raw_material_id' => $material->id,
                 'type' => $movementType,
                 'quantity_delta' => $delta,
@@ -193,7 +180,6 @@ final class RawMaterialService
             }
 
             $this->mutasiNotifier->notify([
-                'store_id' => $material->store_id,
                 'material_code' => $material->code,
                 'material_name' => $material->name,
                 'unit' => $material->unit,
@@ -213,13 +199,13 @@ final class RawMaterialService
         });
     }
 
-    private function generateCode(string $name, int $storeId): string
+    private function generateCode(string $name): string
     {
-        return $this->codePatterns->unique('material_code', $storeId, [
+        return $this->codePatterns->unique('material_code', [
             'name' => $name,
             'type' => 'RM',
-            'seq' => RawMaterialModel::query()->where('store_id', $storeId)->count() + 1,
-        ], fn (string $code): bool => RawMaterialModel::query()->where('store_id', $storeId)->where('code', $code)->exists());
+            'seq' => RawMaterialModel::query()->count() + 1,
+        ], fn (string $code): bool => RawMaterialModel::query()->where('code', $code)->exists());
     }
 
     private function referenceNumber(RawMaterialModel $material, string $movementType, mixed $provided): string
@@ -236,16 +222,14 @@ final class RawMaterialService
             default => 'ADJ',
         };
         $sequence = RawMaterialStockMovementModel::query()
-            ->where('store_id', $material->store_id)
             ->whereDate('occurred_at', today()->toDateString())
             ->count() + 1;
 
-        return $this->codePatterns->unique('material_reference', (int) $material->store_id, [
+        return $this->codePatterns->unique('material_reference', [
             'movement' => $movement,
             'name' => (string) $material->name,
             'seq' => $sequence,
         ], fn (string $reference): bool => RawMaterialStockMovementModel::query()
-            ->where('store_id', $material->store_id)
             ->where('reference_number', $reference)
             ->exists());
     }
@@ -256,7 +240,6 @@ final class RawMaterialService
         $percent = $oldCost > 0 ? ($change / $oldCost) * 100 : ($newCost > 0 ? 100 : 0);
 
         return RawMaterialCostHistoryModel::query()->create([
-            'store_id' => $material->store_id,
             'raw_material_id' => $material->id,
             'raw_material_stock_movement_id' => $movementId,
             'old_average_cost' => $oldCost,

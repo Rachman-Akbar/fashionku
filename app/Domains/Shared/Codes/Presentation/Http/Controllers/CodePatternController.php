@@ -14,32 +14,22 @@ final class CodePatternController
 {
     public function __construct(private CodePatternService $service) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(): JsonResponse
     {
-        $storeId = $this->resolveStoreId($request);
-
         return response()->json([
             'success' => true,
             'data' => [
-                'patterns' => $this->service->list($storeId),
+                'patterns' => $this->service->list(),
                 'tokens' => CodePatternFormatter::TOKENS,
                 'defaults' => CodePatternFormatter::DEFAULTS,
-                'store_id' => $storeId,
             ],
         ]);
     }
 
     public function update(CodePatternRequest $request): JsonResponse
     {
-        $storeId = $this->resolveStoreId($request);
-        $targetStoreId = $request->user()?->role === 'admin'
-            ? $request->input('store_id')
-            : $storeId;
-
         $patterns = $this->service->save(
             (array) $request->input('patterns', []),
-            $storeId,
-            $targetStoreId === null ? null : (int) $targetStoreId,
         );
 
         return response()->json([
@@ -51,14 +41,13 @@ final class CodePatternController
 
     public function preview(Request $request): JsonResponse
     {
-        $storeId = $this->resolveStoreId($request);
         $type = (string) $request->input('type', 'sku');
 
         if (! array_key_exists($type, CodePatternFormatter::LABELS)) {
             return response()->json(['success' => false, 'message' => 'Tipe kode tidak dikenal.'], 422);
         }
 
-        $pattern = (string) ($request->input('pattern') ?: $this->service->patternFor($type, $storeId));
+        $pattern = (string) ($request->input('pattern') ?: $this->service->patternFor($type));
 
         return response()->json([
             'success' => true,
@@ -88,21 +77,5 @@ final class CodePatternController
         }
 
         return $context;
-    }
-
-    private function resolveStoreId(Request $request): ?int
-    {
-        $user = $request->user();
-        if ($user === null) {
-            return null;
-        }
-
-        if ($user->role === 'admin') {
-            $requested = $request->input('store_id');
-
-            return $requested !== null && $requested !== '' ? (int) $requested : null;
-        }
-
-        return $user->store_id !== null ? (int) $user->store_id : null;
     }
 }

@@ -14,7 +14,7 @@ final class EloquentTicketRepository implements TicketRepositoryInterface
     public function paginate(array $filters, int $perPage, ?string $ownerId): LengthAwarePaginator
     {
         return SupportTicketModel::query()
-            ->with(['user:id,name,email', 'store:id,name', 'order:id,order_number', 'assignee:id,name,email'])
+            ->with(['user:id,name,email', 'order:id,order_number', 'assignee:id,name,email'])
             ->withCount(['messages' => fn (Builder $query) => $query->when($ownerId !== null, fn (Builder $messageQuery) => $messageQuery->where('is_internal', false))])
             ->when($ownerId !== null, fn (Builder $query) => $query->where('user_id', $ownerId))
             ->when(! empty($filters['status']), fn (Builder $query) => $query->where('status', $filters['status']))
@@ -38,7 +38,6 @@ final class EloquentTicketRepository implements TicketRepositoryInterface
         return SupportTicketModel::query()
             ->with([
                 'user:id,name,email',
-                'store:id,name',
                 'order:id,order_number',
                 'assignee:id,name,email',
                 'messages' => fn (Builder $query) => $query
@@ -53,7 +52,7 @@ final class EloquentTicketRepository implements TicketRepositoryInterface
     {
         $model->save();
 
-        return $model->refresh()->load(['user:id,name,email', 'store:id,name', 'order:id,order_number', 'assignee:id,name,email', 'messages.user:id,name,email'])->loadCount('messages');
+        return $model->refresh()->load(['user:id,name,email', 'order:id,order_number', 'assignee:id,name,email', 'messages.user:id,name,email'])->loadCount('messages');
     }
 
     public function delete(SupportTicketModel $model): bool

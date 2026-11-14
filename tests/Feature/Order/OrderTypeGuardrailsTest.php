@@ -24,19 +24,15 @@ class OrderTypeGuardrailsTest extends TestCase
     use InteractsAsUser;
     use RefreshDatabase;
 
-    private int $storeId;
-
     private int $variantId;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        [$seller, $store] = $this->actingAsSeller();
-        $this->storeId = (int) $store->id;
+        $seller = $this->actingAsSeller();
 
         $product = $this->app->make(CreateProductUseCase::class)->execute([
-            'store_id' => $this->storeId,
             'name' => 'Produk Guardrail',
             'price' => 100000,
             'variants' => [
@@ -51,7 +47,7 @@ class OrderTypeGuardrailsTest extends TestCase
             'quantity_delta' => 20,
             'movement_type' => 'inbound',
             'notes' => 'Stok awal',
-        ], $this->storeId);
+        ]);
 
         // Set kapasitas preorder agar preorder otomatis dapat diproses (G-10).
         DB::table('product_variants')->where('id', $this->variantId)->update(['stock_preorder' => 20]);
@@ -59,7 +55,6 @@ class OrderTypeGuardrailsTest extends TestCase
         // Siapkan jadwal untuk pengujian booking (G-11).
         DB::table('schedules')->insert([
             'user_id' => $seller->id,
-            'store_id' => $this->storeId,
             'title' => 'Jadwal Pengiriman',
             'type' => 'delivery',
             'date' => now()->addDays(3)->toDateString(),
@@ -77,7 +72,7 @@ class OrderTypeGuardrailsTest extends TestCase
             'quantity_delta' => -20,
             'movement_type' => 'adjustment',
             'notes' => 'Kosongkan stok',
-        ], $this->storeId);
+        ]);
     }
 
     private function buyerWithCartItem(int $quantity): string

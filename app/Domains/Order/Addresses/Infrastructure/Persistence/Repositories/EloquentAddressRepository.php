@@ -8,20 +8,18 @@ use Illuminate\Support\Collection;
 
 class EloquentAddressRepository implements AddressRepositoryInterface
 {
-    public function getByOwner(?string $userId, ?string $storeId): Collection
+    public function getByOwner(?string $userId): Collection
     {
         return Address::when($userId, fn ($q) => $q->where('user_id', $userId))
-            ->when($storeId, fn ($q) => $q->where('store_id', $storeId))
             ->orderByDesc('is_primary')
             ->latest('id')
             ->get();
     }
 
-    public function findByIdAndOwner(int $id, ?string $userId, ?string $storeId): ?Address
+    public function findByIdAndOwner(int $id, ?string $userId): ?Address
     {
         return Address::where('id', $id)
             ->when($userId, fn ($q) => $q->where('user_id', $userId))
-            ->when($storeId, fn ($q) => $q->where('store_id', $storeId))
             ->first();
     }
 
@@ -37,10 +35,8 @@ class EloquentAddressRepository implements AddressRepositoryInterface
         return (bool) $address->delete();
     }
 
-    public function hasAddresses(?string $userId, ?string $storeId): bool
+    public function hasAddresses(?string $userId): bool
     {
-        return Address::when($userId, fn ($q) => $q->where('user_id', $userId))
-            ->when($storeId, fn ($q) => $q->where('store_id', $storeId))
-            ->exists();
+        return Address::when($userId, fn ($q) => $q->where('user_id', $userId))->exists();
     }
 }

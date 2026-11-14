@@ -23,14 +23,10 @@ final class EloquentWishlistRepository implements WishlistRepositoryInterface
         return DB::table('wishlist_items')
             ->join('wishlists', 'wishlist_items.wishlist_id', '=', 'wishlists.id')
             ->join('products', 'wishlist_items.product_id', '=', 'products.id')
-            ->join('stores', 'stores.id', '=', 'products.store_id')
             ->where('wishlists.user_id', $userId)
             ->where('products.is_active', true)
             ->where('products.status', 'published')
             ->whereNull('products.deleted_at')
-            ->where('stores.status', 'approved')
-            ->where('stores.is_active', true)
-            ->whereNull('stores.deleted_at')
             ->select([
                 'products.id',
                 'products.name',

@@ -26,8 +26,8 @@ final class AddressController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        [$userId, $storeId] = $this->resolveOwner($request);
-        $addresses = $this->useCase->listAddresses($userId, $storeId);
+        $userId = $this->resolveOwner($request);
+        $addresses = $this->useCase->listAddresses($userId);
 
         return AddressResource::collection($addresses)
             ->additional(['success' => true])
@@ -49,8 +49,8 @@ final class AddressController extends Controller
 
     public function store(StoreAddressRequest $request): JsonResponse
     {
-        [$userId, $storeId] = $this->resolveOwner($request);
-        $dto = AddressMapper::fromRequestArray($request->validated(), $userId, $storeId);
+        $userId = $this->resolveOwner($request);
+        $dto = AddressMapper::fromRequestArray($request->validated(), $userId);
         $address = $this->useCase->createAddress($dto);
 
         return (new AddressResource($address))
@@ -61,8 +61,8 @@ final class AddressController extends Controller
 
     public function update(StoreAddressRequest $request, int $id): JsonResponse
     {
-        [$userId, $storeId] = $this->resolveOwner($request);
-        $dto = AddressMapper::fromRequestArray($request->validated(), $userId, $storeId);
+        $userId = $this->resolveOwner($request);
+        $dto = AddressMapper::fromRequestArray($request->validated(), $userId);
         $address = $this->useCase->updateAddress($id, $dto);
 
         return (new AddressResource($address))
@@ -72,30 +72,19 @@ final class AddressController extends Controller
 
     public function destroy(Request $request, int $id): JsonResponse
     {
-        [$userId, $storeId] = $this->resolveOwner($request);
-        $this->useCase->deleteAddress($id, $userId, $storeId);
+        $userId = $this->resolveOwner($request);
+        $this->useCase->deleteAddress($id, $userId);
 
         return response()->json(['success' => true, 'message' => 'Alamat berhasil dihapus.']);
     }
 
-    private function resolveOwner(Request $request): array
+    private function resolveOwner(Request $request): string
     {
         $user = $request->user();
         if (! $user) {
             throw new AccessDeniedHttpException('User tidak terautentikasi.');
         }
 
-        if ($request->query('scope') !== 'store') {
-            return [(string) $user->id, null];
-        }
-
-        $activeRole = $this->userRepository->getActiveRoleFromCurrentToken($user);
-        if ($activeRole !== 'seller' || ! $this->userRepository->hasSellerAccess($user)) {
-            throw new AccessDeniedHttpException('Akses alamat toko ditolak.');
-        }
-
-        $user->loadMissing('store');
-
-        return [null, (string) $user->store->id];
+        return (string) $user->id;
     }
 }

@@ -21,10 +21,8 @@ final class PromotionPaymentPolicy
 
     public function view(User $user, PromotionPaymentModel $payment): bool
     {
-        return $user->hasPermission('promotion_payments.review') || (
-            $user->hasPermission('promotion_payments.submit')
-            && (int) $user->store?->id === (int) $payment->store_id
-        );
+        return $user->hasPermission('promotion_payments.review')
+            || ($user->hasPermission('promotion_payments.submit') && (string) $payment->user_id === (string) $user->id);
     }
 
     public function create(User $user): bool

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domains\Catalog\Promotion\Infrastructure\Persistence\Models;
 
-use App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\HasActiveStatus;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -21,7 +20,6 @@ final class PromotionModel extends Model
     protected $table = 'promotions';
 
     protected $fillable = [
-        'store_id',
         'promotion_payment_id',
         'name',
         'image_url',
@@ -36,18 +34,12 @@ final class PromotionModel extends Model
     ];
 
     protected $casts = [
-        'store_id' => 'integer',
         'promotion_payment_id' => 'integer',
         'target_id' => 'integer',
         'sort_order' => 'integer',
         'is_active' => 'boolean',
         'deleted_at' => 'datetime',
     ];
-
-    public function store(): BelongsTo
-    {
-        return $this->belongsTo(StoreModel::class, 'store_id');
-    }
 
     public function payment(): BelongsTo
     {

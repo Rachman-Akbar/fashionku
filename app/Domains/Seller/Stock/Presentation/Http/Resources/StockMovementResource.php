@@ -13,8 +13,6 @@ final class StockMovementResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'store_id' => $this->store_id,
-            'store_name' => $this->store?->name,
             'product_id' => $this->product_id,
             'product_name' => $this->product?->name,
             'variant_id' => $this->variant_id,

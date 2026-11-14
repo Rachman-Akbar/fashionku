@@ -19,7 +19,6 @@ class VoucherCrudTest extends TestCase
     private function payload(array $overrides = []): array
     {
         return array_merge([
-            'voucher_scope' => 'store',
             'code' => 'SALE10',
             'name' => 'Diskon 10%',
             'discount_target' => 'product',
@@ -34,22 +33,22 @@ class VoucherCrudTest extends TestCase
         ], $overrides);
     }
 
-    public function test_seller_can_create_list_update_and_delete_voucher(): void
+    public function test_admin_can_create_list_update_and_delete_voucher(): void
     {
-        $this->actingAsSeller();
+        $admin = $this->actingAsRole('admin');
 
-        $create = $this->postJson('/api/v1/order/vouchers/seller', $this->payload());
+        $create = $this->postJson('/api/v1/order/vouchers/admin', $this->payload());
         $create->assertCreated();
         $create->assertJsonPath('success', true);
         $id = $create->json('data.id');
         $this->assertNotNull($id);
         $this->assertSame('sale10', Voucher::query()->find($id)->code);
 
-        $this->getJson('/api/v1/order/vouchers/seller/manage/list')
+        $this->getJson('/api/v1/order/vouchers/admin/manage/list')
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $update = $this->putJson("/api/v1/order/vouchers/seller/{$id}", $this->payload([
+        $update = $this->putJson("/api/v1/order/vouchers/admin/{$id}", $this->payload([
             'code' => 'SALE20',
             'name' => 'Diskon 20%',
             'discount_value' => 20,
@@ -58,15 +57,15 @@ class VoucherCrudTest extends TestCase
         $this->assertSame('sale20', Voucher::query()->find($id)->code);
         $this->assertSame('Diskon 20%', Voucher::query()->find($id)->name);
 
-        $this->deleteJson("/api/v1/order/vouchers/seller/{$id}")->assertOk();
+        $this->deleteJson("/api/v1/order/vouchers/admin/{$id}")->assertOk();
         $this->assertSoftDeleted('vouchers', ['id' => $id]);
     }
 
     public function test_create_validates_required_fields(): void
     {
-        $this->actingAsSeller();
+        $admin = $this->actingAsRole('admin');
 
-        $this->postJson('/api/v1/order/vouchers/seller', [
+        $this->postJson('/api/v1/order/vouchers/admin', [
             'code' => 'X',
         ])->assertStatus(422);
     }
@@ -75,16 +74,16 @@ class VoucherCrudTest extends TestCase
     {
         $this->actingAsRole('buyer');
 
-        $this->getJson('/api/v1/order/vouchers/seller/manage/list')->assertForbidden();
-        $this->postJson('/api/v1/order/vouchers/seller', $this->payload())->assertForbidden();
+        $this->getJson('/api/v1/order/vouchers/admin/manage/list')->assertForbidden();
+        $this->postJson('/api/v1/order/vouchers/admin', $this->payload())->assertForbidden();
     }
 
-    public function test_seller_cannot_create_duplicate_voucher_code(): void
+    public function test_admin_cannot_create_duplicate_voucher_code(): void
     {
-        $this->actingAsSeller();
+        $admin = $this->actingAsRole('admin');
 
-        $this->postJson('/api/v1/order/vouchers/seller', $this->payload(['code' => 'DUP1']))->assertCreated();
-        $this->postJson('/api/v1/order/vouchers/seller', $this->payload(['code' => 'DUP1']))->assertStatus(422);
+        $this->postJson('/api/v1/order/vouchers/admin', $this->payload(['code' => 'DUP1']))->assertCreated();
+        $this->postJson('/api/v1/order/vouchers/admin', $this->payload(['code' => 'DUP1']))->assertStatus(422);
     }
 
     public function test_buyer_can_list_and_claim_owned_vouchers(): void
@@ -93,7 +92,6 @@ class VoucherCrudTest extends TestCase
         Sanctum::actingAs($user, ['access-api', 'active-role:buyer']);
 
         $voucher = Voucher::query()->create([
-            'voucher_scope' => 'platform',
             'code' => 'CLAIM1',
             'name' => 'Voucher Klaim',
             'discount_target' => 'product',

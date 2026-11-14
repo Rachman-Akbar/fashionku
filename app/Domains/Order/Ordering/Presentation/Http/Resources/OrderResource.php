@@ -29,8 +29,6 @@ final class OrderResource extends JsonResource
 
             $subOrderRows[] = [
                 'id' => $this->read($subOrder, 'id'),
-                'store_id' => $this->read($subOrder, 'storeId') ?? $this->read($subOrder, 'store_id'),
-                'store_name' => $this->read($subOrder, 'storeName') ?? $this->read($subOrder, 'store_name'),
                 'sub_order_number' => $this->read($subOrder, 'subOrderNumber') ?? $this->read($subOrder, 'sub_order_number'),
                 'total_items_price' => $itemsTotal,
                 'shipping_cost' => $shipping,

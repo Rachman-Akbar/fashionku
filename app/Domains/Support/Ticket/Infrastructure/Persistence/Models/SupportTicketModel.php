@@ -6,7 +6,6 @@ namespace App\Domains\Support\Ticket\Infrastructure\Persistence\Models;
 
 use App\Domains\Identity\User\Domain\Entities\User;
 use App\Domains\Order\Ordering\Infrastructure\Persistence\Models\OrderModel;
-use App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\HasActiveStatus;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Model;
@@ -25,7 +24,6 @@ final class SupportTicketModel extends Model
     protected $fillable = [
         'ticket_number',
         'user_id',
-        'store_id',
         'order_id',
         'category',
         'subject',
@@ -41,7 +39,6 @@ final class SupportTicketModel extends Model
     ];
 
     protected $casts = [
-        'store_id' => 'integer',
         'order_id' => 'integer',
         'last_replied_at' => 'datetime',
         'resolved_at' => 'datetime',
@@ -52,11 +49,6 @@ final class SupportTicketModel extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
-    }
-
-    public function store(): BelongsTo
-    {
-        return $this->belongsTo(StoreModel::class, 'store_id');
     }
 
     public function order(): BelongsTo

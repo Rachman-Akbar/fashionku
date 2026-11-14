@@ -8,7 +8,6 @@ final class Promotion
 {
     public function __construct(
         public ?int $id,
-        public ?int $storeId,
         public ?int $promotionPaymentId,
         public string $name,
         public string $imageUrl,
@@ -24,7 +23,6 @@ final class Promotion
     {
         return [
             'id' => $this->id,
-            'store_id' => $this->storeId,
             'promotion_payment_id' => $this->promotionPaymentId,
             'name' => $this->name,
             'image_url' => $this->imageUrl,

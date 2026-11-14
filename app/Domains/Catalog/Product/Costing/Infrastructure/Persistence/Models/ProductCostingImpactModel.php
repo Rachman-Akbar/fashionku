@@ -13,7 +13,7 @@ final class ProductCostingImpactModel extends Model
 {
     protected $table = 'product_costing_impacts';
 
-    protected $fillable = ['store_id', 'product_id', 'raw_material_id', 'raw_material_cost_history_id', 'old_material_cost', 'new_material_cost', 'old_hpp', 'new_hpp', 'hpp_change_amount', 'hpp_change_percent', 'old_suggested_price', 'new_suggested_price', 'trigger_type', 'occurred_at'];
+    protected $fillable = ['product_id', 'raw_material_id', 'raw_material_cost_history_id', 'old_material_cost', 'new_material_cost', 'old_hpp', 'new_hpp', 'hpp_change_amount', 'hpp_change_percent', 'old_suggested_price', 'new_suggested_price', 'trigger_type', 'occurred_at'];
 
     protected $casts = [
         'old_material_cost' => 'decimal:4',

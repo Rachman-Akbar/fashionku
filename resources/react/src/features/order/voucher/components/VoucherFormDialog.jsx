@@ -6,7 +6,6 @@ import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { minimumNumber, required, validateFields } from "@/core/utils/formValidation";
 import { toDateTimeLocal } from "@/core/utils/dateTime";
 import { getVoucherManagementError, useCreateVoucher, useUpdateVoucher } from "@/features/order/voucher/services/voucherManagementService";
-import { toTitleCase } from "@/shared/utils/textFormatter";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { useObjectUrl } from "@/shared/hooks/useObjectUrl";
 import { useFormDirty } from "@/shared/hooks/useFormDirty";
@@ -43,8 +42,6 @@ export function VoucherFormDialog({ open, entity, portal, onClose, onSaved, onDe
   const mutation = entity ? updateMutation : createMutation;
   const selectedImageUrl = useObjectUrl(values.imageFile);
   const previewImageUrl = selectedImageUrl || resolveMediaUrl(values.imageUrl);
-  const seller = portal === "seller";
-  const effectiveScope = entity?.voucherScope || (seller ? "store" : "platform");
 
   useEffect(() => {
     if (open) {
@@ -90,7 +87,7 @@ export function VoucherFormDialog({ open, entity, portal, onClose, onSaved, onDe
       open={open}
       onClose={onClose}
       title={entity ? "Edit Voucher" : "Tambah Voucher"}
-      subtitle={seller ? "Voucher otomatis menjadi milik toko yang sedang login." : entity?.voucherScope === "store" ? "Admin dapat memperbarui voucher toko tanpa mengubah kepemilikannya." : "Voucher baru dari Admin selalu menjadi voucher platform tanpa store_id."}
+      subtitle={portal === "seller" ? "Kelola voucher toko." : "Kelola voucher toko."}
       size="max-w-3xl"
     >
       <form onSubmit={submit}>
@@ -100,16 +97,6 @@ export function VoucherFormDialog({ open, entity, portal, onClose, onSaved, onDe
           }
         >
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="md:col-span-2 flex items-center justify-between bg-slate-50 px-4 py-3">
-            <div>
-              <p className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Cakupan voucher</p>
-              <p className="mt-1 text-sm font-bold text-slate-900">{effectiveScope === "store" ? "Voucher Toko" : "Voucher Platform"}</p>
-            </div>
-            <span className={`px-3 py-1 text-xs font-extrabold ${effectiveScope === "store" ? "bg-emerald-100 text-emerald-700" : "bg-teal-100 text-teal-700"}`}>
-              {effectiveScope === "store" ? toTitleCase(entity?.storeName || "Store otomatis") : "Global"}
-            </span>
-          </div>
-
           <FormField label="Kode voucher" error={errors.code} required>
             <input value={values.code} onChange={(event) => setField("code", event.target.value)} className={inputClassName} />
           </FormField>

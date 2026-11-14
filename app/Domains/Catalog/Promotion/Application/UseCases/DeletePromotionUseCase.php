@@ -11,16 +11,12 @@ final class DeletePromotionUseCase
 {
     public function __construct(private PromotionRepositoryInterface $repository) {}
 
-    public function execute(int $id, ?int $sellerStoreId = null): bool
+    public function execute(int $id): bool
     {
         $promotion = $this->repository->findById($id, true);
 
         if (! $promotion) {
             throw new InvalidArgumentException('Promosi tidak ditemukan.');
-        }
-
-        if ($sellerStoreId !== null && $promotion->storeId !== $sellerStoreId) {
-            throw new InvalidArgumentException('Anda tidak memiliki akses ke promosi ini.');
         }
 
         return $this->repository->delete($id);

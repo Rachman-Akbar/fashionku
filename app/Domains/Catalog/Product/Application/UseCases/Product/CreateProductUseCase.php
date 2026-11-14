@@ -27,25 +27,15 @@ final class CreateProductUseCase
     public function execute(array $data): Product
     {
         return DB::transaction(function () use ($data): Product {
-            $sellerId = trim((string) ($data['seller_id'] ?? ''));
-            $storeId = $sellerId !== ''
-                ? $this->resolveStoreIdBySellerId($sellerId)
-                : (! empty($data['store_id']) ? (int) $data['store_id'] : null);
-
-            if (! $storeId || ! DB::table('stores')->where('id', $storeId)->exists()) {
-                throw new InvalidArgumentException('Toko untuk produk tersebut tidak ditemukan.');
-            }
-
             $name = trim((string) preg_replace('/\s+/u', ' ', (string) $data['name']));
 
-            if ($this->products->nameExistsForStore($name, $storeId)) {
-                throw new InvalidArgumentException("Nama produk '{$name}' sudah digunakan pada toko ini.");
+            if ($this->products->nameExists($name)) {
+                throw new InvalidArgumentException("Nama produk '{$name}' sudah digunakan.");
             }
 
-            $sku = $this->resolveSku($data, $storeId);
+            $sku = $this->resolveSku($data);
             $product = $this->products->save(new Product(
                 id: null,
-                storeId: $storeId,
                 primaryCategoryId: isset($data['primary_category_id']) ? (int) $data['primary_category_id'] : null,
                 name: $name,
                 slug: (string) ($data['slug'] ?? Str::slug($name)),
@@ -72,7 +62,6 @@ final class CreateProductUseCase
                 $this->variants->save(new ProductVariant(
                     id: null,
                     productId: (int) $product->id(),
-                    storeId: $storeId,
                     sku: $sku,
                     name: $name,
                     price: (float) ($data['price'] ?? 0),
@@ -92,8 +81,7 @@ final class CreateProductUseCase
                     $variant = $this->variants->save(new ProductVariant(
                         id: null,
                         productId: (int) $product->id(),
-                        storeId: $storeId,
-                        sku: $variantSku !== '' ? $variantSku : ($index === 0 ? $sku : $this->generateSku($variantData + $data, $storeId)),
+                        sku: $variantSku !== '' ? $variantSku : ($index === 0 ? $sku : $this->generateSku($variantData + $data)),
                         name: $variantName !== '' ? $variantName : $name,
                         price: (float) ($variantData['price'] ?? 0),
                         priceOriginal: isset($variantData['price_original']) ? (float) $variantData['price_original'] : null,
@@ -117,33 +105,22 @@ final class CreateProductUseCase
         });
     }
 
-    private function resolveStoreIdBySellerId(string $sellerId): ?int
-    {
-        $storeId = DB::table('stores')->where('user_id', $sellerId)->value('id');
-
-        if (! $storeId) {
-            $storeId = DB::table('stores')->whereNull('deleted_at')->orderBy('id')->value('id');
-        }
-
-        return $storeId ? (int) $storeId : null;
-    }
-
-    private function resolveSku(array $payload, int $storeId): string
+    private function resolveSku(array $payload): string
     {
         $sku = isset($payload['sku']) && is_string($payload['sku']) ? trim($payload['sku']) : '';
 
-        return $sku !== '' ? $sku : $this->generateSku($payload, $storeId);
+        return $sku !== '' ? $sku : $this->generateSku($payload);
     }
 
-    private function generateSku(array $payload, int $storeId): string
+    private function generateSku(array $payload): string
     {
-        return $this->codePatterns->unique('sku', $storeId, [
+        return $this->codePatterns->unique('sku', [
             'name' => (string) ($payload['name'] ?? ''),
             'brand' => (string) ($payload['brand'] ?? ''),
             'category' => empty($payload['primary_category_id']) ? '' : 'CAT'.(string) $payload['primary_category_id'],
             'type' => 'SKU',
-            'seq' => (int) DB::table('product_variants')->where('store_id', $storeId)->count() + 1,
-        ], fn (string $sku): bool => DB::table('product_variants')->where('sku', $sku)->where('store_id', $storeId)->exists());
+            'seq' => (int) DB::table('product_variants')->count() + 1,
+        ], fn (string $sku): bool => DB::table('product_variants')->where('sku', $sku)->exists());
     }
 
     private function normalizeAttributeValues(array $items): array

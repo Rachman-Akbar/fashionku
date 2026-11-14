@@ -17,7 +17,6 @@ final class FinancialTransactionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'store_id' => ['nullable', 'integer', 'exists:stores,id'],
             'order_id' => ['nullable', 'integer', 'exists:orders,id'],
             'user_id' => ['nullable', 'uuid', 'exists:users,id'],
             'reference_number' => ['nullable', 'string', 'max:60', Rule::unique('financial_transactions', 'reference_number')->ignore($this->route('id'))],

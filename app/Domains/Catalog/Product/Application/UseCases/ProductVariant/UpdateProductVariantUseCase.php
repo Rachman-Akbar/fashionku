@@ -21,8 +21,6 @@ final class UpdateProductVariantUseCase
             $current = $this->variants->findById((int) $variantId);
             abort_if(! $current, 404, 'Product variant not found.');
 
-            $storeId = (int) $current->storeId();
-
             // Kalkulasi Nama
             $computedName = (string) ($data['name'] ?? $current->name());
             if ($computedName === '') {
@@ -32,13 +30,12 @@ final class UpdateProductVariantUseCase
             // Kalkulasi SKU
             $computedSku = (string) ($data['sku'] ?? $current->sku());
             if ($computedSku === '') {
-                $computedSku = $this->generateSkuFallback($computedName, $storeId);
+                $computedSku = $this->generateSkuFallback($computedName);
             }
 
             $variant = $this->variants->save(new ProductVariant(
                 id: $current->id(),
                 productId: $current->productId(),
-                storeId: $storeId,
                 sku: $computedSku,
                 name: $computedName,
                 price: (float) ($data['price'] ?? $current->price()),
@@ -89,7 +86,7 @@ final class UpdateProductVariantUseCase
         return implode(' - ', $nameParts);
     }
 
-    private function generateSkuFallback(string $resolvedName, int $storeId): string
+    private function generateSkuFallback(string $resolvedName): string
     {
         $base = Str::upper(Str::slug($resolvedName));
         $base = $base === '' ? 'VARIANT' : Str::substr($base, 0, 40);
@@ -101,7 +98,6 @@ final class UpdateProductVariantUseCase
             $sku = $base.'-'.$date.'-'.str_pad((string) $counter, 4, '0', STR_PAD_LEFT);
             $exists = DB::table('product_variants')
                 ->where('sku', $sku)
-                ->where('store_id', $storeId)
                 ->exists();
             $counter++;
         } while ($exists);

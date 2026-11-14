@@ -4,26 +4,19 @@ declare(strict_types=1);
 
 namespace App\Domains\Seller\Finance\Application\Services;
 
-use App\Domains\Finance\Commission\Application\Services\SellerSettlementService;
-use App\Domains\Finance\Commission\Application\Services\SellerWithdrawalService;
 use App\Domains\Order\Ordering\Infrastructure\Persistence\Models\SubOrderModel;
 use App\Domains\Seller\Finance\Infrastructure\Persistence\Models\FinancialTransactionModel;
 use Carbon\Carbon;
 
 class SellerFinanceDashboardService
 {
-    public function __construct(
-        private SellerSettlementService $settlementService,
-        private SellerWithdrawalService $withdrawalService
-    ) {}
-
-    public function getDashboard(int $storeId, ?string $period = null, ?string $dateFrom = null, ?string $dateTo = null, ?string $granularity = null): array
+    public function getDashboard(?string $period = null, ?string $dateFrom = null, ?string $dateTo = null, ?string $granularity = null): array
     {
         $period = $period ?? 'monthly';
         $granularity = $granularity ?? 'day';
         [$startDate, $endDate] = $this->resolveRange($period, $dateFrom, $dateTo);
 
-        $transactions = FinancialTransactionModel::where('store_id', $storeId)
+        $transactions = FinancialTransactionModel::query()
             ->where('occurred_at', '>=', $startDate)
             ->where('occurred_at', '<=', $endDate)
             ->where('is_active', true)
@@ -52,10 +45,6 @@ class SellerFinanceDashboardService
                 'receivable_paid' => round($receivablePaid, 2),
                 'receivable_remaining' => round($receivable - $receivablePaid, 2),
             ],
-            'settlement' => [
-                'balance' => $this->settlementService->getStoreBalance($storeId),
-                'total_withdrawn' => $this->withdrawalService->getTotalWithdrawn($storeId),
-            ],
             'recent_transactions' => $transactions->sortByDesc('occurred_at')->take(10)->map(fn ($t) => [
                 'id' => $t->id,
                 'reference_number' => $t->reference_number,
@@ -65,17 +54,17 @@ class SellerFinanceDashboardService
                 'status' => $t->status,
                 'occurred_at' => $t->occurred_at,
             ])->values()->all(),
-            'daily_cashflow' => $this->getDailyCashflow($storeId, $startDate, $endDate),
+            'daily_cashflow' => $this->getDailyCashflow($startDate, $endDate),
         ];
     }
 
-    public function getOrderTrend(int $storeId, ?string $period = null, ?string $dateFrom = null, ?string $dateTo = null, ?string $granularity = null): array
+    public function getOrderTrend(?string $period = null, ?string $dateFrom = null, ?string $dateTo = null, ?string $granularity = null): array
     {
         $period = $period ?? 'monthly';
         $granularity = $granularity ?? 'day';
         [$startDate, $endDate] = $this->resolveRange($period, $dateFrom, $dateTo);
 
-        $rows = SubOrderModel::where('store_id', $storeId)
+        $rows = SubOrderModel::query()
             ->where('created_at', '>=', $startDate)
             ->where('created_at', '<=', $endDate)
             ->selectRaw('DATE(created_at) as day, COUNT(*) as orders')
@@ -111,13 +100,13 @@ class SellerFinanceDashboardService
         ];
     }
 
-    public function getCashflow(int $storeId, string $fromDate, string $toDate, ?string $granularity = null): array
+    public function getCashflow(string $fromDate, string $toDate, ?string $granularity = null): array
     {
         $granularity = $granularity ?? 'day';
         $from = Carbon::parse($fromDate)->startOfDay();
         $to = Carbon::parse($toDate)->endOfDay();
 
-        $transactions = FinancialTransactionModel::where('store_id', $storeId)
+        $transactions = FinancialTransactionModel::query()
             ->where('occurred_at', '>=', $from)
             ->where('occurred_at', '<=', $to)
             ->where('is_active', true)
@@ -183,9 +172,9 @@ class SellerFinanceDashboardService
         };
     }
 
-    private function getDailyCashflow(int $storeId, Carbon $startDate, Carbon $endDate): array
+    private function getDailyCashflow(Carbon $startDate, Carbon $endDate): array
     {
-        $transactions = FinancialTransactionModel::where('store_id', $storeId)
+        $transactions = FinancialTransactionModel::query()
             ->where('occurred_at', '>=', $startDate)
             ->where('occurred_at', '<=', $endDate)
             ->where('is_active', true)

@@ -8,7 +8,6 @@ final class Product
 {
     public function __construct(
         private readonly ?int $id,
-        private readonly int $storeId,
         private readonly ?int $primaryCategoryId,
         private readonly string $name,
         private readonly string $slug,
@@ -21,7 +20,6 @@ final class Product
         private readonly array $attributeValues = [],
         private readonly array $variants = [],
         private readonly array $images = [],
-        private readonly array $store = [],
         private readonly float $averageRating = 0.0,
         private readonly int $reviewCount = 0,
         private readonly ?string $createdAt = null,
@@ -31,11 +29,6 @@ final class Product
     public function id(): ?int
     {
         return $this->id;
-    }
-
-    public function storeId(): int
-    {
-        return $this->storeId;
     }
 
     public function primaryCategoryId(): ?int
@@ -96,11 +89,6 @@ final class Product
     public function images(): array
     {
         return $this->images;
-    }
-
-    public function store(): array
-    {
-        return $this->store;
     }
 
     public function averageRating(): float

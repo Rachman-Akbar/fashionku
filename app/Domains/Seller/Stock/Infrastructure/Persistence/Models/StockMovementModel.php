@@ -8,7 +8,6 @@ use App\Domains\Catalog\Product\Infrastructure\Persistence\Models\ProductModel;
 use App\Domains\Catalog\Product\Infrastructure\Persistence\Models\ProductVariantModel;
 use App\Domains\Order\Ordering\Infrastructure\Persistence\Models\OrderItemModel;
 use App\Domains\Order\Ordering\Infrastructure\Persistence\Models\OrderModel;
-use App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,7 +21,6 @@ final class StockMovementModel extends Model
     protected $table = 'stock_movements';
 
     protected $fillable = [
-        'store_id',
         'product_id',
         'variant_id',
         'order_id',
@@ -41,7 +39,6 @@ final class StockMovementModel extends Model
     ];
 
     protected $casts = [
-        'store_id' => 'integer',
         'product_id' => 'integer',
         'variant_id' => 'integer',
         'order_id' => 'integer',
@@ -51,11 +48,6 @@ final class StockMovementModel extends Model
         'occurred_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
-
-    public function store(): BelongsTo
-    {
-        return $this->belongsTo(StoreModel::class, 'store_id');
-    }
 
     public function product(): BelongsTo
     {

@@ -9,7 +9,6 @@ use App\Domains\Catalog\Promotion\Application\Queries\GetPromotionQuery;
 use App\Domains\Catalog\Promotion\Application\UseCases\DeletePromotionUseCase;
 use App\Domains\Catalog\Promotion\Application\UseCases\UpsertPromotionUseCase;
 use App\Domains\Catalog\Promotion\Presentation\Http\Requests\PromotionRequest;
-use App\Domains\Shared\Presentation\Http\Concerns\ResolvesSellerStoreContext;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,8 +19,6 @@ use Throwable;
 
 final class PromotionController extends Controller
 {
-    use ResolvesSellerStoreContext;
-
     public function index(Request $request, GetPromotionQuery $query): JsonResponse
     {
         try {
@@ -53,22 +50,14 @@ final class PromotionController extends Controller
         return response()->json([
             'data' => array_map(
                 fn (PromotionData $item): array => $this->present($item),
-                $query->execute($request->only(['search', 'is_active', 'store_id']), true)
+                $query->execute($request->only(['search', 'is_active']), true)
             ),
         ]);
     }
 
     public function sellerManage(Request $request, GetPromotionQuery $query): JsonResponse
     {
-        return response()->json([
-            'data' => array_map(
-                fn (PromotionData $item): array => $this->present($item),
-                $query->executeForSeller(
-                    $this->resolveSellerStoreId($request),
-                    $request->only(['search', 'is_active'])
-                )
-            ),
-        ]);
+        return $this->manage($request, $query);
     }
 
     public function store(PromotionRequest $request, UpsertPromotionUseCase $useCase): JsonResponse
@@ -78,7 +67,7 @@ final class PromotionController extends Controller
 
     public function sellerStore(PromotionRequest $request, UpsertPromotionUseCase $useCase): JsonResponse
     {
-        return $this->upsert($request, $useCase, null, $this->resolveSellerStoreId($request), true);
+        return $this->upsert($request, $useCase);
     }
 
     public function update(PromotionRequest $request, int $id, UpsertPromotionUseCase $useCase): JsonResponse
@@ -88,7 +77,7 @@ final class PromotionController extends Controller
 
     public function sellerUpdate(PromotionRequest $request, int $id, UpsertPromotionUseCase $useCase): JsonResponse
     {
-        return $this->upsert($request, $useCase, $id, $this->resolveSellerStoreId($request), true);
+        return $this->upsert($request, $useCase, $id);
     }
 
     public function destroy(int $id, DeletePromotionUseCase $useCase): JsonResponse
@@ -96,31 +85,21 @@ final class PromotionController extends Controller
         return $this->delete($id, $useCase);
     }
 
-    public function sellerDestroy(Request $request, int $id, DeletePromotionUseCase $useCase): JsonResponse
+    public function sellerDestroy(int $id, DeletePromotionUseCase $useCase): JsonResponse
     {
-        return $this->delete($id, $useCase, $this->resolveSellerStoreId($request));
+        return $this->delete($id, $useCase);
     }
 
-    private function upsert(
-        PromotionRequest $request,
-        UpsertPromotionUseCase $useCase,
-        ?int $id = null,
-        ?int $sellerStoreId = null,
-        bool $sellerSubmission = false
-    ): JsonResponse {
+    private function upsert(PromotionRequest $request, UpsertPromotionUseCase $useCase, ?int $id = null): JsonResponse
+    {
         try {
             $promotion = $useCase->execute(
                 PromotionData::fromArray($request->validated()),
-                $id,
-                $sellerStoreId,
-                $sellerSubmission,
-                (string) ($request->user()?->getAuthIdentifier() ?? '')
+                $id
             );
 
             return response()->json([
-                'message' => $sellerSubmission
-                    ? 'Promosi berhasil dibuat dan langsung aktif.'
-                    : ($id ? 'Promosi berhasil diperbarui.' : 'Promosi berhasil dibuat dan langsung disetujui.'),
+                'message' => $id ? 'Promosi berhasil diperbarui.' : 'Promosi berhasil dibuat dan langsung disetujui.',
                 'data' => $this->present($promotion),
             ], $id ? 200 : 201);
         } catch (InvalidArgumentException $exception) {
@@ -128,10 +107,10 @@ final class PromotionController extends Controller
         }
     }
 
-    private function delete(int $id, DeletePromotionUseCase $useCase, ?int $sellerStoreId = null): JsonResponse
+    private function delete(int $id, DeletePromotionUseCase $useCase): JsonResponse
     {
         try {
-            $useCase->execute($id, $sellerStoreId);
+            $useCase->execute($id);
 
             return response()->json(['message' => 'Promosi berhasil dihapus.']);
         } catch (Throwable $exception) {
@@ -143,9 +122,6 @@ final class PromotionController extends Controller
     {
         $data = $promotion->toArray();
         $data['resolved_url'] = $this->resolveTargetUrl($promotion);
-        $data['store_name'] = $promotion->storeId && Schema::hasTable('stores')
-            ? DB::table('stores')->where('id', $promotion->storeId)->value('name')
-            : null;
 
         return $data;
     }
@@ -205,29 +181,6 @@ final class PromotionController extends Controller
             $query->whereNull('deleted_at');
         }
 
-        if ($columns->contains('store_id') && Schema::hasTable('stores')) {
-            $query->where(function ($visibilityQuery): void {
-                $visibilityQuery->whereNull('store_id')
-                    ->orWhereExists(function ($storeQuery): void {
-                        $storeQuery->selectRaw('1')
-                            ->from('stores')
-                            ->whereColumn('stores.id', 'promotions.store_id');
-
-                        if (Schema::hasColumn('stores', 'status')) {
-                            $storeQuery->whereRaw('LOWER(TRIM(stores.status)) IN (?, ?)', ['approved', 'active']);
-                        }
-
-                        if (Schema::hasColumn('stores', 'is_active')) {
-                            $storeQuery->where('stores.is_active', true);
-                        }
-
-                        if (Schema::hasColumn('stores', 'deleted_at')) {
-                            $storeQuery->whereNull('stores.deleted_at');
-                        }
-                    });
-            });
-        }
-
         if ($columns->contains('sort_order')) {
             $query->orderBy('sort_order');
         }
@@ -235,7 +188,6 @@ final class PromotionController extends Controller
         return $query->orderByDesc('id')->get()->map(function (object $row) use ($columns): array {
             $promotion = PromotionData::fromArray([
                 'id' => $row->id ?? null,
-                'store_id' => $columns->contains('store_id') ? ($row->store_id ?? null) : null,
                 'name' => $columns->contains('name') ? ($row->name ?? 'promotion') : 'promotion '.($row->id ?? ''),
                 'image_url' => $row->image_url ?? '',
                 'mobile_image_url' => $columns->contains('mobile_image_url') ? ($row->mobile_image_url ?? null) : null,

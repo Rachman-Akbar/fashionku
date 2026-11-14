@@ -4,23 +4,16 @@ declare(strict_types=1);
 
 namespace App\Domains\Seller\Finance\Application\Services;
 
-use App\Domains\Finance\Commission\Application\Services\OrderCommissionService;
 use App\Domains\Order\Ordering\Infrastructure\Persistence\Models\SubOrderModel;
 use App\Domains\Seller\Finance\Infrastructure\Persistence\Models\FinancialTransactionModel;
 use Illuminate\Support\Str;
 
 final class AutoOrderIncomeService
 {
-    public function __construct(
-        private OrderCommissionService $orderCommission
-    ) {}
-
     /**
-     * Mencatat pemasukan otomatis saat sub-order milik seller selesai (completed).
+     * Mencatat pemasukan otomatis saat sub-order selesai (completed).
      *
-     * Idempotent: jika sudah ada transaksi income untuk (store, order) maka dilewati.
-     * Komisi/settlement dihitung lebih dulu agar pemasukan memakai seller_net
-     * (gross - admin fee) bila tersedia.
+     * Idempotent: jika sudah ada transaksi income untuk order maka dilewati.
      *
      * @return bool true bila pemasukan berhasil dicatat
      */
@@ -34,11 +27,7 @@ final class AutoOrderIncomeService
             return false;
         }
 
-        $this->orderCommission->recordForSubOrder($subOrderId, $buyerUserId);
-        $subOrder->refresh();
-
         $alreadyRecorded = FinancialTransactionModel::query()
-            ->where('store_id', $subOrder->store_id)
             ->where('order_id', $subOrder->order_id)
             ->where('type', 'income')
             ->exists();
@@ -47,9 +36,7 @@ final class AutoOrderIncomeService
             return false;
         }
 
-        $amount = (float) $subOrder->seller_net > 0
-            ? (float) $subOrder->seller_net
-            : (float) ($subOrder->total_items_price ?? 0);
+        $amount = (float) ($subOrder->total_items_price ?? 0);
 
         if ($amount <= 0) {
             return false;
@@ -71,7 +58,6 @@ final class AutoOrderIncomeService
 
         $model = new FinancialTransactionModel;
         $model->fill([
-            'store_id' => $subOrder->store_id,
             'order_id' => $subOrder->order_id,
             'user_id' => $buyerUserId,
             'reference_number' => $this->referenceNumber(),

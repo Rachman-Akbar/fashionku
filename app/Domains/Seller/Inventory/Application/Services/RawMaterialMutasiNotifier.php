@@ -7,7 +7,7 @@ namespace App\Domains\Seller\Inventory\Application\Services;
 use App\Domains\Communication\Chat\Infrastructure\Persistence\Models\ChatMessageModel;
 use App\Domains\Communication\Chat\Infrastructure\Persistence\Models\ConversationModel;
 use App\Domains\Communication\Chat\Presentation\Events\MessageSent;
-use App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel;
+use App\Domains\Identity\User\Domain\Entities\User;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -18,17 +18,17 @@ final class RawMaterialMutasiNotifier
 {
     public function notify(array $data): void
     {
-        $store = StoreModel::query()->find((int) $data['store_id']);
-        if (! $store || ! $store->user_id) {
+        $owner = $this->storeOperator();
+        if (! $owner) {
             return;
         }
 
         $message = ChatMessageModel::query()->create([
-            'conversation_id' => $this->conversationForStore((int) $store->id, (string) $store->user_id)->id,
+            'conversation_id' => $this->systemConversation($owner)->id,
             'sender_id' => null,
             'message_type' => 'system',
             'message' => $this->formatMessage($data),
-        ])->load(['sender:id,name,avatar', 'conversation.store:id,user_id,name,logo', 'conversation.participants:id']);
+        ])->load(['sender:id,name,avatar', 'conversation:id,type,subject,target_role']);
 
         $broadcast = static function () use ($message): void {
             event(new MessageSent($message));
@@ -41,14 +41,25 @@ final class RawMaterialMutasiNotifier
         }
     }
 
-    private function conversationForStore(int $storeId, string $ownerUserId): ConversationModel
+    /**
+     * Operator toko tunggal adalah pengguna dengan role admin.
+     */
+    private function storeOperator(): ?User
+    {
+        return User::query()
+            ->where('is_active', true)
+            ->whereHas('roles', fn ($query) => $query->where('name', 'admin'))
+            ->orderBy('created_at')
+            ->first();
+    }
+
+    private function systemConversation(User $owner): ConversationModel
     {
         $existing = ConversationModel::query()
             ->where('type', 'system')
-            ->where('store_id', $storeId)
             ->where('is_active', true)
-            ->whereHas('participants', function ($query) use ($ownerUserId): void {
-                $query->where('users.id', $ownerUserId)->whereNull('conversation_participants.left_at');
+            ->whereHas('participants', function ($query) use ($owner): void {
+                $query->where('users.id', $owner->id)->whereNull('conversation_participants.left_at');
             })
             ->first();
 
@@ -58,13 +69,12 @@ final class RawMaterialMutasiNotifier
 
         $conversation = ConversationModel::query()->create([
             'type' => 'system',
-            'store_id' => $storeId,
             'subject' => 'Notifikasi Bahan Baku',
             'target_role' => 'seller',
             'is_active' => true,
         ]);
 
-        $conversation->participants()->attach([$ownerUserId => ['joined_at' => now()]]);
+        $conversation->participants()->attach([$owner->id => ['joined_at' => now()]]);
 
         return $conversation->refresh();
     }

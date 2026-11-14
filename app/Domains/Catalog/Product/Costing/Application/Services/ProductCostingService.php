@@ -12,9 +12,9 @@ use InvalidArgumentException;
 
 final class ProductCostingService
 {
-    public function get(int $productId, ?int $storeId): array
+    public function get(int $productId): array
     {
-        $product = DB::table('products')->where('id', $productId)->when($storeId !== null, fn ($query) => $query->where('store_id', $storeId))->first();
+        $product = DB::table('products')->where('id', $productId)->first();
         if (! $product) {
             throw new InvalidArgumentException('Produk tidak ditemukan.');
         }
@@ -31,10 +31,10 @@ final class ProductCostingService
         return ['costing' => $costing, 'materials' => $materials];
     }
 
-    public function save(int $productId, array $data, ?int $storeId): array
+    public function save(int $productId, array $data): array
     {
-        return DB::transaction(function () use ($productId, $data, $storeId): array {
-            $product = DB::table('products')->where('id', $productId)->when($storeId !== null, fn ($query) => $query->where('store_id', $storeId))->lockForUpdate()->first();
+        return DB::transaction(function () use ($productId, $data): array {
+            $product = DB::table('products')->where('id', $productId)->lockForUpdate()->first();
             if (! $product) {
                 throw new InvalidArgumentException('Produk tidak ditemukan.');
             }
@@ -50,7 +50,7 @@ final class ProductCostingService
                 }
                 $materialIds[$rawMaterialId] = true;
 
-                $material = RawMaterialModel::query()->whereKey($rawMaterialId)->where('store_id', $product->store_id)->where('is_active', true)->lockForUpdate()->first();
+                $material = RawMaterialModel::query()->whereKey($rawMaterialId)->where('is_active', true)->lockForUpdate()->first();
                 if (! $material) {
                     throw new InvalidArgumentException('Bahan baku produk tidak valid atau tidak aktif.');
                 }
@@ -88,7 +88,6 @@ final class ProductCostingService
             ProductCostingModel::query()->updateOrCreate(
                 ['product_id' => $productId],
                 [
-                    'store_id' => $product->store_id,
                     'material_cost' => $materialCost,
                     'labor_cost' => $labor,
                     'overhead_cost' => $overhead,
@@ -115,7 +114,7 @@ final class ProductCostingService
                 }
             }
 
-            return $this->get($productId, (int) $product->store_id);
+            return $this->get($productId);
         });
     }
 
@@ -171,7 +170,6 @@ final class ProductCostingService
                 $changePercent = $oldHpp > 0 ? ($changeAmount / $oldHpp) * 100 : ($newHpp > 0 ? 100 : 0);
 
                 ProductCostingImpactModel::query()->create([
-                    'store_id' => $costing->store_id,
                     'product_id' => $productId,
                     'raw_material_id' => $material->id,
                     'raw_material_cost_history_id' => $costHistoryId,

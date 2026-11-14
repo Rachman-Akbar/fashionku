@@ -8,7 +8,6 @@ final class PromotionData
 {
     public function __construct(
         public ?int $id,
-        public ?int $storeId,
         public ?int $promotionPaymentId,
         public string $name,
         public string $imageUrl,
@@ -24,7 +23,6 @@ final class PromotionData
     {
         return new self(
             id: isset($data['id']) ? (int) $data['id'] : null,
-            storeId: isset($data['store_id']) && $data['store_id'] !== null ? (int) $data['store_id'] : null,
             promotionPaymentId: isset($data['promotion_payment_id']) && $data['promotion_payment_id'] !== null ? (int) $data['promotion_payment_id'] : null,
             name: trim((string) preg_replace('/\s+/u', ' ', (string) ($data['name'] ?? ''))),
             imageUrl: trim((string) ($data['image_url'] ?? '')),
@@ -41,7 +39,6 @@ final class PromotionData
     {
         return [
             'id' => $this->id,
-            'store_id' => $this->storeId,
             'promotion_payment_id' => $this->promotionPaymentId,
             'name' => $this->name,
             'image_url' => $this->imageUrl,

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Identity\Auth\Application\UseCases;
 
 use App\Domains\Identity\User\Domain\Entities\User;
-use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\PersonalAccessToken;
 
 final class BuildAuthPayloadUseCase
@@ -14,31 +13,10 @@ final class BuildAuthPayloadUseCase
     {
         $user->loadMissing([
             'roles:id,name',
-            'store:id,user_id,name,slug,status,is_active',
         ]);
 
         $roles = $user->roleNames();
         $activeRole = $this->activeRole($user, $roles, $requestedRole);
-        $store = $user->store;
-
-        if ($store === null && in_array('seller', $roles, true)) {
-            $storeRow = DB::table('stores')
-                ->whereNull('deleted_at')
-                ->orderByDesc('is_active')
-                ->orderBy('id')
-                ->first(['id', 'user_id', 'name', 'slug', 'status', 'is_active']);
-
-            if ($storeRow !== null) {
-                $store = new class($storeRow) {
-                    public function __construct(private object $row) {}
-
-                    public function __get(string $key): mixed
-                    {
-                        return $this->row->{$key} ?? null;
-                    }
-                };
-            }
-        }
 
         return [
             'user' => [
@@ -54,13 +32,6 @@ final class BuildAuthPayloadUseCase
             ],
             'roles' => $roles,
             'active_role' => $activeRole,
-            'store' => $store ? [
-                'id' => (string) $store->id,
-                'name' => $store->name,
-                'slug' => $store->slug,
-                'status' => (string) $store->status,
-                'is_active' => (bool) $store->is_active,
-            ] : null,
         ];
     }
 

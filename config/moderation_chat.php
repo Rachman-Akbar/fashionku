@@ -10,24 +10,13 @@ return [
     |--------------------------------------------------------------------------
     |
     | Pesan default yang otomatis dikirim ke chat user (seller/buyer) setiap
-    | admin melakukan tindakan moderasi: menyetujui / memberhentikan toko,
-    | serta menonaktifkan / mengaktifkan kembali akun user.
+    | admin melakukan tindakan moderasi: menonaktifkan / mengaktifkan kembali
+    | akun user.
     |
     | Placeholder tersedia:
-    |   {store_name}, {owner_name}, {user_name}
+    |   {user_name}
     |
     */
-
-    'store' => [
-        'approved' => [
-            'subject' => 'Toko Anda Telah Disetujui',
-            'message' => "Halo {owner_name}!\n\nSelamat, toko \"{store_name}\" Anda telah disetujui oleh tim Marketplace dan kini resmi aktif. Anda sudah dapat mulai menjual produk dan menerima pesanan.\n\nTerima kasih telah bergabung bersama kami. 🎉",
-        ],
-        'suspended' => [
-            'subject' => 'Toko Anda Diberhentikan Sementara',
-            'message' => "Halo {owner_name}.\n\nDengan ini kami informasikan bahwa toko \"{store_name}\" untuk sementara diberhentikan karena diduga melanggar ketentuan Marketplace. Segala aktivitas penjualan pada toko tersebut dihentikan.\n\nSilakan hubungi tim Marketplace melalui chat ini untuk informasi lebih lanjut.\n\n{reason}",
-        ],
-    ],
 
     'user' => [
         'banned' => [

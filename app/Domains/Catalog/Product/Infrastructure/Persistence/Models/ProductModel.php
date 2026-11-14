@@ -6,7 +6,6 @@ namespace App\Domains\Catalog\Product\Infrastructure\Persistence\Models;
 
 use App\Domains\Catalog\Category\Infrastructure\Persistence\Models\CategoryModel;
 use App\Domains\Order\Review\Infrastructure\Persistence\Models\ProductReviewModel;
-use App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\HasActiveStatus;
 use App\Domains\Shared\Infrastructure\Persistence\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -24,7 +23,6 @@ final class ProductModel extends Model
     protected $table = 'products';
 
     protected $fillable = [
-        'store_id',
         'primary_category_id',
         'name',
         'slug',
@@ -38,7 +36,6 @@ final class ProductModel extends Model
     ];
 
     protected $casts = [
-        'store_id' => 'integer',
         'primary_category_id' => 'integer',
         'is_active' => 'boolean',
         'deleted_at' => 'datetime',
@@ -56,11 +53,6 @@ final class ProductModel extends Model
         return Attribute::make(
             set: fn (mixed $value): string => Str::lower(trim((string) $value))
         );
-    }
-
-    public function store()
-    {
-        return $this->belongsTo(StoreModel::class, 'store_id');
     }
 
     public function primaryCategory()

@@ -167,9 +167,11 @@ export default function HomePromoSection() {
 
   const promos = promotionsQuery.data || [];
 
-  const categoryCards = useMemo(() => {
+const categoryCards = useMemo(() => {
     const roots = categoriesQuery.data?.data || [];
-    const picked = roots.length ? roots : flattenCategories(roots);
+    // Get Level 2 categories (children of Level 1)
+    const levelTwo = roots.flatMap((root) => Array.isArray(root.children) ? root.children : []);
+    const picked = levelTwo.length ? levelTwo : flattenCategories(roots);
     return picked.slice(0, 16);
   }, [categoriesQuery.data]);
 

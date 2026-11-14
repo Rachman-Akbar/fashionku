@@ -11,7 +11,6 @@ final class VoucherDTO
     public function __construct(
         public string $code,
         public string $name,
-        public string $voucher_scope,
         public string $discount_target,
         public string $discount_type,
         public float $discount_value,
@@ -23,7 +22,6 @@ final class VoucherDTO
         public ?int $min_distinct_products = null,
         public ?string $terms = null,
         public int $usage_limit = 0,
-        public ?int $store_id = null,
         public bool $is_active = true,
         public ?string $image = null,
     ) {

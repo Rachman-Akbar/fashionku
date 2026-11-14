@@ -19,17 +19,16 @@ final class PromotionPaymentService
         private AdminNotificationService $notificationService
     ) {}
 
-    public function paginate(array $filters, int $perPage, ?int $storeId): LengthAwarePaginator
+    public function paginate(array $filters, int $perPage): LengthAwarePaginator
     {
-        return $this->repository->paginate($filters, $perPage, $storeId);
+        return $this->repository->paginate($filters, $perPage);
     }
 
-    public function submit(array $data, int $storeId, string $userId): PromotionPaymentModel
+    public function submit(array $data, string $userId): PromotionPaymentModel
     {
-        return DB::transaction(function () use ($data, $storeId, $userId): PromotionPaymentModel {
+        return DB::transaction(function () use ($data, $userId): PromotionPaymentModel {
             $model = new PromotionPaymentModel;
             $model->fill([
-                'store_id' => $storeId,
                 'user_id' => $userId,
                 'payment_number' => $this->paymentNumber(),
                 'package_name' => trim((string) $data['package_name']),
@@ -53,7 +52,7 @@ final class PromotionPaymentService
                 'reference_id' => $saved->id,
                 'url' => '/admin/promotion-payments?payment='.$saved->id,
                 'meta' => ['amount' => (float) $saved->amount, 'status' => $saved->status],
-            ], $userId, $storeId);
+            ], $userId);
 
             return $saved;
         });
@@ -92,12 +91,12 @@ final class PromotionPaymentService
         });
     }
 
-    public function approvedForPromotion(int $id, int $storeId, ?int $promotionId = null): PromotionPaymentModel
+    public function approvedForPromotion(int $id, ?int $promotionId = null): PromotionPaymentModel
     {
-        $payment = $this->repository->approvedAvailable($id, $storeId, $promotionId);
+        $payment = $this->repository->approvedAvailable($id, $promotionId);
 
         if (! $payment) {
-            throw new InvalidArgumentException('Pembayaran promosi belum disetujui, bukan milik toko Anda, atau sudah digunakan.');
+            throw new InvalidArgumentException('Pembayaran promosi belum disetujui atau sudah digunakan.');
         }
 
         return $payment;

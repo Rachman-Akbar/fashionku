@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('seller')->group(function (): void {
     $routeFiles = [
-        app_path('Domains/Seller/Stores/Presentation/routes.php'),
+        app_path('Domains/Seller/Settings/Presentation/routes.php'),
         app_path('Domains/Seller/Stock/Presentation/routes.php'),
         app_path('Domains/Seller/Inventory/Presentation/routes.php'),
         app_path('Domains/Seller/Schedule/Presentation/routes.php'),

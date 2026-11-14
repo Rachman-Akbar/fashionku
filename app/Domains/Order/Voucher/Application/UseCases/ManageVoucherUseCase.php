@@ -36,8 +36,6 @@ final class ManageVoucherUseCase
         $this->assertUnique($dto);
 
         return $this->voucherRepository->save(new Voucher([
-            'store_id' => $dto->store_id,
-            'voucher_scope' => $dto->voucher_scope,
             'code' => $dto->code,
             'name' => $dto->name,
             'image' => $dto->image,
@@ -62,8 +60,6 @@ final class ManageVoucherUseCase
         $voucher = $this->showVoucher($id, true);
         $this->assertUnique($dto, $id);
         $voucher->fill([
-            'store_id' => $dto->store_id,
-            'voucher_scope' => $dto->voucher_scope,
             'code' => $dto->code,
             'name' => $dto->name,
             'image' => $dto->image ?? $voucher->image,

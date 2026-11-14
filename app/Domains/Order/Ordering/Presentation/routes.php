@@ -12,7 +12,6 @@ Route::middleware(['auth:sanctum', 'active.user', 'verified.email'])
         Route::post('manual', [OrderingController::class, 'storeManual']);
         Route::post('shipping-options', [OrderingController::class, 'shippingOptions']);
         Route::get('customers/{userId}', [OrderingController::class, 'getByCustomer']);
-        Route::get('stores/{storeId}', [OrderingController::class, 'getByStore']);
         Route::get('{id}', [OrderingController::class, 'show']);
         Route::patch('{id}', [OrderingController::class, 'update']);
         Route::post('{id}/cancel', [OrderingController::class, 'cancel']);

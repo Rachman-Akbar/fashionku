@@ -19,38 +19,33 @@ final class FinancialTransactionService
         private CodePatternService $codePatterns,
     ) {}
 
-    public function paginate(array $filters, int $perPage, ?int $storeId): LengthAwarePaginator
+    public function paginate(array $filters, int $perPage): LengthAwarePaginator
     {
-        return $this->repository->paginate($filters, $perPage, $storeId);
+        return $this->repository->paginate($filters, $perPage);
     }
 
-    public function find(int $id, ?int $storeId): FinancialTransactionModel
+    public function find(int $id): FinancialTransactionModel
     {
-        return $this->repository->find($id, $storeId)
+        return $this->repository->find($id)
             ?? throw new InvalidArgumentException('Transaksi keuangan tidak ditemukan.');
     }
 
-    public function save(array $data, ?int $id, ?int $sellerStoreId): FinancialTransactionModel
+    public function save(array $data, ?int $id): FinancialTransactionModel
     {
-        return DB::transaction(function () use ($data, $id, $sellerStoreId): FinancialTransactionModel {
-            $storeId = $sellerStoreId ?? ($data['store_id'] ?? null);
+        return DB::transaction(function () use ($data, $id): FinancialTransactionModel {
             $orderId = isset($data['order_id']) ? (int) $data['order_id'] : null;
 
-            if (! $id && $storeId !== null && $orderId !== null && (string) $data['type'] === 'income') {
+            if (! $id && $orderId !== null && (string) $data['type'] === 'income') {
                 $id = FinancialTransactionModel::query()
-                    ->where('store_id', (int) $storeId)
                     ->where('order_id', $orderId)
                     ->where('type', 'income')
                     ->value('id');
             }
 
-            $model = $id ? $this->find($id, $sellerStoreId) : new FinancialTransactionModel;
+            $model = $id ? $this->find($id) : new FinancialTransactionModel;
 
-            if ($orderId !== null && $storeId !== null && ! DB::table('sub_orders')
-                ->where('order_id', $orderId)
-                ->where('store_id', (int) $storeId)
-                ->exists()) {
-                throw new InvalidArgumentException('Order tidak terhubung dengan toko transaksi keuangan.');
+            if ($orderId !== null && ! DB::table('orders')->where('id', $orderId)->exists()) {
+                throw new InvalidArgumentException('Order tidak ditemukan.');
             }
 
             $type = (string) $data['type'];
@@ -77,10 +72,9 @@ final class FinancialTransactionService
             $providedReference = trim((string) ($data['reference_number'] ?? ''));
 
             $model->fill([
-                'store_id' => $storeId,
                 'order_id' => $orderId,
                 'user_id' => $data['user_id'] ?? null,
-                'reference_number' => $model->reference_number ?: ($providedReference !== '' ? $providedReference : $this->referenceNumber($type, $sellerStoreId !== null ? (int) $sellerStoreId : ($data['store_id'] ?? null))),
+                'reference_number' => $model->reference_number ?: ($providedReference !== '' ? $providedReference : $this->referenceNumber($type)),
                 'type' => $type,
                 'category' => trim((string) ($data['category'] ?? '')) !== '' ? (string) $data['category'] : ($type === 'income' ? 'penjualan' : 'lainnya'),
                 'title' => trim((string) $data['title']),
@@ -100,7 +94,6 @@ final class FinancialTransactionService
             if (! $id && $isDebt && $paidAmount > 0) {
                 FinancialPaymentHistoryModel::query()->create([
                     'financial_transaction_id' => $saved->id,
-                    'store_id' => $saved->store_id,
                     'recorded_by' => auth()->id(),
                     'amount' => $paidAmount,
                     'balance_before' => $amount,
@@ -116,11 +109,10 @@ final class FinancialTransactionService
         });
     }
 
-    public function recordPayment(int $id, float $amount, ?int $storeId, array $paymentData = []): FinancialTransactionModel
+    public function recordPayment(int $id, float $amount, array $paymentData = []): FinancialTransactionModel
     {
-        return DB::transaction(function () use ($id, $amount, $storeId, $paymentData): FinancialTransactionModel {
+        return DB::transaction(function () use ($id, $amount, $paymentData): FinancialTransactionModel {
             $model = FinancialTransactionModel::query()
-                ->when($storeId !== null, fn ($query) => $query->where('store_id', $storeId))
                 ->lockForUpdate()
                 ->find($id);
 
@@ -144,7 +136,6 @@ final class FinancialTransactionService
             $saved = $this->repository->save($model);
             FinancialPaymentHistoryModel::query()->create([
                 'financial_transaction_id' => $saved->id,
-                'store_id' => $saved->store_id,
                 'recorded_by' => auth()->id(),
                 'amount' => $paymentAmount,
                 'balance_before' => $balanceBefore,
@@ -159,16 +150,16 @@ final class FinancialTransactionService
         });
     }
 
-    public function paymentHistory(int $id, ?int $storeId)
+    public function paymentHistory(int $id)
     {
-        $this->find($id, $storeId);
+        $this->find($id);
 
         return FinancialPaymentHistoryModel::query()->where('financial_transaction_id', $id)->latest('paid_at')->get();
     }
 
-    public function delete(int $id, ?int $storeId): void
+    public function delete(int $id): void
     {
-        $this->repository->delete($this->find($id, $storeId));
+        $this->repository->delete($this->find($id));
     }
 
     private function resolveStatus(string $type, float $amount, float $paidAmount, string $requested): string
@@ -188,11 +179,11 @@ final class FinancialTransactionService
         return $paidAmount >= $amount ? 'paid' : 'partial';
     }
 
-    private function referenceNumber(string $type, ?int $storeId = null): string
+    private function referenceNumber(string $type): string
     {
-        return $this->codePatterns->unique('invoice_reference', $storeId, [
+        return $this->codePatterns->unique('invoice_reference', [
             'type' => $type,
-            'seq' => $this->codePatterns->sequenceFor('financial_transactions', 'created_at', $storeId),
+            'seq' => $this->codePatterns->sequenceFor('financial_transactions', 'created_at'),
         ], fn (string $candidate): bool => FinancialTransactionModel::query()->where('reference_number', $candidate)->exists());
     }
 }

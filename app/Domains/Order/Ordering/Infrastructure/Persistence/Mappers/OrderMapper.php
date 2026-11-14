@@ -20,7 +20,6 @@ final class OrderMapper
                         id: (int) $item->id,
                         productId: (int) $item->product_id,
                         variantId: (int) ($item->variant_id ?? 0),
-                        storeId: (int) $subOrder->store_id,
                         productName: (string) $item->product_name,
                         sku: (string) $item->sku,
                         thumbnail: $item->thumbnail ? (string) $item->thumbnail : null,
@@ -31,8 +30,6 @@ final class OrderMapper
 
                 return new DomainSubOrder(
                     id: (int) $subOrder->id,
-                    storeId: (int) $subOrder->store_id,
-                    storeName: (string) ($subOrder->store?->name ?? ''),
                     subOrderNumber: (string) $subOrder->sub_order_number,
                     totalItemsPrice: (float) $subOrder->total_items_price,
                     shippingCost: (float) $subOrder->shipping_cost,

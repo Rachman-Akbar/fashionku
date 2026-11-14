@@ -19,17 +19,6 @@ Route::prefix('vouchers')->name('vouchers.')->group(function (): void {
             Route::delete('/{id}', [VoucherController::class, 'destroy'])->whereNumber('id')->name('destroy');
         });
 
-    Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'active.role:seller', 'seller.store.available'])
-        ->prefix('seller')
-        ->name('seller.')
-        ->group(function (): void {
-            Route::get('/manage/list', [VoucherController::class, 'manage'])->name('manage');
-            Route::post('/', [VoucherController::class, 'store'])->name('store');
-            Route::put('/{id}', [VoucherController::class, 'update'])->whereNumber('id')->name('update');
-            Route::post('/{id}', [VoucherController::class, 'update'])->whereNumber('id')->name('update.multipart');
-            Route::delete('/{id}', [VoucherController::class, 'destroy'])->whereNumber('id')->name('destroy');
-        });
-
     Route::middleware(['auth:sanctum', 'active.user', 'verified.email'])
         ->group(function (): void {
             Route::get('/mine', [VoucherController::class, 'myVouchers'])->name('mine');

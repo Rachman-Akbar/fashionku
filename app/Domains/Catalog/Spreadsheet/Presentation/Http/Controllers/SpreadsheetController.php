@@ -5,15 +5,11 @@ declare(strict_types=1);
 namespace App\Domains\Catalog\Spreadsheet\Presentation\Http\Controllers;
 
 use App\Domains\Catalog\Spreadsheet\Application\Services\SpreadsheetModuleRegistry;
-use App\Domains\Shared\Presentation\Http\Concerns\ResolvesActiveRole;
-use App\Domains\Shared\Presentation\Http\Concerns\ResolvesSellerStoreContext;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Response;
-use InvalidArgumentException;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -22,17 +18,13 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 final class SpreadsheetController extends Controller
 {
-    use ResolvesActiveRole;
-    use ResolvesSellerStoreContext;
-
     public function __construct(
         private SpreadsheetModuleRegistry $registry
     ) {}
 
-    public function template(Request $request, string $module): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function template(Request $request, string $module): BinaryFileResponse
     {
         $config = $this->registry->get($module);
-        $storeId = $this->storeId($request);
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -77,16 +69,14 @@ final class SpreadsheetController extends Controller
         ])->deleteFileAfterSend(true);
     }
 
-    public function export(Request $request, string $module): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function export(Request $request, string $module): BinaryFileResponse
     {
         $config = $this->registry->get($module);
-        $storeId = $this->storeId($request);
 
         $ids = $request->validated()['ids'] ?? [];
         $columns = $config['columns'];
-        $keyColumn = $config['keyColumn'];
 
-        $query = DB::table($config['entity'])->where($config['storeColumn'], $storeId);
+        $query = DB::table($config['entity']);
         if (! empty($ids)) {
             $query->whereIn('id', $ids);
         }
@@ -136,7 +126,6 @@ final class SpreadsheetController extends Controller
     public function preview(Request $request, string $module): JsonResponse
     {
         $config = $this->registry->get($module);
-        $storeId = $this->storeId($request);
 
         $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,csv'],
@@ -181,7 +170,7 @@ final class SpreadsheetController extends Controller
         $previewRows = [];
         $seenKeys = [];
 
-        $existingKeys = $this->getExistingKeys($entity, $keyDbColumn, $storeId);
+        $existingKeys = $this->getExistingKeys($entity, $keyDbColumn);
 
         foreach ($rows as $index => $row) {
             $rowNumber = $index + 2;
@@ -254,7 +243,6 @@ final class SpreadsheetController extends Controller
     public function import(Request $request, string $module): JsonResponse|BinaryFileResponse
     {
         $config = $this->registry->get($module);
-        $storeId = $this->storeId($request);
 
         $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,csv'],
@@ -293,14 +281,14 @@ final class SpreadsheetController extends Controller
             ], 422);
         }
 
-        $existingKeys = $this->getExistingKeys($entity, $keyDbColumn, $storeId);
+        $existingKeys = $this->getExistingKeys($entity, $keyDbColumn);
         $seenKeys = [];
 
         $successCount = 0;
         $errorCount = 0;
         $errorRows = [];
 
-        DB::transaction(function () use (&$successCount, &$errorCount, &$errorRows, $rows, $headers, $config, $storeId, $importMode, $existingKeys, $seenKeys, $keyColumn, $keyDbColumn, $entity, $requiredColumns, $createMissingRelations) {
+        DB::transaction(function () use (&$successCount, &$errorCount, &$errorRows, $rows, $headers, $config, $importMode, $existingKeys, $seenKeys, $keyColumn, $keyDbColumn, $entity, $requiredColumns, $createMissingRelations) {
             foreach ($rows as $index => $row) {
                 $rowNumber = $index + 2;
                 $data = [];
@@ -359,12 +347,11 @@ final class SpreadsheetController extends Controller
                 }
 
                 try {
-                    $payload = $this->buildPayload($config, $data, $storeId);
+                    $payload = $this->buildPayload($config, $data);
 
                     if ($keyExists) {
-                        DB::table($entity)->where($keyDbColumn, $keyValue)->where($config['storeColumn'], $storeId)->update($payload);
+                        DB::table($entity)->where($keyDbColumn, $keyValue)->update($payload);
                     } else {
-                        $payload[$config['storeColumn']] = $storeId;
                         $payload['created_at'] = now();
                         $payload['updated_at'] = now();
                         DB::table($entity)->insert($payload);
@@ -396,7 +383,6 @@ final class SpreadsheetController extends Controller
     public function bulkDelete(Request $request, string $module): JsonResponse
     {
         $config = $this->registry->get($module);
-        $storeId = $this->storeId($request);
 
         $request->validate([
             'ids' => ['required', 'array', 'min:1'],
@@ -406,7 +392,6 @@ final class SpreadsheetController extends Controller
         $ids = $request->input('ids');
 
         $deleted = DB::table($config['entity'])
-            ->where($config['storeColumn'], $storeId)
             ->whereIn('id', $ids)
             ->delete();
 
@@ -419,37 +404,14 @@ final class SpreadsheetController extends Controller
         ]);
     }
 
-    private function storeId(Request $request): int
+    private function getExistingKeys(string $entity, string $keyColumn): array
     {
-        $role = $this->resolveActiveRole($request);
-
-        if ($role === 'seller') {
-            return (int) $this->resolveSellerStoreId($request);
-        }
-
-        // Admin (non-seller role) — pakai toko utama (store_id = 1 sebagai default)
-        return 1;
-    }
-
-    private function getExistingKeys(string $entity, string $keyColumn, int $storeId): array
-    {
-        $rows = DB::table($entity)->where($this->storeColumn($entity), $storeId)->pluck($keyColumn, $keyColumn);
+        $rows = DB::table($entity)->pluck($keyColumn, $keyColumn);
 
         return $rows->all();
     }
 
-    private function storeColumn(string $entity): string
-    {
-        return match ($entity) {
-            'raw_materials' => 'store_id',
-            'products' => 'store_id',
-            'product_variants' => 'store_id',
-            'financial_transactions' => 'store_id',
-            default => 'store_id',
-        };
-    }
-
-    private function buildPayload(array $config, array $data, int $storeId): array
+    private function buildPayload(array $config, array $data): array
     {
         $columns = $config['columns'];
         $payload = [];

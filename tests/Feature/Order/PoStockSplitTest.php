@@ -27,19 +27,15 @@ class PoStockSplitTest extends TestCase
     use InteractsAsUser;
     use RefreshDatabase;
 
-    private int $storeId;
-
     private int $variantId;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        [$seller, $store] = $this->actingAsSeller();
-        $this->storeId = (int) $store->id;
+        $seller = $this->actingAsSeller();
 
         $product = $this->app->make(CreateProductUseCase::class)->execute([
-            'store_id' => $this->storeId,
             'name' => 'Produk Stok PO',
             'price' => 100000,
             'variants' => [
@@ -55,7 +51,7 @@ class PoStockSplitTest extends TestCase
             'quantity_delta' => 20,
             'movement_type' => 'inbound',
             'notes' => 'Stok awal untuk tes',
-        ], $this->storeId);
+        ]);
     }
 
     private function buyerWithCartItem(int $quantity, int $userIdPrefix): string
@@ -163,7 +159,7 @@ class PoStockSplitTest extends TestCase
             'quantity_delta' => -20,
             'movement_type' => 'adjustment',
             'notes' => 'Stok dikosongkan untuk tes preorder otomatis',
-        ], $this->storeId);
+        ]);
 
         // Set kapasitas preorder agar preorder otomatis dapat diproses (G-10).
         DB::table('product_variants')->where('id', $this->variantId)->update(['stock_preorder' => 20]);
@@ -215,7 +211,7 @@ class PoStockSplitTest extends TestCase
             'quantity_delta' => -20,
             'movement_type' => 'adjustment',
             'notes' => 'Stok dikosongkan untuk tes pembatalan preorder',
-        ], $this->storeId);
+        ]);
 
         // Set kapasitas preorder agar preorder otomatis dapat diproses (G-10).
         DB::table('product_variants')->where('id', $this->variantId)->update(['stock_preorder' => 20]);

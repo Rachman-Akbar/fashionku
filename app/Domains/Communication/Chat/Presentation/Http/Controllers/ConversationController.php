@@ -9,7 +9,6 @@ use App\Domains\Communication\Chat\Presentation\Http\Requests\ConversationReques
 use App\Domains\Communication\Chat\Presentation\Http\Resources\ChatMessageResource;
 use App\Domains\Communication\Chat\Presentation\Http\Resources\ConversationResource;
 use App\Domains\Shared\Presentation\Http\Concerns\ResolvesActiveRole;
-use App\Domains\Shared\Presentation\Http\Concerns\ResolvesSellerStoreContext;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,17 +18,12 @@ use InvalidArgumentException;
 final class ConversationController extends Controller
 {
     use ResolvesActiveRole;
-    use ResolvesSellerStoreContext;
 
     public function __construct(private ConversationService $service) {}
 
     public function index(Request $request): JsonResponse
     {
-        $filters = $request->only(['type', 'store_id', 'search']);
-
-        if ($this->hasActiveRole($request, 'seller')) {
-            $filters['store_id'] = $this->resolveSellerStoreId($request);
-        }
+        $filters = $request->only(['type', 'search']);
 
         $rows = $this->service->paginate(
             (string) $request->user()->id,
@@ -47,7 +41,6 @@ final class ConversationController extends Controller
 
         if ($this->hasActiveRole($request, 'seller')) {
             $data['type'] = 'store';
-            $data['store_id'] = $this->resolveSellerStoreId($request);
             $data['order_id'] = null;
         }
 

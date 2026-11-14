@@ -22,8 +22,6 @@ class ReviewModerationTest extends TestCase
     use InteractsAsUser;
     use RefreshDatabase;
 
-    private int $storeId;
-
     private int $variantId;
 
     private int $orderItemId;
@@ -35,11 +33,8 @@ class ReviewModerationTest extends TestCase
         parent::setUp();
 
         $seller = $this->makeUser(['name' => 'Seller Moderasi'], ['seller']);
-        $store = $this->makeStore($seller);
-        $this->storeId = (int) $store->id;
 
         $product = $this->app->make(CreateProductUseCase::class)->execute([
-            'store_id' => $this->storeId,
             'name' => 'Produk Moderasi',
             'price' => 40000,
             'variants' => [
@@ -55,7 +50,7 @@ class ReviewModerationTest extends TestCase
             'quantity_delta' => 5,
             'movement_type' => 'inbound',
             'notes' => 'Stok awal untuk tes moderasi',
-        ], $this->storeId);
+        ]);
 
         $orderId = DB::table('orders')->insertGetId([
             'order_number' => 'MOD-'.strtoupper((string) Str::random(8)),
@@ -73,7 +68,6 @@ class ReviewModerationTest extends TestCase
 
         $subOrderId = DB::table('sub_orders')->insertGetId([
             'order_id' => $orderId,
-            'store_id' => $this->storeId,
             'sub_order_number' => 'MOD-S-'.strtoupper((string) Str::random(8)),
             'total_items_price' => 40000,
             'shipping_cost' => 10000,

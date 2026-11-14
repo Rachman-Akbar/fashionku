@@ -28,24 +28,18 @@ final class StockMovementService
     public function __construct(private StockMovementRepositoryInterface $repository,
         private CodePatternService $codePatterns) {}
 
-    public function paginate(array $filters, int $perPage, ?int $storeId): LengthAwarePaginator
+    public function paginate(array $filters, int $perPage): LengthAwarePaginator
     {
-        return $this->repository->paginate($filters, $perPage, $storeId);
+        return $this->repository->paginate($filters, $perPage);
     }
 
-    public function adjust(array $data, ?int $sellerStoreId): StockMovementModel
+    public function adjust(array $data): StockMovementModel
     {
-        return DB::transaction(function () use ($data, $sellerStoreId): StockMovementModel {
+        return DB::transaction(function () use ($data): StockMovementModel {
             $variant = ProductVariantModel::query()->lockForUpdate()->find((int) $data['variant_id']);
 
             if (! $variant) {
                 throw new InvalidArgumentException('Varian produk tidak ditemukan.');
-            }
-
-            $storeId = $sellerStoreId ?? (int) $variant->store_id;
-
-            if ((int) $variant->store_id !== $storeId) {
-                throw new InvalidArgumentException('Stok varian bukan milik toko Anda.');
             }
 
             $delta = (int) $data['quantity_delta'];
@@ -75,12 +69,11 @@ final class StockMovementService
 
             $referenceId = $providedReferenceId !== ''
                 ? $providedReferenceId
-                : $this->generateMovementReference($storeId, $movementType);
+                : $this->generateMovementReference($movementType);
 
             if ($delta > 0 && $movementType !== 'release') {
                 $this->consumeRawMaterialsForProduction(
                     productId: (int) $variant->product_id,
-                    storeId: $storeId,
                     producedQuantity: $delta,
                     referenceType: $referenceType,
                     referenceId: $referenceId,
@@ -91,7 +84,6 @@ final class StockMovementService
             $variant->forceFill(['stock' => $nextBalance])->save();
 
             return $this->repository->save(new StockMovementModel([
-                'store_id' => $storeId,
                 'product_id' => $variant->product_id,
                 'variant_id' => $variant->id,
                 'type' => $movementType,
@@ -275,7 +267,7 @@ final class StockMovementService
         });
     }
 
-    private function generateMovementReference(int $storeId, string $movementType): string
+    private function generateMovementReference(string $movementType): string
     {
         $movement = match ($movementType) {
             'inbound' => 'MASUK',
@@ -286,12 +278,11 @@ final class StockMovementService
             default => 'ADJ',
         };
 
-        return $this->codePatterns->unique('stock_reference', $storeId, [
+        return $this->codePatterns->unique('stock_reference', [
             'movement' => $movement,
             'type' => 'STK',
-            'seq' => $this->codePatterns->sequenceFor('stock_movements', 'occurred_at', $storeId),
+            'seq' => $this->codePatterns->sequenceFor('stock_movements', 'occurred_at'),
         ], fn (string $reference): bool => StockMovementModel::query()
-            ->where('store_id', $storeId)
             ->where('reference_id', $reference)
             ->exists());
     }
@@ -547,7 +538,6 @@ final class StockMovementService
                 'order_items.quantity',
                 'sub_orders.id as sub_order_id',
                 'sub_orders.order_id',
-                'sub_orders.store_id',
                 'orders.order_type',
                 'product_variants.stock',
                 'product_variants.stock_reserved',
@@ -605,7 +595,6 @@ final class StockMovementService
         ?string $referenceId = null
     ): void {
         $this->repository->save(new StockMovementModel([
-            'store_id' => (int) $item->store_id,
             'product_id' => (int) $item->product_id,
             'variant_id' => (int) $item->variant_id,
             'order_id' => $orderId,
@@ -622,9 +611,9 @@ final class StockMovementService
         ]));
     }
 
-    private function consumeRawMaterialsForProduction(int $productId, int $storeId, int $producedQuantity, string $referenceType, mixed $referenceId, mixed $occurredAt): void
+    private function consumeRawMaterialsForProduction(int $productId, int $producedQuantity, string $referenceType, mixed $referenceId, mixed $occurredAt): void
     {
-        $product = DB::table('products')->where('id', $productId)->where('store_id', $storeId)->lockForUpdate()->first();
+        $product = DB::table('products')->where('id', $productId)->lockForUpdate()->first();
         if (! $product) {
             throw new InvalidArgumentException('Produk untuk pembentukan stok tidak ditemukan.');
         }
@@ -632,7 +621,6 @@ final class StockMovementService
         $recipe = DB::table('product_materials as pm')
             ->join('raw_materials as rm', 'rm.id', '=', 'pm.raw_material_id')
             ->where('pm.product_id', $productId)
-            ->where('rm.store_id', $storeId)
             ->select('pm.raw_material_id', 'pm.quantity', 'rm.code', 'rm.name', 'rm.is_active', 'rm.deleted_at')
             ->orderBy('pm.raw_material_id')
             ->get();
@@ -647,7 +635,7 @@ final class StockMovementService
                 throw new InvalidArgumentException('Bahan baku '.$row->code.' - '.$row->name.' pada resep produk sudah nonaktif atau dihapus. Perbarui HPP sebelum menambah stok produk.');
             }
 
-            $material = RawMaterialModel::query()->where('store_id', $storeId)->lockForUpdate()->find((int) $row->raw_material_id);
+            $material = RawMaterialModel::query()->lockForUpdate()->find((int) $row->raw_material_id);
             if (! $material) {
                 throw new InvalidArgumentException('Bahan baku untuk pembentukan produk tidak ditemukan.');
             }
@@ -664,7 +652,6 @@ final class StockMovementService
             $nextBalance = (float) $material->stock - $required;
             $material->forceFill(['stock' => $nextBalance])->save();
             RawMaterialStockMovementModel::query()->create([
-                'store_id' => $storeId,
                 'raw_material_id' => $material->id,
                 'type' => 'production_usage',
                 'quantity_delta' => -1 * $required,

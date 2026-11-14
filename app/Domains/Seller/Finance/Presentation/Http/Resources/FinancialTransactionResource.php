@@ -13,8 +13,6 @@ final class FinancialTransactionResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'store_id' => $this->store_id,
-            'store_name' => $this->store?->name,
             'order_id' => $this->order_id,
             'order_number' => $this->order?->order_number,
             'user_id' => $this->user_id,

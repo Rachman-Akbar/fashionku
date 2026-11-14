@@ -163,10 +163,6 @@ final class EloquentUserRepository implements UserRepositoryInterface
         return DB::transaction(function () use ($user): bool {
             $user->tokens()->delete();
             $user->roles()->detach();
-            DB::table('stores')->where('user_id', $user->id)->update([
-                'is_active' => false,
-                'updated_at' => now(),
-            ]);
 
             return (bool) $user->delete();
         });
@@ -278,17 +274,7 @@ final class EloquentUserRepository implements UserRepositoryInterface
     public function hasSellerAccess(User $user): bool
     {
         // Single-store: admin adalah seller/operator yang sama.
-        if (! $user->is_active || $user->isBanned() || (! $user->hasRole('seller') && ! $user->hasRole('admin'))) {
-            return false;
-        }
-
-        $store = DB::table('stores')
-            ->whereNull('deleted_at')
-            ->orderByDesc('is_active')
-            ->orderBy('id')
-            ->first(['status']);
-
-        return $store !== null && strtolower((string) $store->status) !== 'suspended';
+        return $user->is_active && ! $user->isBanned() && ($user->hasRole('seller') || $user->hasRole('admin'));
     }
 
     public function assignRoleByName(User $user, string $role): void

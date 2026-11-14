@@ -9,11 +9,11 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface PromotionPaymentRepositoryInterface
 {
-    public function paginate(array $filters, int $perPage, ?int $storeId): LengthAwarePaginator;
+    public function paginate(array $filters, int $perPage): LengthAwarePaginator;
 
-    public function find(int $id, ?int $storeId = null): ?PromotionPaymentModel;
+    public function find(int $id): ?PromotionPaymentModel;
 
     public function save(PromotionPaymentModel $model): PromotionPaymentModel;
 
-    public function approvedAvailable(int $id, int $storeId, ?int $promotionId = null): ?PromotionPaymentModel;
+    public function approvedAvailable(int $id, ?int $promotionId = null): ?PromotionPaymentModel;
 }

@@ -26,7 +26,7 @@ export function normalizeStore(row = {}) {
   return {
     id: Number(row.id || 0),
     userId: String(row.user_id || row.userId || ""),
-    name: row.name || row.store_name || "",
+    name: row.name || "",
     slug: row.slug || "",
     description: row.description || "",
     shortDescription: row.short_description || row.shortDescription || "",
@@ -35,8 +35,8 @@ export function normalizeStore(row = {}) {
     city: row.city || "",
     province: row.province || "",
     address: row.address || "",
-    status: row.status || "pending",
-    isActive: toBoolean(row.is_active ?? row.isActive, false),
+    status: row.status || "active",
+    isActive: toBoolean(row.is_active ?? row.isActive, true),
     logo: resolveMediaUrl(row.logo || ""),
     bannerUrl: resolveMediaUrl(row.banner_url || row.bannerUrl || ""),
     createdAt: row.created_at || row.createdAt || null,
@@ -63,12 +63,12 @@ export function assetUrl(path) {
 }
 
 export async function getSellerStoreData() {
-  const response = await apiClient.get(`/api/v1/seller/store/manage`);
+  const response = await apiClient.get("/api/v1/seller/settings/store");
   return normalizeStore(unwrapApiData(response.data));
 }
 
 export async function updateSellerStore({ formData }) {
-  const response = await apiClient.post(`/api/v1/seller/store`, formData);
+  const response = await apiClient.post("/api/v1/seller/settings/store", formData);
   return normalizeStore(unwrapApiData(response.data));
 }
 
@@ -82,28 +82,26 @@ export async function saveSellerStoreAddress(values) {
 }
 
 export function useSellerStore(options = {}) {
-  const { store, isAuthenticated, activeRole } = useAuth();
+  const { isAuthenticated, activeRole } = useAuth();
   const { enabled = true, ...queryOptions } = options;
 
   return useQuery({
     queryKey: sellerStoreKeys.detail(),
     queryFn: () => getSellerStoreData(),
-    enabled: Boolean(enabled && isAuthenticated && activeRole === "seller" && store),
+    enabled: Boolean(enabled && isAuthenticated && activeRole === "seller"),
     staleTime: 120000,
     ...queryOptions,
   });
 }
 
 export function useSellerStoreAddress(options = {}) {
-  const { isAuthenticated, activeRole, store } = useAuth();
+  const { isAuthenticated, activeRole } = useAuth();
   const { enabled = true, ...queryOptions } = options;
 
   return useQuery({
     queryKey: sellerStoreKeys.address(),
     queryFn: async () => (await getAddresses("store"))[0] || null,
-    enabled: Boolean(
-      enabled && isAuthenticated && activeRole === "seller" && store,
-    ),
+    enabled: Boolean(enabled && isAuthenticated && activeRole === "seller"),
     staleTime: 300000,
     ...queryOptions,
   });
@@ -123,15 +121,11 @@ export function useUpdateSellerStore() {
 
 export function useSaveSellerStoreAddress() {
   const queryClient = useQueryClient();
-  const { store } = useAuth();
 
   return useMutation({
     mutationFn: saveSellerStoreAddress,
     onSuccess: (address) => {
-      queryClient.setQueryData(
-        sellerStoreKeys.address(),
-        address,
-      );
+      queryClient.setQueryData(sellerStoreKeys.address(), address);
       queryClient.setQueryData(addressKeys.store, [address]);
     },
   });

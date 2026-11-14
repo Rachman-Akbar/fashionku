@@ -16,9 +16,9 @@ final class ProductReviewService
         private ProductReviewRepositoryInterface $repository
     ) {}
 
-    public function paginate(array $filters, int $perPage, ?string $userId, ?int $storeId): LengthAwarePaginator
+    public function paginate(array $filters, int $perPage, ?string $userId): LengthAwarePaginator
     {
-        return $this->repository->paginate($filters, $perPage, $userId, $storeId);
+        return $this->repository->paginate($filters, $perPage, $userId);
     }
 
     public function create(array $data, string $userId): ProductReviewModel
