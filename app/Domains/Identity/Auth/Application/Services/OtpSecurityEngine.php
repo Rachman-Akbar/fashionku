@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 final class OtpSecurityEngine
 {
@@ -18,8 +19,8 @@ final class OtpSecurityEngine
     public const DEFAULT_TTL_SECONDS = 300;
     public const MAX_ATTEMPTS = 5;
     public const RESEND_COOLDOWN_SECONDS = 60;
-    public const RATE_LIMIT_WINDOW_SECONDS = 600;
-    public const RATE_LIMIT_MAX_REQUESTS = 3;
+    public const RATE_LIMIT_WINDOW_SECONDS = 60;
+    public const RATE_LIMIT_MAX_REQUESTS = 1;
 
     private const VALID_PURPOSES = [
         OtpPurpose::REGISTER->value,
@@ -56,6 +57,25 @@ final class OtpSecurityEngine
         $code = $this->generateCode();
         $codeHash = Hash::make($code);
 
+        $this->issueCode(
+            $email, $purpose, $userId, $phone, $challengeId, $codeHash, $ttl, $ipAddress, $userAgent, $metadata
+        );
+
+        return $code;
+    }
+
+    private function issueCode(
+        string $email,
+        string $purpose,
+        ?string $userId,
+        ?string $phone,
+        ?string $challengeId,
+        string $codeHash,
+        int $ttl,
+        ?string $ipAddress,
+        ?string $userAgent,
+        ?array $metadata,
+    ): void {
         DB::transaction(function () use ($email, $purpose, $userId, $phone, $challengeId, $codeHash, $ttl, $ipAddress, $userAgent, $metadata): void {
             $this->invalidateExistingOtps($email, $purpose, $challengeId);
 
@@ -93,8 +113,6 @@ final class OtpSecurityEngine
                 'updated_at' => now(),
             ]);
         });
-
-        return $code;
     }
 
     public function verify(
@@ -191,10 +209,17 @@ final class OtpSecurityEngine
         $email = $this->normalizeEmail($email);
         $this->validatePurpose($purpose);
 
-        // Resend replaces the previous OTP, so we skip cooldown check here.
-        // The rate limit in issue() still applies.
+        // Resend replaces the previous OTP, but still respects rate-limit.
+        $this->checkRateLimit($email, $purpose, $ipAddress);
+        $ttl = $ttlSeconds ?? self::DEFAULT_TTL_SECONDS;
+        $code = $this->generateCode();
+        $codeHash = Hash::make($code);
 
-        return $this->issue($email, $purpose, $userId, $phone, $challengeId, $ipAddress, $userAgent, $metadata, $ttlSeconds);
+        $this->issueCode(
+            $email, $purpose, $userId, $phone, $challengeId, $codeHash, $ttl, $ipAddress, $userAgent, $metadata
+        );
+
+        return $code;
     }
 
     public function isValid(
@@ -372,14 +397,19 @@ final class OtpSecurityEngine
             $key .= ":{$ipAddress}";
         }
 
-        $attempts = cache()->get($key, 0);
-        if ($attempts >= self::RATE_LIMIT_MAX_REQUESTS) {
-            throw ValidationException::withMessages([
-                'code' => ['Terlalu banyak permintaan OTP. Silakan coba lagi nanti.'],
-            ]);
+        $expiry = cache()->get($key);
+        if ($expiry && is_numeric($expiry) && $expiry > time()) {
+            $remaining = (int) ($expiry - time());
+            throw new TooManyRequestsHttpException(
+                $remaining,
+                'Terlalu banyak permintaan OTP. Silakan coba lagi nanti.',
+                null,
+                0,
+                ['Retry-After' => (string) $remaining]
+            );
         }
 
-        cache()->put($key, $attempts + 1, now()->addSeconds(self::RATE_LIMIT_WINDOW_SECONDS));
+        cache()->put($key, time() + self::RATE_LIMIT_WINDOW_SECONDS, now()->addSeconds(self::RATE_LIMIT_WINDOW_SECONDS));
     }
 
     private function invalidateExistingOtps(string $email, string $purpose, ?string $challengeId): void

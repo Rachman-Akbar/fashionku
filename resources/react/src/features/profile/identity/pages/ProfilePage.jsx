@@ -985,9 +985,18 @@ export default function ProfilePage({ defaultTab = "biodata" }) {
     if (!(await confirmLogout())) return;
     await logout?.();
     queryClient.clear();
-    window.close();
+    try {
+      window.close();
+    } catch {
+      // Cross-Origin-Opener-Policy can block window.closed access
+    }
     window.setTimeout(() => {
-      if (!window.closed) navigate("/", { replace: true });
+      try {
+        if (window.closed) return;
+      } catch {
+        // COOP may block window.closed check
+      }
+      navigate("/", { replace: true });
     }, 120);
   };
 

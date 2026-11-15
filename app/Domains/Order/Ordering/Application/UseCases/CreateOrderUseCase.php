@@ -185,8 +185,6 @@ class CreateOrderUseCase
                 ->all()
             : null;
             $quote = $this->shippingOptionsUseCase->execute($userId, $addressId, $ids->all(), $directQuoteItems);
-            $address->refresh();
-            $destinationId = trim((string) $address->komerce_destination_id);
             $selectedOption = collect($quote['options'])->first(function (array $option) use ($courier, $service): bool {
                 if ($this->shippingCalculator->normalizeCourier((string) $option['courier']) !== $courier) {
                     return false;
@@ -201,6 +199,7 @@ class CreateOrderUseCase
 
             $service = strtoupper((string) $selectedOption['service']);
             $shippingTotal = (float) $selectedOption['cost'];
+            $destinationId = null;
         }
 
         $orderNumber = 'ORD-'.now()->format('YmdHis').'-'.strtoupper(bin2hex(random_bytes(3)));

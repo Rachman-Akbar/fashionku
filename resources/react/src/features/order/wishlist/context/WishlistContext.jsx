@@ -90,8 +90,8 @@ export function WishlistProvider({ children }) {
     queryKey: WISHLIST_KEY,
     queryFn: fetchWishlist,
     enabled: !initializing && isAuthenticated,
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 60 * 1000,
+    refetchOnMount: false,
     refetchOnWindowFocus: true,
   });
 

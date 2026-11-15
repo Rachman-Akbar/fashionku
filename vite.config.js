@@ -118,6 +118,8 @@ export default defineConfig(({ mode }) => {
               return "vendor-realtime";
             if (id.includes("leaflet")) return "vendor-leaflet";
             if (id.includes("html2canvas")) return "vendor-canvas";
+            if (id.includes("chart.js") || id.includes("react-chartjs-2"))
+              return "vendor-charts";
             if (id.includes("recharts") || id.includes("d3"))
               return "vendor-charts";
             return undefined;

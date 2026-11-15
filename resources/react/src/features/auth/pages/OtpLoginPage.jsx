@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
@@ -13,8 +13,27 @@ export default function OtpLoginPage() {
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [notice, setNotice] = useState({ type: "", text: "" });
-  const [cooldown, setCooldown] = useState(0);
+  const [resendExpiry, setResendExpiry] = useState(0);
+  const [resendTick, setResendTick] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(300);
+
+  const RESEND_STORAGE_KEY = "fashionku:resend_expiry:otp-login";
+
+  useEffect(() => {
+    const stored = localStorage.getItem(RESEND_STORAGE_KEY);
+    if (stored && !resendExpiry) {
+      setResendExpiry(parseInt(stored, 10));
+    }
+  }, []);
+
+  const resendRemaining = Math.max(0, resendExpiry - Math.floor(Date.now() / 1000));
+
+  useEffect(() => {
+    if (resendExpiry > 0) {
+      const id = setInterval(() => setResendTick((t) => t + 1), 1000);
+      return () => clearInterval(id);
+    }
+  }, [resendExpiry]);
 
   const sendOtp = async () => {
     setNotice({ type: "", text: "" });
@@ -25,7 +44,9 @@ export default function OtpLoginPage() {
     setSending(true);
     try {
       await emailVerificationEngine.sendPasswordResetCode(email);
-      setCooldown(60);
+      const expiry = Math.floor(Date.now() / 1000) + 60;
+      setResendExpiry(expiry);
+      localStorage.setItem(RESEND_STORAGE_KEY, String(expiry));
       setTimeRemaining(300);
       setNotice({ type: "success", text: "Kode OTP telah dikirim ke email kamu." });
       setStep("otp");
@@ -145,9 +166,9 @@ export default function OtpLoginPage() {
             <button
               type="button"
               onClick={resendOtp}
-              disabled={cooldown > 0 || sending}
+              disabled={resendRemaining > 0 || sending}
               className={`text-xs font-semibold transition ${
-                cooldown > 0 || sending ? "text-slate-400 cursor-not-allowed" : "text-[#10B981] hover:underline"
+                resendRemaining > 0 || sending ? "text-slate-400 cursor-not-allowed" : "text-[#10B981] hover:underline"
               }`}
             >
               {sending ? (
@@ -155,7 +176,7 @@ export default function OtpLoginPage() {
                   <Loader2 size={13} className="animate-spin mr-1" />
                   Mengirim...
                 </>
-              ) : cooldown > 0 ? `Kirim ulang dalam ${cooldown}d` : "Kirim ulang OTP"}
+              ) : resendRemaining > 0 ? `Kirim ulang dalam ${String(Math.floor(resendRemaining / 60)).padStart(2, "0")}:${String(resendRemaining % 60).padStart(2, "0")}` : "Kirim ulang OTP"}
             </button>
           </div>
 

@@ -76,7 +76,7 @@ describe("normalizeProduct", () => {
       reviewCount: 12,
       sold: "3+",
     });
-    expect(product.store_id).toBe(2);
+    expect(product.store.id).toBe(1);
     expect(product.store.name).toBe("Toko Ku");
     expect(product.store.city).toBe("Jakarta");
     expect(product.thumbnail).toMatch(/storage\/images\/a\.jpg$/);

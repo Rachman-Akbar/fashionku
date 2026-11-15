@@ -31,7 +31,7 @@ class DeviceManagementTest extends TestCase
 
     private function getCodeFromMail(string $email): string
     {
-        $queued = Mail::queued(EmailVerificationMail::class, fn ($mail): bool => $mail->hasTo($email));
+        $queued = Mail::sent(EmailVerificationMail::class, fn ($mail): bool => $mail->hasTo($email));
         $this->assertCount(1, $queued, 'Expected exactly one verification mail for '.$email);
         /** @var EmailVerificationMail $mail */
         $mail = $queued->first();
@@ -76,43 +76,17 @@ class DeviceManagementTest extends TestCase
         $this->assertCount(2, $response->json('devices'));
     }
 
-    public function test_request_device_removal_otp_works(): void
+    public function test_remove_device_works(): void
     {
         $this->makeRole('buyer');
-        Mail::fake();
-        $user = $this->actingAsRole('buyer', ['email' => 'device-otp@example.com']);
-        
-        $device = $this->createDevice($user);
-
-        $response = $this->postJson("/api/v1/identity/auth/devices/{$device->id}/request-removal-otp", [
-            'device_id' => $device->id,
-        ]);
-        
-        $response->assertOk();
-        $response->assertJsonStructure(['message', 'device_id', 'expires_in_minutes', 'code_length']);
-        
-        $code = $this->getCodeFromMail($user->email);
-        $this->assertNotEmpty($code);
-    }
-
-    public function test_remove_device_with_valid_otp_succeeds(): void
-    {
-        $this->makeRole('buyer');
-        Mail::fake();
         $user = $this->actingAsRole('buyer', ['email' => 'device-remove@example.com']);
-        
+
         $device = $this->createDevice($user);
-        
-        $this->postJson("/api/v1/identity/auth/devices/{$device->id}/request-removal-otp", [
-            'device_id' => $device->id,
-        ]);
-        $code = $this->getCodeFromMail($user->email);
 
         $response = $this->deleteJson("/api/v1/identity/auth/devices/{$device->id}", [
             'device_id' => $device->id,
-            'code' => $code,
         ]);
-        
+
         $response->assertOk();
         $response->assertJsonPath('message', 'Perangkat berhasil dihapus dan sesi telah dicabut.');
 
@@ -120,71 +94,19 @@ class DeviceManagementTest extends TestCase
         $this->assertNull(PersonalAccessToken::find($device->sanctum_token_id));
     }
 
-    public function test_remove_device_with_invalid_otp_fails(): void
-    {
-        $this->makeRole('buyer');
-        Mail::fake();
-        $user = $this->actingAsRole('buyer', ['email' => 'device-invalid@example.com']);
-        
-        $device = $this->createDevice($user);
-        
-        $this->postJson("/api/v1/identity/auth/devices/{$device->id}/request-removal-otp", [
-            'device_id' => $device->id,
-        ]);
-
-        $response = $this->deleteJson("/api/v1/identity/auth/devices/{$device->id}", [
-            'device_id' => $device->id,
-            'code' => '000000',
-        ]);
-        
-        $response->assertStatus(422);
-
-        $this->assertDatabaseHas('user_devices', ['id' => $device->id, 'status' => 'active']);
-        $this->assertNotNull(PersonalAccessToken::find($device->sanctum_token_id));
-    }
-
-    public function test_remove_device_with_expired_otp_fails(): void
-    {
-        $this->makeRole('buyer');
-        Mail::fake();
-        $user = $this->actingAsRole('buyer', ['email' => 'device-expired@example.com']);
-        
-        $device = $this->createDevice($user);
-        
-        $this->postJson("/api/v1/identity/auth/devices/{$device->id}/request-removal-otp", [
-            'device_id' => $device->id,
-        ]);
-        $code = $this->getCodeFromMail($user->email);
-
-        // Expire the OTP
-        \App\Domains\Identity\Auth\Infrastructure\Persistence\Models\OtpChallenge::where('email', $user->email)
-            ->where('purpose', OtpPurpose::REMOVE_DEVICE->value)
-            ->update(['expires_at' => now()->subMinutes(10)]);
-
-        $response = $this->deleteJson("/api/v1/identity/auth/devices/{$device->id}", [
-            'device_id' => $device->id,
-            'code' => $code,
-        ]);
-        
-        $response->assertStatus(422);
-
-        $this->assertDatabaseHas('user_devices', ['id' => $device->id, 'status' => 'active']);
-    }
-
     public function test_user_cannot_remove_other_users_device(): void
     {
         $this->makeRole('buyer');
-        Mail::fake();
-        
+
         $user1 = $this->actingAsRole('buyer', ['email' => 'user1@example.com']);
         $user2 = $this->makeUser(['email' => 'user2@example.com']);
-        
+
         $device = $this->createDevice($user2);
-        
-        $response = $this->postJson("/api/v1/identity/auth/devices/{$device->id}/request-removal-otp", [
+
+        $response = $this->deleteJson("/api/v1/identity/auth/devices/{$device->id}", [
             'device_id' => $device->id,
         ]);
-        
+
         $response->assertStatus(422);
         $response->assertJsonPath('errors.device_id.0', 'Perangkat tidak ditemukan.');
     }

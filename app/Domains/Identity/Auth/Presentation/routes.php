@@ -35,6 +35,11 @@ Route::prefix('auth')->name('auth.')->group(function (): void {
     Route::post('/firebase-login', [AuthController::class, 'firebaseLogin'])
         ->middleware([ValidateFirebaseToken::class, 'throttle:10,1'])
         ->name('firebase-login');
+    Route::get('/firebase-login', function (): \Illuminate\Http\JsonResponse {
+        return response()->json([
+            'message' => 'Endpoint hanya menerima POST. Kirim Firebase ID token via Authorization header Bearer.',
+        ], 405);
+    })->name('firebase-login.get');
     Route::post('/firebase-login/verify', [AuthController::class, 'verifyFirebaseLogin'])
         ->middleware('throttle:15,1')
         ->name('firebase-login.verify');

@@ -113,8 +113,6 @@ export function ProductCheckoutPanel({
         price,
         stock,
         imageUrl: image || "",
-        storeId: Number(product?.store_id || product?.store?.id || 0),
-        storeName: product?.store_name || product?.store?.name || product?.brand || "Toko",
       });
 
       toastSuccess("Keranjang", "Produk berhasil ditambahkan ke keranjang.");
@@ -153,16 +151,6 @@ export function ProductCheckoutPanel({
               subtotal: price * qty,
               stock,
               imageUrl: image || "",
-              storeId: Number(
-                product?.store_id ||
-                  product?.store?.id ||
-                  0,
-              ),
-              storeName:
-                product?.store_name ||
-                product?.store?.name ||
-                product?.brand ||
-                "Toko",
             },
           ],
         },

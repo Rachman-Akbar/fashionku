@@ -9,6 +9,7 @@ use App\Domains\Identity\Auth\Domain\Enums\OtpPurpose;
 use App\Domains\Identity\Auth\Infrastructure\Mail\EmailVerificationMail;
 use App\Domains\Identity\User\Domain\Entities\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Tests\Support\InteractsAsUser;
@@ -29,7 +30,7 @@ class RegisterWithOtpTest extends TestCase
 
     private function getCodeFromMail(string $email): string
     {
-        $queued = Mail::queued(EmailVerificationMail::class, fn ($mail): bool => $mail->hasTo($email));
+        $queued = Mail::sent(EmailVerificationMail::class, fn ($mail): bool => $mail->hasTo($email));
         $this->assertCount(1, $queued, 'Expected exactly one verification mail for '.$email);
         /** @var EmailVerificationMail $mail */
         $mail = $queued->first();
@@ -189,6 +190,8 @@ class RegisterWithOtpTest extends TestCase
         $initiate->assertStatus(202);
         $challengeId = $initiate->json('challenge_id');
 
+        Cache::flush();
+
         $resend = $this->postJson('/api/v1/identity/auth/resend-registration-otp', [
             'challenge_id' => $challengeId,
         ]);
@@ -196,7 +199,7 @@ class RegisterWithOtpTest extends TestCase
         $resend->assertOk();
         $resend->assertJsonPath('message', 'Kode verifikasi baru telah dikirim.');
 
-        $queued = Mail::queued(EmailVerificationMail::class, fn ($mail): bool => $mail->hasTo('resend@example.com'));
+        $queued = Mail::sent(EmailVerificationMail::class, fn ($mail): bool => $mail->hasTo('resend@example.com'));
         $this->assertCount(2, $queued);
         /** @var EmailVerificationMail $mail */
         $mail = $queued->last();

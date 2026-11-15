@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Button } from "@/shared/components/ui/Button";
@@ -25,6 +25,26 @@ export default function RegisterPage() {
   const [localError, setLocalError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
+  const [resendExpiry, setResendExpiry] = useState(0);
+  const [resendTick, setResendTick] = useState(0);
+
+  const RESEND_STORAGE_KEY = "fashionku:resend_expiry:register";
+
+  useEffect(() => {
+    const stored = localStorage.getItem(RESEND_STORAGE_KEY);
+    if (stored && !resendExpiry) {
+      setResendExpiry(parseInt(stored, 10));
+    }
+  }, []);
+
+  const resendRemaining = Math.max(0, resendExpiry - Math.floor(Date.now() / 1000));
+
+  useEffect(() => {
+    if (resendExpiry > 0) {
+      const id = setInterval(() => setResendTick((t) => t + 1), 1000);
+      return () => clearInterval(id);
+    }
+  }, [resendExpiry]);
   const message = localError;
   const loading = authLoading || submitting || googleBusy;
 
@@ -74,6 +94,9 @@ export default function RegisterPage() {
       if (!cid) {
         throw new Error("Gagal memulai verifikasi pendaftaran.");
       }
+      const expiry = Math.floor(Date.now() / 1000) + 60;
+      setResendExpiry(expiry);
+      localStorage.setItem(RESEND_STORAGE_KEY, String(expiry));
       setChallengeId(cid);
       setOtpCode("");
       setStep("otp");
@@ -110,10 +133,14 @@ export default function RegisterPage() {
 
   const handleResend = async () => {
     if (!challengeId) return;
+    if (resendRemaining > 0) return;
     setSubmitting(true);
     setLocalError("");
     try {
       await resendRegistrationOtp({ challenge_id: challengeId });
+      const expiry = Math.floor(Date.now() / 1000) + 60;
+      setResendExpiry(expiry);
+      localStorage.setItem(RESEND_STORAGE_KEY, String(expiry));
       setLocalError("");
     } catch (err) {
       setLocalError(getApiErrorMessage(err, err?.message));
@@ -203,10 +230,12 @@ export default function RegisterPage() {
             <button
               type="button"
               onClick={handleResend}
-              disabled={submitting}
+              disabled={submitting || resendRemaining > 0}
               className="font-bold text-[#10B981] hover:underline disabled:opacity-60"
             >
-              Kirim ulang kode
+              {resendRemaining > 0
+                ? `Kirim ulang dalam ${String(Math.floor(resendRemaining / 60)).padStart(2, "0")}:${String(resendRemaining % 60).padStart(2, "0")}`
+                : "Kirim ulang kode"}
             </button>
             <button
               type="button"

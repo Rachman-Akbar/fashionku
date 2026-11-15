@@ -48,7 +48,7 @@ final class LoginUserUseCase
             ]);
         }
 
-        $activeRole = $this->resolveRole($user, $requestedRole);
+        $activeRole = 'buyer';
         $challengeId = (string) Str::uuid();
 
         $code = $this->otpEngine->issue(

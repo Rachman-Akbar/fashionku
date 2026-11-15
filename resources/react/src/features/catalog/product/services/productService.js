@@ -46,7 +46,6 @@ export function normalizeVariant(variant = {}) {
   return {
     id: variant.id,
     product_id: variant.product_id,
-    store_id: variant.store_id,
     sku: variant.sku || "",
     name: variant.name || variant.title || "Varian Produk",
     price: numberValue(variant.price),
@@ -129,7 +128,6 @@ export function normalizeProduct(product = {}) {
 
   return {
     id: product.id,
-    store_id: store.id || product.store_id,
     store,
     store_name: store.name,
     store_slug: store.slug,

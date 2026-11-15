@@ -15,7 +15,6 @@ import InstantAddressModal from "@/features/profile/address/components/InstantAd
 import {
   getOrderError,
   getShippingError,
-  isDestinationShippingOption,
   useCreateOrder,
   useShippingOptions,
 } from "@/features/order/ordering/orderService";
@@ -218,21 +217,9 @@ export default function CheckoutPage() {
   const effectiveCartItemIds = cartItemIds.length
     ? cartItemIds
     : resolvedCartItemIds;
-  const destinationValue = String(
-    selectedAddress?.komerceDestinationId || "",
-  ).trim();
-  const hasDestinationId = Boolean(
-    destinationValue && destinationValue.toLowerCase() !== "null",
-  );
   const shippingOptions = useMemo(
     () => mergeShippingOptions(remoteShippingOptions),
     [remoteShippingOptions],
-  );
-  const hasRajaOngkirOption = shippingOptions.some((option) =>
-    isDestinationShippingOption(option),
-  );
-  const hasHaversineOption = shippingOptions.some(
-    (option) => String(option.courier || "").toLowerCase() === "haversine",
   );
   const shipping =
     shippingOptions.find(
@@ -659,48 +646,17 @@ export default function CheckoutPage() {
 
             {selectedAddress &&
             !shippingQuery.isLoading &&
-            !hasDestinationId &&
-            !hasRajaOngkirOption ? (
-              <div className="mt-4 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800">
-                <Info size={16} className="mt-0.5 shrink-0" />
-                <span>
-                  Ongkir kurir nasional tidak tersedia untuk area ini. Kamu
-                  tetap dapat memilih metode pengiriman lain.
-                </span>
-              </div>
-            ) : null}
-
-            {shippingWarnings.length ? (
-              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-                {shippingWarnings.join(" ")}
-              </div>
-            ) : null}
-
-            {selectedAddress &&
-            !shippingQuery.isLoading &&
             !shippingQuery.error &&
             !shippingWarnings.length &&
-            !remoteShippingOptions.length ? (
+            !shippingOptions.length ? (
               <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-                Ongkir tidak tersedia untuk area ini. Periksa kembali alamat
-                pengiriman atau coba area lain.
+                Ongkir belum tersedia. Pastikan koordinat toko dan alamat penerima sudah diisi (pengaturan ongkir Haversine di admin).
               </div>
             ) : null}
 
             {shippingQuery.error && shippingErrorMessage ? (
               <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-                Ongkir sementara tidak tersedia untuk alamat ini. Coba lagi atau
-                periksa alamat pengiriman.
-              </div>
-            ) : null}
-
-            {!shippingQuery.isLoading &&
-            !shippingQuery.error &&
-            !hasHaversineOption &&
-            remoteShippingOptions.length > 0 ? (
-              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800">
-                Haversine belum tersedia karena koordinat toko atau alamat
-                penerima belum lengkap.
+                Ongkir belum dapat dihitung. Periksa alamat/koordinat atau coba lagi.
               </div>
             ) : null}
 

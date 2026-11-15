@@ -23,17 +23,19 @@ const PORTALS = {
     submitLabel: "Masuk",
     deviceName: "marketplace-web-buyer",
     showRegister: true,
+    showGoogle: true,
     storageScope: "base",
   },
   admin: {
     role: "admin",
     redirect: "/admin",
-    eyebrow: "Masuk akun",
-    title: "Selamat datang kembali",
-    description: "Masuk menggunakan akun yang memiliki akses admin.",
-    submitLabel: "Masuk",
+    eyebrow: "Login Admin",
+    title: "Masuk ke Panel Admin",
+    description: "Gunakan akun admin untuk mengelola pesanan dan operasional marketplace.",
+    submitLabel: "Masuk ke Admin",
     deviceName: "marketplace-web-admin",
     showRegister: false,
+    showGoogle: false,
     storageScope: "window",
   },
   chat: {
@@ -46,6 +48,7 @@ const PORTALS = {
     submitLabel: "Masuk ke Chat",
     deviceName: "marketplace-web-chat",
     showRegister: false,
+    showGoogle: true,
     storageScope: "window",
   },
 };
@@ -68,6 +71,26 @@ export default function LoginPage({ portal = "buyer" }) {
   const [localError, setLocalError] = useState("");
   const [googleBusy, setGoogleBusy] = useState(false);
   const [submittingOtp, setSubmittingOtp] = useState(false);
+  const [resendExpiry, setResendExpiry] = useState(0);
+  const [resendTick, setResendTick] = useState(0);
+
+  const RESEND_STORAGE_KEY = "fashionku:resend_expiry:login";
+
+  useEffect(() => {
+    const stored = localStorage.getItem(RESEND_STORAGE_KEY);
+    if (stored && !resendExpiry) {
+      setResendExpiry(parseInt(stored, 10));
+    }
+  }, []);
+
+  const resendRemaining = Math.max(0, resendExpiry - Math.floor(Date.now() / 1000));
+
+  useEffect(() => {
+    if (resendExpiry > 0) {
+      const id = setInterval(() => setResendTick((t) => t + 1), 1000);
+      return () => clearInterval(id);
+    }
+  }, [resendExpiry]);
   const redirectHandledRef = useRef(false);
   const message = localError;
   const busy = loading || googleBusy || submittingOtp;
@@ -110,6 +133,9 @@ export default function LoginPage({ portal = "buyer" }) {
     if (!cid) {
       throw new Error("Sesi verifikasi OTP tidak valid. Silakan coba lagi.");
     }
+    const expiry = Math.floor(Date.now() / 1000) + 60;
+    setResendExpiry(expiry);
+    localStorage.setItem(RESEND_STORAGE_KEY, String(expiry));
     setOtpMode(mode);
     setChallengeId(cid);
     setOtpEmail(payload?.email || form.email || "");
@@ -243,6 +269,7 @@ export default function LoginPage({ portal = "buyer" }) {
 
   const handleResendOtp = async () => {
     if (!challengeId) return;
+    if (resendRemaining > 0) return;
     setSubmittingOtp(true);
     setLocalError("");
     try {
@@ -251,6 +278,10 @@ export default function LoginPage({ portal = "buyer" }) {
       } else {
         await resendPasswordLoginOtp({ challenge_id: challengeId });
       }
+      const expiry = Math.floor(Date.now() / 1000) + 60;
+      setResendExpiry(expiry);
+      localStorage.setItem(RESEND_STORAGE_KEY, String(expiry));
+      setLocalError("");
     } catch (err) {
       setLocalError(getApiErrorMessage(err, "Gagal mengirim ulang kode OTP."));
     } finally {
@@ -351,10 +382,12 @@ export default function LoginPage({ portal = "buyer" }) {
             <button
               type="button"
               onClick={handleResendOtp}
-              disabled={busy}
+              disabled={busy || resendRemaining > 0}
               className="font-bold text-[#10B981] hover:underline disabled:opacity-60"
             >
-              Kirim ulang kode
+              {resendRemaining > 0
+                ? `Kirim ulang dalam ${String(Math.floor(resendRemaining / 60)).padStart(2, "0")}:${String(resendRemaining % 60).padStart(2, "0")}`
+                : "Kirim ulang kode"}
             </button>
             <button
               type="button"
@@ -451,26 +484,30 @@ export default function LoginPage({ portal = "buyer" }) {
           {loading ? "Memproses..." : config.submitLabel}
         </Button>
 
-        <div className="relative py-1">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-200" />
-          </div>
-          <div className="relative flex justify-center text-xs text-slate-400">
-            <span className="bg-white px-3 font-semibold">
-              atau masuk dengan
-            </span>
-          </div>
-        </div>
+        {config.showGoogle && (
+          <>
+            <div className="relative py-1">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200" />
+              </div>
+              <div className="relative flex justify-center text-xs text-slate-400">
+                <span className="bg-white px-3 font-semibold">
+                  atau masuk dengan
+                </span>
+              </div>
+            </div>
 
-        <Button
-          type="button"
-          variant="outline"
-          disabled={busy}
-          onClick={handleGoogleLogin}
-          className="h-12 w-full rounded-xl border-slate-200 font-bold text-slate-700 hover:border-[#10B981]/40 hover:bg-[#ECFDF5] hover:text-[#10B981] disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {googleBusy ? "Menghubungkan Google..." : "Google"}
-        </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={handleGoogleLogin}
+              className="h-12 w-full rounded-xl border-slate-200 font-bold text-slate-700 hover:border-[#10B981]/40 hover:bg-[#ECFDF5] hover:text-[#10B981] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {googleBusy ? "Menghubungkan Google..." : "Google"}
+            </Button>
+          </>
+        )}
       </form>
 
       {config.showRegister ? (

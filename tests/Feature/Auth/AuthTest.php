@@ -70,7 +70,7 @@ class AuthTest extends TestCase
         $challengeId = $initiate->json('challenge_id');
         $this->assertNotEmpty($challengeId);
 
-        $queued = Mail::queued(EmailVerificationMail::class, fn ($mail): bool => $mail->hasTo('login@example.com'));
+        $queued = Mail::sent(EmailVerificationMail::class, fn ($mail): bool => $mail->hasTo('login@example.com'));
         $this->assertCount(1, $queued);
         $code = (string) $queued->last()->code;
 

@@ -337,7 +337,7 @@ export function useCategoriesMenu(options = {}) {
     queryKey: categoryKeys.menu,
     queryFn: getCategoriesMenu,
     ...publicQueryOptions,
-    refetchInterval: 30000,
+    refetchInterval: false,
     ...options,
   });
 }

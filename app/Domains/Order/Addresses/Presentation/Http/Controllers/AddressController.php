@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Order\Addresses\Presentation\Http\Controllers;
 
-use App\Domains\Identity\User\Domain\Repositories\UserRepositoryInterface;
 use App\Domains\Order\Addresses\Application\UseCases\ManageAddressUseCase;
-use App\Domains\Order\Addresses\Application\UseCases\ResolveAddressDestinationUseCase;
 use App\Domains\Order\Addresses\Infrastructure\Persistence\Mappers\AddressMapper;
 use App\Domains\Order\Addresses\Presentation\Http\Requests\ResolveAddressDestinationRequest;
 use App\Domains\Order\Addresses\Presentation\Http\Requests\StoreAddressRequest;
@@ -19,9 +17,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 final class AddressController extends Controller
 {
     public function __construct(
-        private ManageAddressUseCase $useCase,
-        private ResolveAddressDestinationUseCase $resolveDestinationUseCase,
-        private UserRepositoryInterface $userRepository
+        private ManageAddressUseCase $useCase
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -36,13 +32,11 @@ final class AddressController extends Controller
 
     public function resolveDestination(ResolveAddressDestinationRequest $request): JsonResponse
     {
-        $destination = $this->resolveDestinationUseCase->execute($request->validated());
-
         return response()->json([
             'success' => true,
             'data' => [
-                'komerce_destination_id' => $destination->id,
-                'destination' => $destination->toArray(),
+                'komerce_destination_id' => null,
+                'destination' => null,
             ],
         ]);
     }

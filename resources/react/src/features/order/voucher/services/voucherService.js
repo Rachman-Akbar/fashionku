@@ -61,7 +61,7 @@ export function useActiveVouchers(options = {}) {
     queryKey: voucherKeys.active(),
     queryFn: () => getActiveVouchers(),
     ...publicQueryOptions,
-    refetchInterval: PUBLIC_QUERY_REFRESH_MS,
+    refetchInterval: false,
     ...options,
   });
 }

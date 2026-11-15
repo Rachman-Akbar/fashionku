@@ -1,6 +1,6 @@
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { lazyWithRetry } from "@/core/utils/lazyWithRetry";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import AppLayout from "@/shared/layout/AppLayout";
 import BuyerLayout from "@/shared/layout/BuyerLayout";
 import AuthLayout from "@/features/auth/AuthLayout";
@@ -32,6 +32,9 @@ const SellerVoucherPage = lazyWithRetry(() => import("@/features/seller/voucher/
 const SellerPromotionPage = lazyWithRetry(() => import("@/features/seller/promotion/pages/SellerPromotionPage"));
 const SellerStorePage = lazyWithRetry(() => import("@/features/seller/store/pages/SellerStorePage"));
 const SellerOrdersPage = lazyWithRetry(() => import("@/features/seller/order/pages/SellerOrdersPage"));
+const AdminHomePage = lazyWithRetry(() => import("@/features/admin/pages/AdminHomePage"));
+const AdminOrdersPage = lazyWithRetry(() => import("@/features/admin/order/pages/AdminOrdersPage"));
+const AdminShippingSettingsPage = lazyWithRetry(() => import("@/features/admin/shipping/pages/AdminShippingSettingsPage"));
 const ProfilePage = lazyWithRetry(() => import("@/features/profile/identity/pages/ProfilePage"));
 const AddressesPage = lazyWithRetry(() => import("@/features/profile/address/pages/AddressesPage"));
 const GroupChatPage = lazyWithRetry(() => import("@/features/profile/chat/pages/GroupChatPage"));
@@ -46,6 +49,14 @@ const BuyerHelpPage = lazyWithRetry(() => import("@/features/profile/help/pages/
 const ReviewsPage = lazyWithRetry(() => import("@/features/advanced/pages/ReviewsPage"));
 const RealtimeChatPage = lazyWithRetry(() => import("@/features/advanced/pages/RealtimeChatPage"));
 
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
 
 function LoadingScreen() {
   return (
@@ -80,15 +91,16 @@ function renderBuyerRoutes() {
 
 function renderAuthenticationRoutes() {
   return (
-      <Route element={<GuestRoute />}>
-        <Route element={<AuthLayout />}>
-          <Route path="/auth/login" element={<LoginPage portal="buyer" />} />
-          <Route path="/auth/register" element={<RegisterPage />} />
-          <Route path="/auth/google-callback" element={<GoogleRedirectHandler />} />
-          <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
-        </Route>
+    <Route element={<GuestRoute />}>
+      <Route element={<AuthLayout />}>
+        <Route path="/auth/login" element={<LoginPage portal="buyer" />} />
+        <Route path="/admin/login" element={<LoginPage portal="admin" />} />
+        <Route path="/auth/register" element={<RegisterPage />} />
+        <Route path="/auth/google-callback" element={<GoogleRedirectHandler />} />
+        <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
       </Route>
+    </Route>
   );
 }
 
@@ -138,16 +150,28 @@ function renderSellerRoutes() {
   );
 }
 
+function renderAdminRoutes() {
+  return (
+    <Route element={<ProtectedRoute roles={["admin"]} loginPath="/admin/login" />}>
+      <Route path="/admin" element={<AdminHomePage />} />
+      <Route path="/admin/orders" element={<AdminOrdersPage />} />
+      <Route path="/admin/shipping" element={<AdminShippingSettingsPage />} />
+    </Route>
+  );
+}
+
 export default function App() {
   return (
     <AppLayout>
       <ErrorBoundary>
         <Suspense fallback={<LoadingScreen />}>
           <Routes>
+            <ScrollToTop />
             {renderBuyerRoutes()}
             {renderAuthenticationRoutes()}
             {renderAccountRoutes()}
             {renderSellerRoutes()}
+            {renderAdminRoutes()}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

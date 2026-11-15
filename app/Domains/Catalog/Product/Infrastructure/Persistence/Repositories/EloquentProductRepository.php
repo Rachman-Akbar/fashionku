@@ -10,6 +10,9 @@ use App\Domains\Catalog\Product\Domain\Repositories\ProductRepositoryInterface;
 use App\Domains\Catalog\Product\Infrastructure\Persistence\Mappers\ProductMapper;
 use App\Domains\Catalog\Product\Infrastructure\Persistence\Models\ProductModel;
 use App\Domains\Catalog\Product\Infrastructure\Persistence\Models\ProductVariantModel;
+use App\Domains\Order\Ordering\Infrastructure\Persistence\Models\OrderItemModel;
+use App\Domains\Order\Ordering\Infrastructure\Persistence\Models\OrderModel;
+use App\Domains\Order\Ordering\Infrastructure\Persistence\Models\SubOrderModel;
 use App\Domains\Order\Review\Infrastructure\Persistence\Models\ProductReviewModel;
 use App\Domains\Shared\Settings\Application\Services\AppSettingService;
 use Illuminate\Database\Eloquent\Builder;
@@ -174,6 +177,7 @@ final class EloquentProductRepository implements ProductRepositoryInterface
 
         $this->applyCategoryIdsFilter($query, $categoryIds);
         $this->applyOptionalFilters($query, $filters);
+        $this->applySoldCount($query);
 
         return $query
             ->orderByDesc('created_at')
@@ -207,6 +211,7 @@ final class EloquentProductRepository implements ProductRepositoryInterface
 
         $this->applyCategoryIdsFilter($query, $categoryIds);
         $this->applyOptionalFilters($query, $filters);
+        $this->applySoldCount($query);
 
         return $query
             ->orderByDesc('created_at')
@@ -231,6 +236,7 @@ final class EloquentProductRepository implements ProductRepositoryInterface
 
         $this->applyCategoryIdsFilter($query, $categoryIds);
         $this->applyOptionalFilters($query, $filters);
+        $this->applySoldCount($query);
 
         return $query
             ->orderByDesc('created_at')
@@ -296,6 +302,7 @@ final class EloquentProductRepository implements ProductRepositoryInterface
             ->with($this->relationsForList($filters, $includeInactive));
 
         $this->applyCommonFilters($query, $filters, $includeInactive);
+        $this->applySoldCount($query);
 
         return $query;
     }
@@ -315,7 +322,7 @@ final class EloquentProductRepository implements ProductRepositoryInterface
                 ->orderBy('sort_order')
                 ->orderBy('id'),
             'variants' => fn ($query) => $query
-                ->select(['id', 'product_id', 'sku', 'name', 'price', 'stock', 'is_default', 'created_at', 'updated_at'])
+                ->select(['id', 'product_id', 'sku', 'name', 'price', 'price_original', 'stock', 'is_default', 'created_at', 'updated_at'])
                 ->orderByDesc('is_default')
                 ->orderBy('id'),
         ];
@@ -395,6 +402,21 @@ final class EloquentProductRepository implements ProductRepositoryInterface
         }
 
         $this->applyOptionalFilters($query, $filters);
+    }
+
+    private function applySoldCount(Builder $query): void
+    {
+        $query->leftJoinSub(
+            OrderItemModel::query()
+                ->select('product_id as sold_product_id')
+                ->selectRaw('COALESCE(SUM(quantity), 0) as sold_qty')
+                ->join('sub_orders', 'sub_orders.id', '=', 'order_items.sub_order_id')
+                ->join('orders', 'orders.id', '=', 'sub_orders.order_id')
+                ->where('orders.payment_status', 'paid')
+                ->groupBy('product_id'),
+            'sold_agg',
+            fn ($join) => $join->on('sold_agg.sold_product_id', '=', 'products.id')
+        )->addSelect('sold_agg.sold_qty as sold_count');
     }
 
     private function applyOptionalFilters(Builder $query, array $filters): void

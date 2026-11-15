@@ -22,14 +22,12 @@ export async function previewCodePattern(payload) {
 }
 
 export function useCodePatterns(options = {}) {
-  const { store, isAuthenticated, activeRole } = useAuth();
-  const storeId = store?.id || null;
-  const isAdmin = activeRole === "admin";
+  const { isAuthenticated } = useAuth();
   const { enabled = true, ...queryOptions } = options;
 
   return useQuery({
-    queryKey: ["shared.code-patterns", isAdmin, storeId],
-    queryFn: () => getCodePatterns(isAdmin && storeId ? { store_id: storeId } : {}),
+    queryKey: ["shared.code-patterns"],
+    queryFn: () => getCodePatterns({}),
     enabled: enabled && Boolean(isAuthenticated),
     staleTime: 60_000,
     ...queryOptions,

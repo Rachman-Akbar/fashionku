@@ -287,7 +287,13 @@ final class EloquentUserRepository implements UserRepositoryInterface
             ->value('id');
 
         if ($roleId === null) {
-            throw new RuntimeException("Role [{$roleName}] tidak ditemukan atau tidak aktif.");
+            $roleId = DB::table('roles')->insertGetId([
+                'name' => $roleName,
+                'description' => 'Role '.$roleName,
+                'is_active' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
         }
 
         DB::table('user_roles')->updateOrInsert(

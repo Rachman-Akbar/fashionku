@@ -28,7 +28,6 @@ export function normalizePromotion(row = {}) {
 
   return {
     id: Number(row.id || 0),
-    storeId: row.store_id || row.storeId || row.store?.id ? Number(row.store_id || row.storeId || row.store?.id) : null,
     storeName: toTitleCase(row.store_name || ""),
     promotionPaymentId: row.promotion_payment_id ? Number(row.promotion_payment_id) : null,
     name: row.name || "",
@@ -55,7 +54,6 @@ export function normalizePromotion(row = {}) {
 
 function serialize(values) {
   return {
-    ...(values.storeId ? { store_id: Number(values.storeId) } : {}),
     ...(values.promotionPaymentId ? { promotion_payment_id: Number(values.promotionPaymentId) } : {}),
     name: values.name,
     image_url: values.imageUrl,
@@ -115,7 +113,7 @@ export function usePublicPromotions() {
     queryKey: promotionManagementKeys.public,
     queryFn: getPublicPromotions,
     ...publicQueryOptions,
-    refetchInterval: 30000,
+    refetchInterval: false,
     retry: 1,
   });
 }
@@ -125,17 +123,12 @@ export function useAdminPromotions(params = {}) {
 }
 
 export function useSellerPromotions(params = {}) {
-  const { store, activeRole } = useAuth();
-  const storeId = Number(store?.id || 0);
-  const scopedParams = { ...params, ...(storeId ? { store_id: storeId } : {}) };
+  const { activeRole } = useAuth();
 
   return useQuery({
-    queryKey: [...promotionManagementKeys.seller, scopedParams],
-    queryFn: async () => {
-      const rows = await getSellerPromotions(scopedParams);
-      return storeId ? rows.filter((row) => row.storeId === storeId) : [];
-    },
-    enabled: Boolean(activeRole === "seller" && storeId),
+    queryKey: [...promotionManagementKeys.seller, params],
+    queryFn: () => getSellerPromotions(params),
+    enabled: activeRole === "seller",
     staleTime: 30000,
   });
 }

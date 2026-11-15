@@ -53,6 +53,7 @@ final class ProductResource extends JsonResource
             'total_stock' => $internal && $targetVariant ? $targetVariant->totalStock() : $available,
             'average_rating' => $product->averageRating(),
             'review_count' => $product->reviewCount(),
+            'sold_count' => $product->soldCount(),
             'description' => $product->description(),
             'brand' => $product->brand(),
             'thumbnail' => $product->thumbnail(),

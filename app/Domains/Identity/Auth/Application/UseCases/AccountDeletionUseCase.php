@@ -5,18 +5,11 @@ declare(strict_types=1);
 namespace App\Domains\Identity\Auth\Application\UseCases;
 
 use App\Domains\Identity\Auth\Application\Services\OtpSecurityEngine;
-use App\Domains\Identity\Auth\Domain\Enums\OtpPurpose;
-use App\Domains\Identity\Auth\Infrastructure\Mail\EmailVerificationMail;
 use App\Domains\Identity\Auth\Infrastructure\Persistence\Repositories\EloquentUserDeviceRepository;
 use App\Domains\Identity\User\Domain\Entities\User;
 use App\Domains\Identity\User\Domain\Repositories\UserRepositoryInterface;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Laravel\Sanctum\PersonalAccessToken;
-use RuntimeException;
 
 final readonly class AccountDeletionUseCase
 {
@@ -28,47 +21,10 @@ final readonly class AccountDeletionUseCase
 
     public function requestDeletionOtp(User $user, ?string $ipAddress = null, ?string $userAgent = null): array
     {
-        if (! $user->is_active) {
-            throw ValidationException::withMessages([
-                'account' => ['Akun tidak aktif.'],
-            ]);
-        }
-
-        if ($user->isBanned()) {
-            throw ValidationException::withMessages([
-                'account' => ['Akun diblokir.'],
-            ]);
-        }
-
-        $code = $this->otpEngine->issue(
-            email: $user->email,
-            purpose: OtpPurpose::DELETE_ACCOUNT->value,
-            userId: (string) $user->id,
-            ipAddress: $ipAddress,
-            userAgent: $userAgent,
-            metadata: [
-                'requested_at' => now()->toISOString(),
-            ],
-        );
-
-        try {
-            Mail::to($user->email)->send(new EmailVerificationMail($code, $this->otpEngine->ttlMinutes()));
-        } catch (\Throwable $throwable) {
-            Log::error('Gagal mengirim OTP hapus akun.', [
-                'user_id' => $user->id,
-                'exception' => $throwable,
-            ]);
-            throw new RuntimeException('Gagal mengirim kode verifikasi. Silakan coba lagi.');
-        }
-
-        return [
-            'message' => 'Kode verifikasi penghapusan akun telah dikirim ke email Anda.',
-            'expires_in_minutes' => $this->otpEngine->ttlMinutes(),
-            'code_length' => $this->otpEngine->codeLength(),
-        ];
+        return $this->deleteAccount($user, null, $ipAddress, $userAgent);
     }
 
-    public function deleteAccount(User $user, string $code, ?string $ipAddress = null, ?string $userAgent = null): array
+    public function deleteAccount(User $user, ?string $code = null, ?string $ipAddress = null, ?string $userAgent = null): array
     {
         if (! $user->is_active) {
             throw ValidationException::withMessages([
@@ -81,15 +37,6 @@ final readonly class AccountDeletionUseCase
                 'account' => ['Akun diblokir.'],
             ]);
         }
-
-        $this->otpEngine->verifyAndConsume(
-            email: $user->email,
-            purpose: OtpPurpose::DELETE_ACCOUNT->value,
-            code: $code,
-            userId: (string) $user->id,
-            ipAddress: $ipAddress,
-            userAgent: $userAgent,
-        );
 
         $userId = (string) $user->id;
 
@@ -103,41 +50,6 @@ final readonly class AccountDeletionUseCase
         return [
             'success' => true,
             'message' => 'Akun berhasil dihapus secara permanen.',
-        ];
-    }
-
-    public function resendDeletionOtp(User $user, ?string $ipAddress = null, ?string $userAgent = null): array
-    {
-        if (! $user->is_active) {
-            throw ValidationException::withMessages([
-                'account' => ['Akun tidak aktif.'],
-            ]);
-        }
-
-        $code = $this->otpEngine->resend(
-            email: $user->email,
-            purpose: OtpPurpose::DELETE_ACCOUNT->value,
-            userId: (string) $user->id,
-            ipAddress: $ipAddress,
-            userAgent: $userAgent,
-            metadata: [
-                'resent_at' => now()->toISOString(),
-            ],
-        );
-
-        try {
-            Mail::to($user->email)->send(new EmailVerificationMail($code, $this->otpEngine->ttlMinutes()));
-        } catch (\Throwable $throwable) {
-            Log::error('Gagal mengirim ulang OTP hapus akun.', [
-                'user_id' => $user->id,
-                'exception' => $throwable,
-            ]);
-            throw new RuntimeException('Gagal mengirim kode verifikasi. Silakan coba lagi.');
-        }
-
-        return [
-            'message' => 'Kode verifikasi baru telah dikirim.',
-            'expires_in_minutes' => $this->otpEngine->ttlMinutes(),
         ];
     }
 

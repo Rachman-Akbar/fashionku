@@ -14,13 +14,7 @@ export const orderKeys = {
   ],
   detail: (id) => ["order", "orderings", "detail", String(id || "")],
   shipping: (payload) => ["order", "shipping-options", payload],
-  seller: (storeId, filters = {}) => [
-    "order",
-    "orderings",
-    "seller",
-    storeId,
-    filters,
-  ],
+  seller: (filters = {}) => ["order", "orderings", "seller", filters],
 };
 
 function firstValue(...values) {
@@ -64,7 +58,6 @@ function normalizeItem(item = {}) {
     price: Number(item.unit_price ?? item.price ?? 0),
     subtotal: Number(item.subtotal ?? 0),
     imageUrl: resolveMediaUrl(item.thumbnail || item.image || item.image_url || ""),
-    storeId: Number(item.store_id ?? item.storeId ?? 0),
     storeName: item.store_name || item.storeName || "Toko",
   };
 }
@@ -306,47 +299,6 @@ function getShippingErrorSearchText(value, status = null) {
     .toLowerCase();
 }
 
-function isRajaOngkirLocationNotFound(value, status = null) {
-  const searchText = getShippingErrorSearchText(value, status);
-  const locationNotFound =
-    searchText.includes("origin not found") ||
-    searchText.includes("destination not found");
-
-  if (!locationNotFound) {
-    return false;
-  }
-
-  const hasRajaOngkirReference =
-    searchText.includes("rajaongkir") || searchText.includes("raja ongkir");
-  const hasNotFoundStatus =
-    Number(status) === 404 ||
-    searchText.includes('"code":404') ||
-    searchText.includes('"code": 404') ||
-    searchText.includes("status code 404") ||
-    searchText.includes("http 404");
-
-  return hasRajaOngkirReference || hasNotFoundStatus;
-}
-
-function normalizeShippingWarning(value) {
-  if (isRajaOngkirLocationNotFound(value)) {
-    return "";
-  }
-
-  return getShippingMessage(value);
-}
-
-function isIgnoredShippingError(error) {
-  const status = Number(error?.response?.status || 0);
-  const errorPayload = {
-    response: error?.response?.data,
-    message: error?.message,
-    url: error?.config?.url,
-    status,
-  };
-
-  return isRajaOngkirLocationNotFound(errorPayload, status);
-}
 
 export function normalizeShippingOption(option = {}, index = 0) {
   const provider = String(option.provider || option.source || "")
@@ -412,57 +364,12 @@ export function normalizeShippingOption(option = {}, index = 0) {
       option.estimate ||
       "",
     provider,
-    requiresDestinationId: normalizeBoolean(
-      option.requires_destination_id ??
-        option.requires_komerce_destination_id ??
-        option.requiresDestinationId,
-    ),
+    requiresDestinationId: false,
   };
 }
 
-export function isDestinationShippingOption(option = {}) {
-  if (option.requiresDestinationId) {
-    return true;
-  }
-
-  const provider = String(option.provider || option.source || "").toLowerCase();
-  const courier = String(option.courier || "").toLowerCase();
-  const localCouriers = [
-    "ambil_sendiri",
-    "pickup",
-    "haversine",
-    "internal",
-    "local",
-    "kurir_toko",
-    "store_delivery",
-  ];
-
-  if (localCouriers.some((name) => courier.includes(name))) {
-    return false;
-  }
-
-  const destinationProviders = ["rajaongkir", "komerce"];
-  const destinationCouriers = [
-    "jne",
-    "jnt",
-    "j&t",
-    "sicepat",
-    "anteraja",
-    "pos",
-    "tiki",
-    "ninja",
-    "lion",
-    "rex",
-    "idexpress",
-    "sap",
-    "wahana",
-  ];
-
-  return (
-    destinationProviders.some(
-      (name) => provider.includes(name) || courier.includes(name),
-    ) || destinationCouriers.some((name) => courier.includes(name))
-  );
+export function isDestinationShippingOption() {
+  return false;
 }
 
 export async function getCustomerOrders(userId, filters = {}) {
@@ -479,11 +386,10 @@ export async function getOrderDetail(id) {
   return normalizeOrder(resolved.order, resolved.payment);
 }
 
-export async function getSellerOrders(storeId, filters = {}) {
-  const response = await apiClient.get(
-    `/api/v1/order/orderings/stores/${storeId}`,
-    { params: filters },
-  );
+export async function getSellerOrders(_storeId, filters = {}) {
+  const response = await apiClient.get("/api/v1/order/orderings", {
+    params: filters,
+  });
   const source = response.data?.data ?? response.data ?? {};
   const rows = Array.isArray(source)
     ? source
@@ -497,11 +403,11 @@ export async function getSellerOrders(storeId, filters = {}) {
       orderId: row.order_id ?? null,
       orderNumber: row.order_number || row.sub_order_number || "",
       subOrderNumber: row.sub_order_number || "",
-      storeId: Number(row.store_id || 0),
+      storeId: 0,
       storeName: row.store_name || "",
       status: row.status || "pending",
       paymentStatus: row.payment_status || "unpaid",
-      totalItemsPrice: Number(row.total_items_price || 0),
+      totalItemsPrice: Number(row.total_items_price || row.grand_total || 0),
       shippingCost: Number(row.shipping_cost || 0),
       courier: row.courier || "",
       service: row.service || "",
@@ -702,13 +608,13 @@ export function useShippingOptions(payload, enabled = true) {
   });
 }
 
-export function useSellerOrders(storeId, filters = {}) {
+export function useSellerOrders(_storeId, filters = {}) {
   const { isAuthenticated } = useAuth();
 
   return useQuery({
-    queryKey: orderKeys.seller(storeId, filters),
-    queryFn: () => getSellerOrders(storeId, filters),
-    enabled: Boolean(isAuthenticated && storeId),
+    queryKey: orderKeys.seller(filters),
+    queryFn: () => getSellerOrders(null, filters),
+    enabled: Boolean(isAuthenticated),
     staleTime: 30000,
   });
 }
@@ -753,3 +659,4 @@ export function getShippingError(error) {
 
   return getApiMessage(error, "Ongkir belum dapat dihitung.");
 }
+

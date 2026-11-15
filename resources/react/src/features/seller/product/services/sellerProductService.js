@@ -135,7 +135,6 @@ export function serializeSellerProduct(values = {}, options = {}) {
   const categoryId = Number(values.categoryId || 0) || null;
   const includeAdminFields = Boolean(options.includeAdminFields);
   const payload = {
-    ...(includeAdminFields && values.storeId ? { store_id: Number(values.storeId) } : {}),
     name: String(values.name || "").trim(),
     description: String(values.description || "").trim() || null,
     brand: String(values.brand || "").trim() || null,
@@ -233,21 +232,13 @@ export async function getSellerProductAttributes() {
 }
 
 export function useSellerProducts(params = {}) {
-  const { isAuthenticated, activeRole, store } = useAuth();
-  const storeId = Number(store?.id || 0);
-  const scopedParams = { ...params, ...(storeId ? { store_id: storeId } : {}) };
+  const { isAuthenticated, activeRole } = useAuth();
 
   return useInfiniteList({
     queryKey: ["seller", "products", "list"],
-    queryFn: async (queryParams) => {
-      const result = await getSellerProducts(queryParams);
-      return {
-        ...result,
-        rows: storeId ? result.rows.filter((row) => row.storeId === storeId) : [],
-      };
-    },
-    params: scopedParams,
-    enabled: Boolean(isAuthenticated && activeRole === "seller" && storeId),
+    queryFn: getSellerProducts,
+    params,
+    enabled: Boolean(isAuthenticated && activeRole === "seller"),
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });

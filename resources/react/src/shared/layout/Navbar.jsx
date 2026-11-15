@@ -92,7 +92,7 @@ export function Navbar() {
   }
 
   function closeProfileMenu() {
-    setProfileOpen(false);
+    setProfileHover(false);
   }
 
   async function handleLogout() {

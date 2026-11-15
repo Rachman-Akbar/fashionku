@@ -219,7 +219,8 @@ export function CartProvider({ children }) {
     queryKey: CART_KEY,
     queryFn: fetchCart,
     enabled: !initializing && isAuthenticated,
-    staleTime: 30000,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {

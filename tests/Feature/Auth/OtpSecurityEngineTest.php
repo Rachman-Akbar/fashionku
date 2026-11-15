@@ -10,8 +10,10 @@ use App\Domains\Identity\Auth\Infrastructure\Mail\EmailVerificationMail;
 use App\Domains\Identity\Auth\Infrastructure\Persistence\Models\OtpChallenge;
 use App\Domains\Identity\User\Domain\Entities\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Tests\Support\InteractsAsUser;
 use Tests\TestCase;
 
@@ -22,7 +24,7 @@ class OtpSecurityEngineTest extends TestCase
 
     private function getCodeFromMail(string $email): string
     {
-        $queued = Mail::queued(EmailVerificationMail::class, fn ($mail): bool => $mail->hasTo($email));
+        $queued = Mail::sent(EmailVerificationMail::class, fn ($mail): bool => $mail->hasTo($email));
         $this->assertCount(1, $queued, 'Expected exactly one verification mail for '.$email);
         /** @var EmailVerificationMail $mail */
         $mail = $queued->first();
@@ -85,6 +87,9 @@ class OtpSecurityEngineTest extends TestCase
         $email = 'test-resend@example.com';
 
         $code1 = $engine->issue($email, OtpPurpose::REGISTER->value);
+
+        Cache::flush();
+
         $code2 = $engine->resend($email, OtpPurpose::REGISTER->value);
 
         $this->assertNotEquals($code1, $code2);
@@ -121,14 +126,9 @@ class OtpSecurityEngineTest extends TestCase
 
         $code1 = $engine->issue($email, OtpPurpose::REGISTER->value);
 
-        // Resend should succeed (replaces previous OTP), not throw
-        $code2 = $engine->resend($email, OtpPurpose::REGISTER->value);
-
-        $this->assertNotEquals($code1, $code2);
-
-        // Old code should be invalidated
-        $this->expectException(\Illuminate\Validation\ValidationException::class);
-        $engine->verify($email, OtpPurpose::REGISTER->value, $code1);
+        // Second send within 60 seconds should be rate-limited
+        $this->expectException(TooManyRequestsHttpException::class);
+        $engine->resend($email, OtpPurpose::REGISTER->value);
     }
 
     public function test_otp_stored_as_hash_not_plaintext(): void

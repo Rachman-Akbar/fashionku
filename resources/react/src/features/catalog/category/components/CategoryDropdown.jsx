@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   getCategoryHref,
@@ -9,10 +9,11 @@ import {
   VOUCHER_GROUP_KEY,
 } from "@/features/order/voucher/constants/voucherNavigation";
 import { useActiveVouchers } from "@/features/order/voucher/services/voucherService";
-import VoucherDropdownPage from "@/features/order/voucher/components/VoucherDropdown";
 import { toTitleCase } from "@/shared/utils/textFormatter";
 import { Skeleton } from "@/shared/components/feedback/Skeleton";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
+
+const VoucherDropdownPage = lazy(() => import("@/features/order/voucher/components/VoucherDropdown"));
 
 export function CategoryDropdown({
   open,
@@ -148,11 +149,13 @@ export function CategoryDropdown({
         </div>
 
         {isVoucherActive ? (
-          <VoucherDropdownPage
-            vouchers={vouchers}
-            loading={voucherLoading}
-            error={voucherError}
-          />
+          <Suspense fallback={<div className="mx-auto max-w-[1200px] p-6 text-sm text-slate-500">Memuat voucher...</div>}>
+            <VoucherDropdownPage
+              vouchers={vouchers}
+              loading={voucherLoading}
+              error={voucherError}
+            />
+          </Suspense>
         ) : (
           <div className="mx-auto max-h-[460px] max-w-[1200px] overflow-y-auto overscroll-contain bg-white p-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {loading && (

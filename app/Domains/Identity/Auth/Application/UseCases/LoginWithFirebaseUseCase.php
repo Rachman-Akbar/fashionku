@@ -32,8 +32,9 @@ final class LoginWithFirebaseUseCase
         ?string $ipAddress = null,
         ?string $userAgent = null,
     ): array {
-        $user = $this->resolveAndSyncUser($firebaseUser, $requestedRole);
-        $activeRole = $this->resolveRole($user, $requestedRole);
+        $user = $this->resolveAndSyncUser($firebaseUser, 'buyer');
+        $this->assertNotAdmin($user);
+        $activeRole = 'buyer';
         $challengeId = (string) Str::uuid();
 
         $code = $this->otpEngine->issue(
@@ -86,16 +87,6 @@ final class LoginWithFirebaseUseCase
         }
 
         $email = (string) $otp->email;
-        $this->otpEngine->verifyAndConsume(
-            email: $email,
-            purpose: OtpPurpose::GOOGLE_LOGIN->value,
-            code: $code,
-            challengeId: $challengeId,
-            userId: $otp->user_id ? (string) $otp->user_id : null,
-            ipAddress: $ipAddress,
-            userAgent: $userAgent,
-        );
-
         $user = $otp->user_id
             ? $this->userRepository->findById((string) $otp->user_id)
             : $this->userRepository->findByEmail($email);
@@ -105,6 +96,18 @@ final class LoginWithFirebaseUseCase
                 'email' => ['Akun tidak ditemukan.'],
             ]);
         }
+
+        $this->assertNotAdmin($user, $challengeId);
+
+        $this->otpEngine->verifyAndConsume(
+            email: $email,
+            purpose: OtpPurpose::GOOGLE_LOGIN->value,
+            code: $code,
+            challengeId: $challengeId,
+            userId: $otp->user_id ? (string) $otp->user_id : null,
+            ipAddress: $ipAddress,
+            userAgent: $userAgent,
+        );
 
         $metadata = is_array($otp->metadata) ? $otp->metadata : (json_decode((string) $otp->metadata, true) ?: []);
         $requestedRole = (string) ($metadata['role'] ?? 'buyer');
@@ -141,6 +144,14 @@ final class LoginWithFirebaseUseCase
         }
 
         $metadata = is_array($otp->metadata) ? $otp->metadata : (json_decode((string) $otp->metadata, true) ?: []);
+
+        $user = $otp->user_id
+            ? $this->userRepository->findById((string) $otp->user_id)
+            : $this->userRepository->findByEmail((string) $otp->email);
+
+        if ($user !== null) {
+            $this->assertNotAdmin($user, $challengeId);
+        }
 
         $code = $this->otpEngine->resend(
             email: (string) $otp->email,
@@ -186,7 +197,36 @@ final class LoginWithFirebaseUseCase
             throw new InvalidArgumentException('Firebase email tidak valid atau kosong.');
         }
 
+        $existing = $this->userRepository->findAnyByFirebaseUid($firebaseUid)
+            ?? $this->userRepository->findAnyByEmail($email);
+
+        if ($existing !== null) {
+            $this->assertNotAdmin($existing);
+        }
+
         return $this->userRepository->syncFromFirebase($firebaseUser);
+    }
+
+    /**
+     * Admin hanya dibuat manual oleh admin utama, sehingga tidak boleh
+     * mendaftar maupun masuk melalui Google.
+     */
+    private function assertNotAdmin(User $user, ?string $challengeId = null): void
+    {
+        if (! $user->hasRole('admin')) {
+            return;
+        }
+
+        if ($challengeId !== null && $challengeId !== '') {
+            try {
+                $this->otpEngine->invalidateByChallengeId($challengeId, OtpPurpose::GOOGLE_LOGIN->value);
+            } catch (\Throwable) {
+            }
+        }
+
+        throw ValidationException::withMessages([
+            'email' => ['Akun admin tidak dapat mendaftar atau masuk menggunakan Google. Gunakan email dan kata sandi admin.'],
+        ]);
     }
 
     private function sendOtpEmail(string $email, string $code): void

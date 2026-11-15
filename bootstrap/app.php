@@ -5,6 +5,7 @@ use App\Domains\Identity\Auth\Infrastructure\Middleware\ValidateFirebaseToken;
 use App\Domains\Identity\User\Infrastructure\Middleware\EnsureActiveRole;
 use App\Domains\Identity\User\Infrastructure\Middleware\EnsureEmailIsVerified;
 use App\Domains\Identity\User\Infrastructure\Middleware\EnsureUserHasRole;
+use App\Infrastructure\Http\Middleware\CrossOriginOpenerPolicy;
 use App\Infrastructure\Logging\Middleware\RequestLogMiddleware;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -12,6 +13,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -27,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(HandleCors::class);
         $middleware->append(RequestLogMiddleware::class);
+        $middleware->append(CrossOriginOpenerPolicy::class);
 
         $middleware->alias([
             'firebase.token' => ValidateFirebaseToken::class,
@@ -44,6 +47,15 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return null;
+        });
+
+        $exceptions->render(function (TooManyRequestsHttpException $exception, Request $request) {
+            $retryAfter = $exception->getHeaders()['Retry-After'] ?? $exception->getHeaders()['retry-after'] ?? 60;
+
+            return response()->json([
+                'message' => 'Terlalu banyak permintaan OTP. Silakan coba lagi nanti.',
+                'retry_after' => (int) $retryAfter,
+            ], 429);
         });
     })
     ->create();

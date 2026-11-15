@@ -5,15 +5,11 @@ declare(strict_types=1);
 namespace App\Domains\Identity\Auth\Application\UseCases;
 
 use App\Domains\Identity\Auth\Application\Services\OtpSecurityEngine;
-use App\Domains\Identity\Auth\Domain\Enums\OtpPurpose;
-use App\Domains\Identity\Auth\Infrastructure\Mail\EmailVerificationMail;
 use App\Domains\Identity\Auth\Infrastructure\Persistence\Models\UserDevice;
 use App\Domains\Identity\Auth\Infrastructure\Persistence\Repositories\EloquentUserDeviceRepository;
 use App\Domains\Identity\User\Domain\Entities\User;
 use App\Domains\Identity\User\Domain\Repositories\UserRepositoryInterface;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -51,53 +47,10 @@ final readonly class DeviceManagementUseCase
 
     public function requestDeviceRemovalOtp(User $user, string $deviceId, ?string $ipAddress = null, ?string $userAgent = null): array
     {
-        $device = $this->deviceRepository->findByUserIdAndId((string) $user->id, $deviceId);
-
-        if (! $device) {
-            throw ValidationException::withMessages([
-                'device_id' => ['Perangkat tidak ditemukan.'],
-            ]);
-        }
-
-        if (! $device->isActive()) {
-            throw ValidationException::withMessages([
-                'device_id' => ['Perangkat tidak aktif atau sudah dihapus.'],
-            ]);
-        }
-
-        $code = $this->otpEngine->issue(
-            email: $user->email,
-            purpose: OtpPurpose::REMOVE_DEVICE->value,
-            userId: (string) $user->id,
-            challengeId: $deviceId,
-            ipAddress: $ipAddress,
-            userAgent: $userAgent,
-            metadata: [
-                'device_id' => $deviceId,
-                'device_name' => $device->device_name,
-            ],
-        );
-
-        try {
-            Mail::to($user->email)->send(new EmailVerificationMail($code, $this->otpEngine->ttlMinutes()));
-        } catch (\Throwable $throwable) {
-            Log::error('Gagal mengirim OTP hapus perangkat.', [
-                'user_id' => $user->id,
-                'device_id' => $deviceId,
-                'exception' => $throwable,
-            ]);
-            throw new \RuntimeException('Gagal mengirim kode verifikasi. Silakan coba lagi.');
-        }
-
-        return [
-            'message' => 'Kode verifikasi telah dikirim ke email Anda.',
-            'device_id' => $deviceId,
-            'expires_in_minutes' => $this->otpEngine->ttlMinutes(),
-            'code_length' => $this->otpEngine->codeLength(),
-        ];
+        return $this->removeDevice($user, $deviceId, null, $ipAddress, $userAgent);
     }
 
-    public function removeDevice(User $user, string $deviceId, string $code, ?string $ipAddress = null, ?string $userAgent = null): array
+    public function removeDevice(User $user, string $deviceId, ?string $code = null, ?string $ipAddress = null, ?string $userAgent = null): array
     {
         $device = $this->deviceRepository->findByUserIdAndId((string) $user->id, $deviceId);
 
@@ -112,16 +65,6 @@ final readonly class DeviceManagementUseCase
                 'device_id' => ['Perangkat tidak aktif atau sudah dihapus.'],
             ]);
         }
-
-        $this->otpEngine->verifyAndConsume(
-            email: $user->email,
-            purpose: OtpPurpose::REMOVE_DEVICE->value,
-            code: $code,
-            challengeId: $deviceId,
-            userId: (string) $user->id,
-            ipAddress: $ipAddress,
-            userAgent: $userAgent,
-        );
 
         DB::transaction(function () use ($user, $device): void {
             if ($device->sanctum_token_id) {

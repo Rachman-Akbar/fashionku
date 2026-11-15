@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Button } from "@/shared/components/ui/Button";
@@ -24,14 +24,38 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState("");
   const [resendMsg, setResendMsg] = useState("");
   const [resending, setResending] = useState(false);
+  const [resendExpiry, setResendExpiry] = useState(0);
+  const [resendTick, setResendTick] = useState(0);
+
+  const RESEND_STORAGE_KEY = "fashionku:resend_expiry:reset-password";
+
+  useEffect(() => {
+    const stored = localStorage.getItem(RESEND_STORAGE_KEY);
+    if (stored && !resendExpiry) {
+      setResendExpiry(parseInt(stored, 10));
+    }
+  }, []);
+
+  const resendRemaining = Math.max(0, resendExpiry - Math.floor(Date.now() / 1000));
+
+  useEffect(() => {
+    if (resendExpiry > 0) {
+      const id = setInterval(() => setResendTick((t) => t + 1), 1000);
+      return () => clearInterval(id);
+    }
+  }, [resendExpiry]);
   const message = localError;
 
   const handleResend = async () => {
     if (!targetEmail) return;
+    if (resendRemaining > 0) return;
     setResendMsg("");
     setResending(true);
     try {
       await emailVerificationEngine.sendPasswordResetCode(targetEmail);
+      const expiry = Math.floor(Date.now() / 1000) + 60;
+      setResendExpiry(expiry);
+      localStorage.setItem(RESEND_STORAGE_KEY, String(expiry));
       setResendMsg("Kode verifikasi baru sudah dikirim ke email kamu.");
     } catch (submitError) {
       setResendMsg(getResetMessage(submitError, "Gagal mengirim ulang kode."));
@@ -169,11 +193,15 @@ export default function ResetPasswordPage() {
             </span>
             <button
               type="button"
-              disabled={resending}
+              disabled={resending || resendRemaining > 0}
               onClick={handleResend}
               className="text-xs font-bold text-[#10B981] hover:underline disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {resending ? "Mengirim ulang..." : "Kirim ulang kode"}
+              {resendRemaining > 0
+                ? `Kirim ulang dalam ${String(Math.floor(resendRemaining / 60)).padStart(2, "0")}:${String(resendRemaining % 60).padStart(2, "0")}`
+                : resending
+                  ? "Mengirim ulang..."
+                  : "Kirim ulang kode"}
             </button>
           </div>
           {resendMsg ? (

@@ -103,15 +103,15 @@ export const ProductCard = memo(function ProductCard({
   image,
   thumbnail,
   badge,
-  badgeVariant = "official",
   title,
   name,
   price,
   price_label,
   discountPct,
   originalPrice,
-  rating,
+  average_rating,
   sold,
+  sold_count,
   location,
   storeName,
   brand,
@@ -159,13 +159,27 @@ export const ProductCard = memo(function ProductCard({
       ? price
       : formatPrice(price));
   const displayImage = image || thumbnail;
-  const displayDiscount = discountPct || badge;
-  const displayLocation = location || storeName || "Official Store";
-  const resolvedStoreName = toTitleCase(
-    storeName || brand || displayLocation || "Toko",
+  const currentPrice = normalizeNumber(price, 0);
+  const resolvedDefaultVariant =
+    defaultVariant ??
+    availableVariants.find((variant) => variant.is_default) ??
+    availableVariants[0] ??
+    null;
+  const baseOriginalPrice = normalizeNumber(
+    resolvedDefaultVariant?.price_original ?? originalPrice,
+    0,
   );
+  const computedDiscountPct =
+    baseOriginalPrice > currentPrice && baseOriginalPrice > 0
+      ? Math.round(((baseOriginalPrice - currentPrice) / baseOriginalPrice) * 100)
+      : 0;
+  const resolvedDiscountPct = discountPct ?? computedDiscountPct;
+  const displayDiscount =
+    resolvedDiscountPct > 0 ? `-${resolvedDiscountPct}%` : badge;
+  const displayLocation = location || storeName || brand || "Toko";
+  const discountPercent = normalizeNumber(resolvedDiscountPct || badge, 0);
   const promoText =
-    badgeVariant === "flash" ? "Bisa COD" : "Hemat s.d 15% Pakai Bonus";
+    discountPercent > 0 ? `Hemat ${discountPercent}%` : "";
   const productHref = useMemo(() => {
     const target = slug || resolvedProductId || "#";
     return `/products/${target}`;
@@ -553,6 +567,7 @@ export const ProductCard = memo(function ProductCard({
               src={resolveMediaUrl(displayImage)}
               alt={displayTitle}
               loading="lazy"
+              decoding="async"
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]"
               onError={(e) => {
                 e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";
@@ -624,20 +639,14 @@ export const ProductCard = memo(function ProductCard({
               star
             </span>
             <span className="min-w-0 truncate text-[12px] leading-[15px] text-[#5f6f8f]">
-              {rating || "4.8"}{" "}
-              {sold ? `· ${sold} terjual` : "| 10rb+ terjual"}
+              {average_rating ? `${average_rating}` : ""}{" "}
+              {sold_count ? `· ${sold_count} terjual` : sold ? `· ${sold} terjual` : ""}
             </span>
           </div>
 
           <div className="mt-[3px] flex min-w-0 items-center gap-[3px] pr-7">
-            <span
-              className="material-symbols-outlined text-[14px] leading-none text-[#10B981]"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              verified
-            </span>
-            <span className="min-w-0 truncate text-[12px] leading-[15px] text-[#5f6f8f]">
-              {displayLocation}
+            <span className="text-[12px] leading-[15px] font-semibold text-[#10B981]">
+              Beli Sekarang atau Checkout Langsung
             </span>
           </div>
 
@@ -699,6 +708,8 @@ export const ProductCard = memo(function ProductCard({
                       )
                     }
                     alt={displayTitle}
+                    loading="lazy"
+                    decoding="async"
                     className="h-14 w-14 shrink-0 rounded-lg object-cover"
                     onError={(e) => {
                       e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";

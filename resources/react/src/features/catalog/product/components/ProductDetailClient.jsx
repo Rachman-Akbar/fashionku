@@ -149,8 +149,8 @@ export function ProductDetailClient({ slug }) {
   const ownStore = Boolean(user?.id && storeOwnerId && String(user.id) === String(storeOwnerId));
 
   async function handleStartChat() {
-    if (!store.id) {
-      setChatNotice("Toko penjual tidak ditemukan pada data produk.");
+    if (ownStore) {
+      setChatNotice("Produk ini berasal dari toko Anda sendiri.");
       return;
     }
 
@@ -160,16 +160,10 @@ export function ProductDetailClient({ slug }) {
       return;
     }
 
-    if (ownStore) {
-      setChatNotice("Produk ini berasal dari toko Anda sendiri.");
-      return;
-    }
-
     setChatNotice("");
     try {
       const conversation = await startConversation.mutateAsync({
         type: "store",
-        store_id: Number(store.id),
         subject: `Produk: ${product.name}`,
       });
       const chatPath = activeRole === "admin" ? "/admin/chat" : activeRole === "seller" ? "/seller/chat" : "/chat";

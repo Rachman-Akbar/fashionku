@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { Suspense, lazy, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { SellerPanelShell } from "@/features/seller/dashboard/components/SellerPanelShell";
 import { SellerMetricCard } from "@/features/seller/dashboard/components/SellerMetricCard";
@@ -7,8 +7,10 @@ import { useSellerStore } from "@/features/seller/store/services/sellerStoreServ
 import { useSellerProducts } from "@/features/seller/product/services/sellerProductService";
 import { useSellerOrders } from "@/features/order/ordering/orderService";
 import { useSellerOrderTrend } from "@/features/advanced/services/advancedMarketplaceService";
-import { OrderRevenueBars, StatCard } from "@/shared/components/charts/chartKit";
 import { formatPrice } from "@/shared/utils/utils";
+
+const LazyStatCard = lazy(() => import("@/shared/components/charts/chartKit").then((m) => ({ default: m.StatCard })));
+const LazyOrderRevenueBars = lazy(() => import("@/shared/components/charts/chartKit").then((m) => ({ default: m.OrderRevenueBars })));
 
 const statusLabels = {
   pending: "Perlu Dikirim",
@@ -21,7 +23,7 @@ const statusLabels = {
 export default function SellerDashboardPage() {
   const storeQuery = useSellerStore();
   const productsQuery = useSellerProducts({ per_page: 24 });
-  const ordersQuery = useSellerOrders(storeQuery.data?.id, { per_page: 15 });
+  const ordersQuery = useSellerOrders(null, { per_page: 15 });
   const trendQuery = useSellerOrderTrend({ period: "monthly" });
 
   const products = useMemo(() => productsQuery.data?.rows || [], [productsQuery.data]);
@@ -124,13 +126,21 @@ export default function SellerDashboardPage() {
               <>
                 {!trendQuery.isLoading && trend.length > 0 && (
                   <div className="mt-3 grid grid-cols-3 gap-[5px]">
-                    <StatCard label="Total Order" value={trendMeta.totalsOrders.toLocaleString("id-ID")} tone="sky" />
-                    <StatCard label="Pendapatan" value={formatPrice(trendMeta.totalsRevenue)} tone="emerald" />
-                    <StatCard label="Selesai" value={trendMeta.totalsCompleted.toLocaleString("id-ID")} tone="slate" />
+                    <Suspense fallback={<div className="h-16 rounded-[10px] bg-slate-100" />}>
+                      <LazyStatCard label="Total Order" value={trendMeta.totalsOrders.toLocaleString("id-ID")} tone="sky" />
+                    </Suspense>
+                    <Suspense fallback={<div className="h-16 rounded-[10px] bg-slate-100" />}>
+                      <LazyStatCard label="Pendapatan" value={formatPrice(trendMeta.totalsRevenue)} tone="emerald" />
+                    </Suspense>
+                    <Suspense fallback={<div className="h-16 rounded-[10px] bg-slate-100" />}>
+                      <LazyStatCard label="Selesai" value={trendMeta.totalsCompleted.toLocaleString("id-ID")} tone="slate" />
+                    </Suspense>
                   </div>
                 )}
                 <div className="mt-4">
-                  <OrderRevenueBars points={trend} format={formatPrice} maxDays={31} />
+                  <Suspense fallback={<div className="h-40 rounded-[10px] bg-slate-100" />}>
+                    <LazyOrderRevenueBars points={trend} format={formatPrice} maxDays={31} />
+                  </Suspense>
                 </div>
               </>
             )}

@@ -7,7 +7,7 @@ export default function PageTransitionLoader() {
 
   useEffect(() => {
     setIsLoading(true);
-    const timer = setTimeout(() => setIsLoading(false), 300);
+    const timer = setTimeout(() => setIsLoading(false), 120);
     return () => clearTimeout(timer);
   }, [location.pathname]);
 

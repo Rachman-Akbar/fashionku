@@ -37,6 +37,8 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
+use Throwable;
 
 final class AuthController extends Controller
 {
@@ -188,13 +190,31 @@ final class AuthController extends Controller
             return response()->json(['message' => 'Firebase user payload is missing.'], 401);
         }
 
-        return response()->json($useCase->initiate(
-            firebaseUser: $firebaseUser,
-            deviceName: $validated['device_name'] ?? 'marketplace-web',
-            requestedRole: $validated['role'] ?? 'buyer',
-            ipAddress: $request->ip(),
-            userAgent: $request->userAgent(),
-        ), 202);
+        try {
+            return response()->json($useCase->initiate(
+                firebaseUser: $firebaseUser,
+                deviceName: $validated['device_name'] ?? 'marketplace-web',
+                requestedRole: $validated['role'] ?? 'buyer',
+                ipAddress: $request->ip(),
+                userAgent: $request->userAgent(),
+            ), 202);
+        } catch (ValidationException $e) {
+            return response()->json(['message' => $e->getMessage(), 'errors' => $e->errors()], 422);
+        } catch (InvalidArgumentException $e) {
+            Log::warning('Firebase login rejected', ['message' => $e->getMessage()]);
+
+            return response()->json(['message' => $e->getMessage()], 422);
+        } catch (Throwable $e) {
+            Log::error('Firebase login failed', [
+                'message' => $e->getMessage(),
+                'exception' => $e::class,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'message' => 'Login Google gagal diproses. Coba lagi atau gunakan email dan kata sandi.',
+            ], 500);
+        }
     }
 
     public function verifyFirebaseLogin(Request $request, LoginWithFirebaseUseCase $useCase): JsonResponse
@@ -484,7 +504,6 @@ final class AuthController extends Controller
     {
         $validated = $request->validate([
             'device_id' => ['required', 'string', 'uuid'],
-            'code' => ['required', 'string', 'digits:6'],
         ]);
         $ipAddress = $request->ip();
         $userAgent = $request->userAgent();
@@ -492,7 +511,6 @@ final class AuthController extends Controller
         $result = $useCase->removeDevice(
             user: $request->user(),
             deviceId: $validated['device_id'],
-            code: $validated['code'],
             ipAddress: $ipAddress,
             userAgent: $userAgent,
         );
@@ -516,15 +534,11 @@ final class AuthController extends Controller
 
     public function deleteAccount(Request $request, AccountDeletionUseCase $useCase): JsonResponse
     {
-        $validated = $request->validate([
-            'code' => ['required', 'string', 'digits:6'],
-        ]);
         $ipAddress = $request->ip();
         $userAgent = $request->userAgent();
 
         $result = $useCase->deleteAccount(
             user: $request->user(),
-            code: $validated['code'],
             ipAddress: $ipAddress,
             userAgent: $userAgent,
         );
@@ -536,15 +550,6 @@ final class AuthController extends Controller
 
     public function resendAccountDeletionOtp(Request $request, AccountDeletionUseCase $useCase): JsonResponse
     {
-        $ipAddress = $request->ip();
-        $userAgent = $request->userAgent();
-
-        $result = $useCase->resendDeletionOtp(
-            user: $request->user(),
-            ipAddress: $ipAddress,
-            userAgent: $userAgent,
-        );
-
-        return response()->json($result);
+        return $this->deleteAccount($request, $useCase);
     }
 }

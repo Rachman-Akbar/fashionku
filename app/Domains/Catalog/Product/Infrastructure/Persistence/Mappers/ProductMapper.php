@@ -43,6 +43,7 @@ final class ProductMapper
             images: $images,
             averageRating: round((float) ($model->reviews_avg_rating ?? 0), 2),
             reviewCount: (int) ($model->reviews_count ?? 0),
+            soldCount: (int) ($model->sold_count ?? 0),
             createdAt: $model->created_at?->toDateTimeString(),
             updatedAt: $model->updated_at?->toDateTimeString()
         );

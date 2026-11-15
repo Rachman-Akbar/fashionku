@@ -19,7 +19,7 @@ class EmailVerificationTest extends TestCase
 
     private function codeFor(string $email): string
     {
-        $queued = Mail::queued(EmailVerificationMail::class, fn ($mail): bool => $mail->hasTo($email));
+        $queued = Mail::sent(EmailVerificationMail::class, fn ($mail): bool => $mail->hasTo($email));
 
         $this->assertCount(1, $queued, 'Expected exactly one verification mail for '.$email);
 
@@ -38,7 +38,7 @@ class EmailVerificationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('expires_in_minutes', 10);
 
-        Mail::assertQueued(EmailVerificationMail::class, fn ($mail): bool => $mail->hasTo($user->email));
+        Mail::assertSent(EmailVerificationMail::class, fn ($mail): bool => $mail->hasTo($user->email));
     }
 
     public function test_change_password_requires_a_valid_verification_code(): void
