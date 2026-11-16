@@ -32,10 +32,13 @@ const SellerVoucherPage = lazyWithRetry(() => import("@/features/seller/voucher/
 const SellerPromotionPage = lazyWithRetry(() => import("@/features/seller/promotion/pages/SellerPromotionPage"));
 const SellerStorePage = lazyWithRetry(() => import("@/features/seller/store/pages/SellerStorePage"));
 const SellerOrdersPage = lazyWithRetry(() => import("@/features/seller/order/pages/SellerOrdersPage"));
-const AdminHomePage = lazyWithRetry(() => import("@/features/admin/pages/AdminHomePage"));
+const AdminDashboardPage = lazyWithRetry(() => import("@/features/admin/pages/AdminDashboardPage"));
 const AdminOrdersPage = lazyWithRetry(() => import("@/features/admin/order/pages/AdminOrdersPage"));
 const AdminShippingSettingsPage = lazyWithRetry(() => import("@/features/admin/shipping/pages/AdminShippingSettingsPage"));
 const AdminStoreAddressPage = lazyWithRetry(() => import("@/features/admin/store/pages/AdminStoreAddressPage"));
+const AdminShell = lazyWithRetry(() => import("@/features/admin/layout/AdminShell"));
+const AdminUsersPage = lazyWithRetry(() => import("@/features/admin/users/pages/AdminUsersPage"));
+const AdminCategoryPage = lazyWithRetry(() => import("@/features/admin/category/pages/AdminCategoryPage"));
 const ProfilePage = lazyWithRetry(() => import("@/features/profile/identity/pages/ProfilePage"));
 const AddressesPage = lazyWithRetry(() => import("@/features/profile/address/pages/AddressesPage"));
 const GroupChatPage = lazyWithRetry(() => import("@/features/profile/chat/pages/GroupChatPage"));
@@ -43,6 +46,7 @@ const NotificationsPage = lazyWithRetry(() => import("@/features/profile/notific
 const PaymentsPage = lazyWithRetry(() => import("@/features/profile/payments/pages/PaymentsPage"));
 const FinancePage = lazyWithRetry(() => import("@/features/advanced/pages/FinancePage"));
 const StockPage = lazyWithRetry(() => import("@/features/advanced/pages/StockPage"));
+const SchedulePage = lazyWithRetry(() => import("@/features/advanced/pages/SchedulePage"));
 const CodePatternSettingsPage = lazyWithRetry(() => import("@/features/advanced/pages/CodePatternSettingsPage"));
 const CustomersPage = lazyWithRetry(() => import("@/features/advanced/pages/CustomersPage"));
 const HelpPage = lazyWithRetry(() => import("@/features/advanced/pages/HelpPage"));
@@ -177,10 +181,27 @@ function renderSellerRoutes() {
 function renderAdminRoutes() {
   return (
     <Route element={<ProtectedRoute roles={["admin"]} loginPath="/admin/login" />}>
-      <Route path="/admin" element={<AdminHomePage />} />
-      <Route path="/admin/orders" element={<AdminOrdersPage />} />
-      <Route path="/admin/shipping" element={<AdminShippingSettingsPage />} />
-      <Route path="/admin/store" element={<AdminStoreAddressPage />} />
+      <Route element={<AdminShell />}>
+        <Route index element={<AdminDashboardPage />} />
+        <Route path="/admin/orders" element={<AdminOrdersPage />} />
+        <Route path="/admin/products" element={<SellerProductsPage />} />
+        <Route path="/admin/stock" element={<StockPage />} />
+        <Route path="/admin/bahan-baku" element={<StockPage />} />
+        <Route path="/admin/vouchers" element={<SellerVoucherPage />} />
+        <Route path="/admin/promotions" element={<SellerPromotionPage />} />
+        <Route path="/admin/reviews" element={<ReviewsPage />} />
+        <Route path="/admin/customers" element={<CustomersPage />} />
+        <Route path="/admin/cashflow" element={<FinancePage mode="cashflow" />} />
+        <Route path="/admin/receivables-payables" element={<FinancePage mode="receivables" />} />
+        <Route path="/admin/categories" element={<AdminCategoryPage />} />
+        <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/planner" element={<SchedulePage />} />
+        <Route path="/admin/chat" element={<RealtimeChatPage />} />
+        <Route path="/admin/help" element={<HelpPage />} />
+        <Route path="/admin/store" element={<AdminStoreAddressPage />} />
+        <Route path="/admin/shipping" element={<AdminShippingSettingsPage />} />
+        <Route path="/admin/code-settings" element={<CodePatternSettingsPage />} />
+      </Route>
     </Route>
   );
 }

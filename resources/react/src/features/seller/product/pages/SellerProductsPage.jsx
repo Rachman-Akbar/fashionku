@@ -110,7 +110,7 @@ export default function SellerProductsPage() {
   }, [editor.open]);
 
   return (
-    <SellerPanelShell title="Produk Toko" subtitle="Kelola product, variant, gambar, harga, status, serta import/export. Saldo stok dikelola terpisah melalui Persediaan.">
+    <SellerPanelShell>
       {editor.isListActive ? (
         <ListPageFrame
           toolbar={(
@@ -162,7 +162,7 @@ export default function SellerProductsPage() {
                 onColumnFilterChange={(key, value) => setColumnFilters((current) => ({ ...current, [key]: value }))}
                 onClearAllFilters={() => setColumnFilters(EMPTY_COLUMN_FILTERS)}
                 onResetSort={() => setSort({ by: "created_at", direction: "desc" })}
-                columnOrder={columnVisibility.visibleKeys}
+                columnFilters={columnFilters}
               />
               <InfiniteScrollSentinel hasNextPage={productsQuery.hasNextPage} isFetchingNextPage={productsQuery.isFetchingNextPage} onLoadMore={() => productsQuery.fetchNextPage()} />
             </>

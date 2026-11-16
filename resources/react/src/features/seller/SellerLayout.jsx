@@ -63,7 +63,7 @@ export default function SellerLayout() {
             />
             <PanelTabBar />
             <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-white px-4 pb-20 sm:px-6 lg:px-8 lg:pb-6">
-              <div className={cn("mx-auto w-full max-w-6xl py-6", isChatRoute && "flex h-full min-h-0 flex-col")}>
+              <div className={cn("w-full py-6", isChatRoute ? "flex h-full min-h-0 flex-col" : "mx-auto max-w-6xl")}>
                 <RouteOutletBoundary className={cn("h-full w-full min-w-0 max-w-full", isChatRoute && "min-h-0 flex-1")} />
               </div>
             </main>

@@ -53,31 +53,36 @@ export default function PromotionPage() {
 
   return (
     <main className="mx-auto max-w-[1200px] px-4 py-8">
-      <div className="mb-6 flex items-center gap-4 border-b border-slate-200">
-        <button
-          type="button"
-          onClick={() => setActiveTab("promotion")}
-          className={`flex items-center gap-2 border-b-2 pb-3 px-1 text-sm font-bold transition-colors ${
-            activeTab === "promotion"
-              ? "border-[#10B981] text-[#10B981]"
-              : "border-transparent text-slate-500 hover:text-[#10B981]"
-          }`}
-        >
-          <Tag size={16} />
-          <span>Promosi</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("voucher")}
-          className={`flex items-center gap-2 border-b-2 pb-3 px-1 text-sm font-bold transition-colors ${
-            activeTab === "voucher"
-              ? "border-[#10B981] text-[#10B981]"
-              : "border-transparent text-slate-500 hover:text-[#10B981]"
-          }`}
-        >
-          <Ticket size={16} />
-          <span>Voucher</span>
-        </button>
+      <div
+        className="sticky z-[70] -mx-4 mb-6 bg-white px-4 pt-1 transition-[top] duration-300 ease-in-out"
+        style={{ top: "var(--main-nav-offset, 96px)" }}
+      >
+        <div className="grid w-full grid-cols-2 border-b border-slate-200">
+          <button
+            type="button"
+            onClick={() => setActiveTab("promotion")}
+            className={`flex min-w-0 items-center justify-center gap-1.5 border-b-2 pb-3 px-1 text-xs font-bold transition-colors sm:gap-2 sm:text-sm ${
+              activeTab === "promotion"
+                ? "border-[#10B981] text-[#10B981]"
+                : "border-transparent text-slate-500 hover:text-[#10B981]"
+            }`}
+          >
+            <Tag size={16} className="shrink-0" />
+            <span className="truncate">Promosi</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("voucher")}
+            className={`flex min-w-0 items-center justify-center gap-1.5 border-b-2 pb-3 px-1 text-xs font-bold transition-colors sm:gap-2 sm:text-sm ${
+              activeTab === "voucher"
+                ? "border-[#10B981] text-[#10B981]"
+                : "border-transparent text-slate-500 hover:text-[#10B981]"
+            }`}
+          >
+            <Ticket size={16} className="shrink-0" />
+            <span className="truncate">Voucher</span>
+          </button>
+        </div>
       </div>
 
       {activeTab === "promotion" ? (

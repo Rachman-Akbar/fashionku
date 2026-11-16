@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import AdminShell from "@/features/admin/layout/AdminShell";
 import {
   apiClient,
   getApiMessage,
@@ -287,14 +286,8 @@ export default function AdminStoreAddressPage() {
   };
 
   return (
-    <AdminShell>
+    <>
       <div className="max-w-3xl">
-        <h1 className="text-xl font-black text-slate-900">Alamat Toko</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Satu pengaturan untuk seluruh toko. Alamat ini dipakai pada profil
-          toko, panel penjual, dan sebagai asal pengiriman (ongkir Haversine).
-        </p>
-
         {loading ? (
           <div className="mt-6 text-sm text-slate-500">Memuat...</div>
         ) : (
@@ -352,6 +345,6 @@ export default function AdminStoreAddressPage() {
           </form>
         )}
       </div>
-    </AdminShell>
+    </>
   );
 }

@@ -92,8 +92,11 @@ function EmptyState({ icon: Icon, title, description }) {
 
 function TabNavigation({ activeTab, onChange }) {
   return (
-    <nav className="sticky z-[70] mx-auto max-w-[1120px] px-4 pt-1 pb-4 transition-[top] duration-300 ease-in-out bg-white" style={{ top: "var(--main-nav-offset, 96px)" }}>
-      <div className="flex items-center justify-between gap-2 border-b border-[#bccbb4] min-w-[0] overflow-x-auto scrollbar-hidden px-2">
+    <div
+      className="sticky z-[70] -mx-4 mb-6 bg-white px-4 pt-1 transition-[top] duration-300 ease-in-out"
+      style={{ top: "var(--main-nav-offset, 96px)" }}
+    >
+      <div className="grid w-full grid-cols-4 border-b border-slate-200">
         {tabs.map((tab) => {
           const active = activeTab === tab.key;
           const Icon = tab.icon;
@@ -102,19 +105,19 @@ function TabNavigation({ activeTab, onChange }) {
               key={tab.key}
               type="button"
               onClick={() => onChange(tab.key)}
-              className={`shrink-0 flex items-center gap-2 whitespace-nowrap pb-2 px-3 text-base transition-colors ${
+              className={`flex min-w-0 items-center justify-center gap-1.5 border-b-2 pb-3 px-1 text-xs font-bold transition-colors sm:gap-2 sm:text-sm ${
                 active
-                  ? "border-b-2 border-[#047857] font-bold text-[#047857]"
-                  : "text-[#3e4a39] hover:text-[#047857]"
+                  ? "border-[#10B981] text-[#10B981]"
+                  : "border-transparent text-slate-500 hover:text-[#10B981]"
               }`}
             >
-              <Icon size={16} />
-              <span className="hidden sm:inline ml-1">{tab.label}</span>
+              <Icon size={16} className="shrink-0" />
+              <span className="truncate">{tab.label}</span>
             </button>
           );
         })}
       </div>
-    </nav>
+    </div>
   );
 }
 
@@ -715,7 +718,7 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <main className="mx-auto max-w-[1120px] px-4 py-5 sm:px-6">
+      <main className="mx-auto max-w-[1200px] px-4 py-8">
         <TabNavigation activeTab={activeTab} onChange={changeTab} />
 
         <div className="transition-all duration-200">

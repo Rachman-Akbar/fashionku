@@ -38,19 +38,9 @@ function conversationSubtitle(row, activeRole) {
   return values.join(" · ") || String(row?.type || "chat");
 }
 
-function connectionLabel(status) {
-  const labels = {
-    connected: "Real-time aktif",
-    connecting: "Menghubungkan...",
-    unavailable: "Real-time tidak tersedia",
-    disconnected: "Terputus",
-    failed: "Gagal terhubung",
-    error: "Error koneksi",
-    not_configured: "Reverb belum dikonfigurasi",
-    unauthenticated: "Belum login",
-    idle: "Menunggu koneksi",
-  };
-  return labels[status] || "Polling aktif";
+function connectionLabel(status, scope = "buyer") {
+  if (status === "connected") return scope === "seller" ? "Terhubung" : "Terhubung dengan Admin";
+  return "Menunggu";
 }
 
 function messageExists(rows, id) {
@@ -95,12 +85,6 @@ function connectionTone(status) {
   if (status === "connected") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
   if (CONNECTION_ERROR_STATES.includes(status)) return "bg-red-50 text-red-700 ring-red-200";
   return "bg-amber-50 text-amber-800 ring-amber-200";
-}
-
-function connectionDot(status) {
-  if (status === "connected") return "bg-emerald-500";
-  if (CONNECTION_ERROR_STATES.includes(status)) return "bg-red-500";
-  return "bg-amber-500";
 }
 
 const BUBBLE_BASE =
@@ -421,14 +405,13 @@ export default function RealtimeChatPage() {
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-emerald-700 text-xs font-bold text-white">A</div>
             <div className="min-w-0">
               <h2 className="truncate font-extrabold text-slate-950">Admin MarketKu</h2>
-              <p className="mt-1 truncate text-xs text-slate-500">Layanan Pelanggan</p>
+              <p className={cn("mt-1 flex items-center gap-1 truncate text-xs font-semibold", connectionStatus === "connected" ? "text-emerald-700" : "text-amber-700")}>
+                <span className="material-symbols-outlined text-[14px]">{connectionStatus === "connected" ? "verified" : "schedule"}</span>
+                {connectionLabel(connectionStatus)}
+              </p>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset", connectionTone(connectionStatus))}>
-              <span className={cn("h-2 w-2 rounded-full", connectionDot(connectionStatus))} />
-              {connectionLabel(connectionStatus)}
-            </span>
+          <div className="flex shrink-0 items-center gap-1">
             <button type="button" onClick={() => setFullscreen((c) => !c)} title={fullscreen ? "Keluar layar penuh" : "Layar penuh"} className="flex h-9 w-9 items-center justify-center rounded-md text-slate-600 hover:bg-slate-200">
               <span className="material-symbols-outlined text-[19px]">{fullscreen ? "fullscreen_exit" : "fullscreen"}</span>
             </button>
@@ -438,31 +421,26 @@ export default function RealtimeChatPage() {
           {isLoading ? (
             <div className="flex items-center justify-center h-full"><div className="flex flex-col items-center gap-3 text-slate-500"><div className="h-8 w-8 animate-spin rounded-full border-3 border-slate-200 border-t-emerald-500" /><p>Memuat percakapan...</p></div></div>
           ) : adminConv ? (
-            <>
-              <div className="relative mx-auto mb-5 flex w-fit items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700 shadow-sm">
-                <span className="material-symbols-outlined text-[13px]">verified</span>Terhubung dengan Admin
-              </div>
-              <div className="relative flex flex-col gap-2">
-                {messages.map((item) => {
-                  const mine = String(item.sender_id) === String(user?.id);
-                  return (
-                    <div key={item.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                      <div className={bubbleTone(mine, item.message_type)}>
-                        <div className={cn("mb-1 flex items-center gap-1.5 text-[11px] font-semibold", mine ? "text-emerald-50" : "text-slate-600")}>
-                          {item.sender_identity_type === "store" && <span className="material-symbols-outlined text-[14px]">store</span>}
-                          {item.message_type === "system" && <span className="material-symbols-outlined text-[14px]">notifications</span>}
-                          <span>{item.message_type === "system" ? "Sistem" : item.sender_name || (mine ? "Anda" : "Admin")}</span>
-                        </div>
-                        <p className="whitespace-pre-wrap break-words">{item.message}</p>
-                        <p className={cn("mt-1 text-right text-[11px]", mine ? "text-emerald-100" : "text-slate-500")}>{item.created_at ? new Date(item.created_at).toLocaleString("id-ID") : ""}</p>
-                        {messageStatusIcon(item, user?.id)}
+            <div className="relative flex flex-col gap-2">
+              {messages.map((item) => {
+                const mine = String(item.sender_id) === String(user?.id);
+                return (
+                  <div key={item.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                    <div className={bubbleTone(mine, item.message_type)}>
+                      <div className={cn("mb-1 flex items-center gap-1.5 text-[11px] font-semibold", mine ? "text-emerald-50" : "text-slate-600")}>
+                        {item.sender_identity_type === "store" && <span className="material-symbols-outlined text-[14px]">store</span>}
+                        {item.message_type === "system" && <span className="material-symbols-outlined text-[14px]">notifications</span>}
+                        <span>{item.message_type === "system" ? "Sistem" : item.sender_name || (mine ? "Anda" : "Admin")}</span>
                       </div>
+                      <p className="whitespace-pre-wrap break-words">{item.message}</p>
+                      <p className={cn("mt-1 text-right text-[11px]", mine ? "text-emerald-100" : "text-slate-500")}>{item.created_at ? new Date(item.created_at).toLocaleString("id-ID") : ""}</p>
+                      {messageStatusIcon(item, user?.id)}
                     </div>
-                  );
-                })}
-                <div ref={bottomRef} />
-              </div>
-            </>
+                  </div>
+                );
+              })}
+              <div ref={bottomRef} />
+            </div>
           ) : (
             <div className="flex min-h-full items-center justify-center text-center">
               <div className="max-w-md"><div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600"><span className="material-symbols-outlined text-4xl">support_agent</span></div>
@@ -496,9 +474,9 @@ export default function RealtimeChatPage() {
           <div className="border-b border-slate-200 bg-slate-50 p-3">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div><h1 className="text-base font-extrabold text-slate-950">Chat</h1>
-                <span className={cn("mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset", connectionTone(connectionStatus))}>
-                  <span className={cn("h-1.5 w-1.5 rounded-full", connectionDot(connectionStatus))} />
-                  {connectionLabel(connectionStatus)}
+                <span className={cn("mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset", connectionTone(connectionStatus))}>
+                  <span className="material-symbols-outlined text-[13px]">{connectionStatus === "connected" ? "verified" : "schedule"}</span>
+                  {connectionLabel(connectionStatus, "seller")}
                 </span>
               </div>
               {canStartManually && <Button size="sm" onClick={openStart}>Data Baru</Button>}

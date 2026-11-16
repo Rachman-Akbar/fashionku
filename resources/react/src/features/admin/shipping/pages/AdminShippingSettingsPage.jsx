@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import AdminShell from "@/features/admin/layout/AdminShell";
 import { apiClient, getApiMessage, unwrapApiData } from "@/core/utils/apiClient";
 import { Button } from "@/shared/components/ui/Button";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
@@ -64,12 +63,8 @@ export default function AdminShippingSettingsPage() {
   }
 
   return (
-    <AdminShell>
+    <>
       <div className="max-w-2xl">
-        <h1 className="text-xl font-black text-slate-900">Pengaturan Ongkir (Haversine)</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Ongkir dihitung dari jarak koordinat toko ke alamat penerima. Atur koordinat toko dan tarif di sini.
-        </p>
         {loading ? (
           <div className="mt-6 text-sm text-slate-500">Memuat...</div>
         ) : (
@@ -106,6 +101,6 @@ export default function AdminShippingSettingsPage() {
           </form>
         )}
       </div>
-    </AdminShell>
+    </>
   );
 }

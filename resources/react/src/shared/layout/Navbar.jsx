@@ -122,7 +122,7 @@ export function Navbar() {
     <>
       <header className={`relative sticky top-0 z-[80] border-b border-slate-100 bg-white transition-transform duration-300 ease-in-out ${navHidden ? "-translate-y-full" : "translate-y-0"}`}>
       <div className="border-b border-slate-100 bg-white">
-        <div className="mx-auto flex h-8 max-w-[1200px] items-center justify-between px-4 text-xs text-slate-500">
+        <div className="flex h-8 w-full items-center justify-between px-4 text-xs text-slate-500">
           <div className="flex items-center gap-1">
             <span className="material-symbols-outlined text-[14px] text-[#10B981]">
               smartphone
@@ -153,7 +153,7 @@ export function Navbar() {
       </div>
 
       <div className="bg-white">
-        <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-4 px-4">
+        <div className="flex h-16 w-full items-center gap-4 px-4">
           <Link
             to="/"
             className="flex-shrink-0 text-[22px] font-bold leading-none text-[#10B981]"

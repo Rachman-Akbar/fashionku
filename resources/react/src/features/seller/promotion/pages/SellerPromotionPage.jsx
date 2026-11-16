@@ -60,7 +60,7 @@ export default function SellerPromotionPage() {
   };
 
   return (
-    <SellerPanelShell title="Promosi Toko" subtitle="Ajukan promotion homepage, import/export Excel, dan pantau status approval admin.">
+    <SellerPanelShell>
       {editor.isListActive ? (
         <ListPageFrame
           toolbar={(

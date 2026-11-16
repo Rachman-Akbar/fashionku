@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { getAdminMode, setAdminMode } from "@/features/admin/adminMode";
 import { confirmPanelModeSwitch } from "@/shared/utils/userFeedback";
@@ -8,6 +9,7 @@ import { PanelSidebar } from "@/shared/layout/PanelSidebar";
 import { PanelTabBar, PanelTabsProvider } from "@/shared/layout/tabs";
 import { RouteOutletBoundary } from "@/shared/layout/RouteOutletBoundary";
 import PageTransitionLoader from "@/shared/layout/PageTransitionLoader";
+import { cn } from "@/shared/utils/utils";
 
 export const ADMIN_NAV_ITEMS = [
   { href: "/admin", label: "Ringkasan", icon: "dashboard", exact: true, hiddenInSidebar: true },
@@ -61,6 +63,8 @@ function AdminModeSwitchButton() {
 
 export default function AdminShell({ children }) {
   const { user } = useAuth();
+  const { pathname } = useLocation();
+  const isChatRoute = pathname === "/admin/chat";
 
   return (
     <PanelTabsProvider items={ADMIN_NAV_ITEMS}>
@@ -91,9 +95,9 @@ export default function AdminShell({ children }) {
               modeHeader={<AdminModeSwitchButton />}
             />
             <PanelTabBar />
-            <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-white px-4 pb-20 sm:px-6 lg:px-8 lg:pb-6">
-              <div className="mx-auto w-full max-w-6xl py-6">
-                {children || <RouteOutletBoundary className="h-full w-full min-w-0 max-w-full" />}
+            <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-white px-0 pt-0 pb-0 sm:px-0 lg:px-0">
+              <div className={cn("w-full pt-0 pb-8 min-w-0", isChatRoute ? "flex h-full min-h-0 flex-col" : "")}>
+                {children || <RouteOutletBoundary className={cn("h-full w-full min-w-0 max-w-full", isChatRoute && "min-h-0 flex-1")} />}
               </div>
             </main>
           </div>

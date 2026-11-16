@@ -75,10 +75,7 @@ export default function SellerDashboardPage() {
   const lowStockProducts = useMemo(() => products.filter((product) => product.minStock > 0 && Number(product.stock) <= Number(product.minStock)).slice(0, 5), [products]);
 
   return (
-    <SellerPanelShell
-      title="Ringkasan"
-      subtitle="Pantau penjualan, pesanan, dan produk toko Anda."
-    >
+    <SellerPanelShell>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {data.metrics.map((item) => <SellerMetricCard key={item.key} item={item} />)}
       </div>

@@ -15,7 +15,9 @@ export const ColumnVisibilityMenu = memo(function ColumnVisibilityMenu({ columns
   const selectableColumns = columns;
   const hasColumns = selectableColumns.length > 0;
   const normalizedQuery = query.trim().toLowerCase();
-  const orderedColumns = [...visibleKeys, ...columns.map((column) => column.key).filter((key) => !visibleSet.has(key))]
+  const orderedColumns = columns
+    .map((column) => column.key)
+    .filter((key) => visibleSet.has(key))
     .map((key) => columns.find((column) => column.key === key))
     .filter(Boolean);
   const filteredColumns = normalizedQuery ? orderedColumns.filter((column) => String(column.label).toLowerCase().includes(normalizedQuery)) : orderedColumns;

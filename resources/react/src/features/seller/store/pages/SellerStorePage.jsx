@@ -8,7 +8,7 @@ export default function SellerStorePage() {
   const store = storeQuery.data || null;
 
   return (
-    <SellerPanelShell title="Toko" subtitle="Atur identitas dan operasional toko Anda.">
+    <SellerPanelShell>
       <div className="space-y-8">
         <SellerStoreProfileCard store={store} />
         <SellerStoreSettingsPanel store={store} />

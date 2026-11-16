@@ -1,5 +1,4 @@
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
-import AdminShell from "@/features/admin/layout/AdminShell";
 import { ORDER_TABLE_COLUMNS, OrderManagementTable } from "@/features/admin/order/components/OrderManagementTable";
 import { getOrderManagementError, useAdminOrders, useUpdateOrderStatus } from "@/features/admin/order/services/orderManagementService";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
@@ -73,7 +72,7 @@ export default function AdminOrdersPage() {
   ];
 
   return (
-    <AdminShell>
+    <>
       {editor.open && editor.entity ? (
         <OrderDetailForm row={editor.entity} />
       ) : !spreadsheet.activeOperation ? (
@@ -168,6 +167,6 @@ export default function AdminOrdersPage() {
       ) : null}
       <SpreadsheetOperationPanel workspace={spreadsheet} />
       {printRow ? <OrderPrintSheet row={printRow} onClose={() => setPrintRow(null)} /> : null}
-    </AdminShell>
+    </>
   );
 }
