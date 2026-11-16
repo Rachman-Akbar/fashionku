@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
+import { PasswordInput } from "@/shared/components/ui/PasswordInput";
 import {
   registerWithOtp,
   verifyRegistrationOtp,
@@ -328,9 +329,8 @@ export default function RegisterPage() {
           <label className="mb-2 block text-sm font-bold text-slate-700">
             Password
           </label>
-          <Input
+          <PasswordInput
             name="password"
-            type="password"
             placeholder="Minimal 8 karakter"
             value={form.password}
             onChange={handleChange}
@@ -343,9 +343,8 @@ export default function RegisterPage() {
           <label className="mb-2 block text-sm font-bold text-slate-700">
             Konfirmasi password
           </label>
-          <Input
+          <PasswordInput
             name="confirm"
-            type="password"
             placeholder="Ulangi password"
             value={form.confirm}
             onChange={handleChange}

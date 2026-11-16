@@ -89,6 +89,47 @@ function updateConversationRows(current, incoming, currentUserId, selectedId) {
   return { ...current, rows };
 }
 
+const CONNECTION_ERROR_STATES = ["disconnected", "failed", "error", "not_configured", "unauthenticated"];
+
+function connectionTone(status) {
+  if (status === "connected") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+  if (CONNECTION_ERROR_STATES.includes(status)) return "bg-red-50 text-red-700 ring-red-200";
+  return "bg-amber-50 text-amber-800 ring-amber-200";
+}
+
+function connectionDot(status) {
+  if (status === "connected") return "bg-emerald-500";
+  if (CONNECTION_ERROR_STATES.includes(status)) return "bg-red-500";
+  return "bg-amber-500";
+}
+
+const BUBBLE_BASE =
+  "max-w-[85%] rounded-2xl border px-4 py-2.5 text-sm leading-relaxed shadow-sm sm:max-w-[78%]";
+
+function bubbleTone(mine, messageType) {
+  if (mine) return cn(BUBBLE_BASE, "rounded-br-md border-emerald-700 bg-emerald-700 text-white");
+  if (messageType === "system") return cn(BUBBLE_BASE, "rounded-bl-md border-sky-200 bg-sky-50 text-sky-950");
+  if (messageType === "announcement") return cn(BUBBLE_BASE, "rounded-bl-md border-amber-200 bg-amber-50 text-amber-950");
+  return cn(BUBBLE_BASE, "rounded-bl-md border-slate-200 bg-white text-slate-900");
+}
+
+function messageStatusIcon(message, currentUserId) {
+  const isOwn = String(message.sender_id) === String(currentUserId);
+  if (!isOwn) return null;
+  const readBy = message.read_by || [];
+  const readByOthers = readBy.filter((id) => String(id) !== String(currentUserId));
+  const isRead = readByOthers.length > 0;
+  return (
+    <p className="mt-1 text-right text-[11px] leading-none">
+      {isRead ? (
+        <span className="font-bold text-white" aria-label="Dibaca">&#10003;&#10003;</span>
+      ) : (
+        <span className="text-emerald-100" aria-label="Terkirim">&#10003;</span>
+      )}
+    </p>
+  );
+}
+
 const EMPTY_START_FORM = {
   type: "direct",
   order_id: "",
@@ -355,14 +396,14 @@ export default function RealtimeChatPage() {
     return (
       <FormModal open title="Data Baru Chat" subtitle="Buka percakapan berdasarkan pesanan atau user tujuan." onClose={closeStart} onSubmit={start} busy={startMutation.isPending} submitLabel="Buka Chat">
         <Field label="Konteks" required>
-          <select value={startForm.type} onChange={(e) => setStartForm((c) => ({ ...c, type: e.target.value }))} className="h-10 w-full border border-slate-300 bg-white px-3 text-sm focus:border-orange-500 focus:outline-none">
+          <select value={startForm.type} onChange={(e) => setStartForm((c) => ({ ...c, type: e.target.value }))} className="h-10 w-full border border-slate-300 bg-white px-3 text-sm focus:border-emerald-500 focus:outline-none">
             <option value="direct">Langsung</option><option value="order">Pesanan</option>
           </select>
         </Field>
         {startForm.type === "order" && <Field label="ID Pesanan" required><Input type="number" min="1" value={startForm.order_id} onChange={(e) => setStartForm((c) => ({ ...c, order_id: e.target.value }))} /></Field>}
         {startForm.type === "direct" && <Field label="User ID Tujuan" required hint="Pisahkan UUID dengan koma."><Input value={startForm.participant_ids} onChange={(e) => setStartForm((c) => ({ ...c, participant_ids: e.target.value }))} placeholder="UUID buyer tujuan" /></Field>}
         <Field label="Subjek"><Input value={startForm.subject} onChange={(e) => setStartForm((c) => ({ ...c, subject: e.target.value }))} placeholder="Contoh: Pertanyaan pesanan atau produk" /></Field>
-        {notice && <p className="border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700">{notice}</p>}
+        {notice && <p className="border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">{notice}</p>}
       </FormModal>
     );
   }
@@ -373,27 +414,27 @@ export default function RealtimeChatPage() {
     const adminConv = adminConversation || active;
 
     return (
-      <section className={cn("overflow-hidden bg-white flex flex-col", fullscreen ? "fixed inset-0 z-[90]" : "border border-slate-200 min-h-[620px]")}>
-        {notice && <p className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">{notice}</p>}
+      <section className={cn("flex flex-col overflow-hidden bg-white", fullscreen ? "fixed inset-0 z-[90]" : "h-full min-h-0 border border-slate-200")}>
+        {notice && <p className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">{notice}</p>}
         <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4">
           <div className="min-w-0 flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-xs font-bold text-white">A</div>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-emerald-700 text-xs font-bold text-white">A</div>
             <div className="min-w-0">
               <h2 className="truncate font-extrabold text-slate-950">Admin MarketKu</h2>
               <p className="mt-1 truncate text-xs text-slate-500">Layanan Pelanggan</p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-3">
-            <span className={`flex items-center gap-1 text-[11px] font-semibold ${connectionStatus === "connected" ? "text-emerald-700" : "text-amber-700"}`}>
-              <span className={`h-2 w-2 rounded-full ${connectionStatus === "connected" ? "bg-emerald-500" : "bg-amber-500"}`} />
+            <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset", connectionTone(connectionStatus))}>
+              <span className={cn("h-2 w-2 rounded-full", connectionDot(connectionStatus))} />
               {connectionLabel(connectionStatus)}
             </span>
-            <button type="button" onClick={() => setFullscreen((c) => !c)} title={fullscreen ? "Keluar layar penuh" : "Layar penuh"} className="flex h-9 w-9 items-center justify-center rounded-md text-slate-500 hover:bg-slate-200">
+            <button type="button" onClick={() => setFullscreen((c) => !c)} title={fullscreen ? "Keluar layar penuh" : "Layar penuh"} className="flex h-9 w-9 items-center justify-center rounded-md text-slate-600 hover:bg-slate-200">
               <span className="material-symbols-outlined text-[19px]">{fullscreen ? "fullscreen_exit" : "fullscreen"}</span>
             </button>
           </div>
         </header>
-        <div className="flex-1 space-y-3 overflow-y-auto bg-slate-100 p-5">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4 sm:p-5">
           {isLoading ? (
             <div className="flex items-center justify-center h-full"><div className="flex flex-col items-center gap-3 text-slate-500"><div className="h-8 w-8 animate-spin rounded-full border-3 border-slate-200 border-t-emerald-500" /><p>Memuat percakapan...</p></div></div>
           ) : adminConv ? (
@@ -406,14 +447,15 @@ export default function RealtimeChatPage() {
                   const mine = String(item.sender_id) === String(user?.id);
                   return (
                     <div key={item.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[78%] border px-4 py-3 text-sm ${mine ? "border-emerald-500 bg-emerald-500 text-white" : item.message_type === "system" ? "border-sky-200 bg-sky-50 text-sky-950" : "border-slate-200 bg-white text-slate-800"}`}>
-                        <div className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold opacity-75">
+                      <div className={bubbleTone(mine, item.message_type)}>
+                        <div className={cn("mb-1 flex items-center gap-1.5 text-[11px] font-semibold", mine ? "text-emerald-50" : "text-slate-600")}>
                           {item.sender_identity_type === "store" && <span className="material-symbols-outlined text-[14px]">store</span>}
                           {item.message_type === "system" && <span className="material-symbols-outlined text-[14px]">notifications</span>}
                           <span>{item.message_type === "system" ? "Sistem" : item.sender_name || (mine ? "Anda" : "Admin")}</span>
                         </div>
                         <p className="whitespace-pre-wrap break-words">{item.message}</p>
-                        <p className="mt-1 text-right text-[10px] opacity-70">{item.created_at ? new Date(item.created_at).toLocaleString("id-ID") : ""}</p>
+                        <p className={cn("mt-1 text-right text-[11px]", mine ? "text-emerald-100" : "text-slate-500")}>{item.created_at ? new Date(item.created_at).toLocaleString("id-ID") : ""}</p>
+                        {messageStatusIcon(item, user?.id)}
                       </div>
                     </div>
                   );
@@ -422,21 +464,21 @@ export default function RealtimeChatPage() {
               </div>
             </>
           ) : (
-            <div className="flex flex-1 items-center justify-center text-center">
-              <div className="max-w-md"><div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-500"><span className="material-symbols-outlined text-4xl">support_agent</span></div>
+            <div className="flex min-h-full items-center justify-center text-center">
+              <div className="max-w-md"><div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600"><span className="material-symbols-outlined text-4xl">support_agent</span></div>
                 <h2 className="mb-2 text-xl font-bold text-slate-900">Hubungi Admin</h2>
-                <p className="text-sm text-slate-500 mb-4">Klik tombol di bawah untuk memulai percakapan dengan tim support kami.</p>
+                <p className="text-sm text-slate-600 mb-4">Klik tombol di bawah untuk memulai percakapan dengan tim support kami.</p>
                 <Button onClick={openAdminChat} className="w-full" disabled={startMutation.isPending}>{startMutation.isPending ? "Menghubungkan..." : "Mulai Chat dengan Admin"}</Button>
               </div>
             </div>
           )}
         </div>
         {(adminConv?.type === "announcement" || adminConv?.type === "system") ? (
-          <div className="border-t border-slate-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-800">
+          <div className="shrink-0 border-t border-slate-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-900">
             {adminConv?.type === "system" ? "Pesan sistem satu arah untuk informasi otomatis." : "Pengumuman bersifat satu arah dan hanya dapat dikirim oleh admin."}
           </div>
         ) : (
-          <form onSubmit={send} className="flex gap-2 border-t border-slate-200 bg-white p-4">
+          <form onSubmit={send} className="flex shrink-0 gap-2 border-t border-slate-200 bg-white p-4">
             <Input ref={composerRef} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Tulis pesan ke admin..." required autoComplete="off" />
             <Button type="submit" disabled={sendMutation.isPending || !message.trim() || !adminConv?.id}>Kirim</Button>
           </form>
@@ -447,32 +489,35 @@ export default function RealtimeChatPage() {
 
   // Seller/Admin: Full chat with sidebar
   return (
-    <section className={cn("overflow-hidden bg-white", fullscreen ? "fixed inset-0 z-[90] flex flex-col" : "border border-slate-200")}>
-      {notice && <p className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">{notice}</p>}
-      <div className={cn("grid lg:grid-cols-[320px_1fr]", fullscreen ? "min-h-0 flex-1 grid-rows-1" : "min-h-[620px]")}>
-        <aside className={cn("border-r border-slate-200", fullscreen && "flex min-h-0 flex-col")}>
+    <section className={cn("flex flex-col overflow-hidden bg-white", fullscreen ? "fixed inset-0 z-[90]" : "h-full min-h-0 border border-slate-200")}>
+      {notice && <p className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">{notice}</p>}
+      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,0.42fr)_minmax(0,1fr)] lg:grid-cols-[320px_1fr] lg:grid-rows-1">
+        <aside className="flex min-h-0 flex-col border-b border-slate-200 lg:border-b-0 lg:border-r">
           <div className="border-b border-slate-200 bg-slate-50 p-3">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div><h1 className="text-base font-extrabold text-slate-950">Chat</h1>
-                <p className={`mt-1 text-[11px] font-semibold ${connectionStatus === "connected" ? "text-emerald-700" : "text-amber-700"}`}>{connectionLabel(connectionStatus)}</p>
+                <span className={cn("mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset", connectionTone(connectionStatus))}>
+                  <span className={cn("h-1.5 w-1.5 rounded-full", connectionDot(connectionStatus))} />
+                  {connectionLabel(connectionStatus)}
+                </span>
               </div>
               {canStartManually && <Button size="sm" onClick={openStart}>Data Baru</Button>}
             </div>
             <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari percakapan" className="h-9" />
           </div>
-          <div className={cn("overflow-y-auto", fullscreen ? "min-h-0 flex-1" : "max-h-[550px]")}>
-            {!listQuery.isLoading && !conversations.length && <p className="p-5 text-sm text-slate-500">Percakapan belum tersedia.</p>}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {!listQuery.isLoading && !conversations.length && <p className="p-5 text-sm text-slate-600">Percakapan belum tersedia.</p>}
             {conversations.map((row) => (
-              <button key={row.id} type="button" onClick={() => selectConversation(row.id)} className={`w-full border-b border-slate-100 px-4 py-3 text-left hover:bg-slate-50 ${Number(selectedId) === Number(row.id) ? "border-l-2 border-l-orange-500 bg-orange-50" : ""}`}>
+              <button key={row.id} type="button" onClick={() => selectConversation(row.id)} className={`w-full border-b border-slate-100 px-4 py-3 text-left transition-colors hover:bg-slate-50 ${Number(selectedId) === Number(row.id) ? "border-l-2 border-l-emerald-600 bg-emerald-50" : ""}`}>
                 <div className="flex items-center justify-between gap-3"><span className="truncate text-sm font-extrabold text-slate-900">{conversationTitle(row, user?.id, activeRole)}</span>
-                  {row.unread_count && <span className="min-w-5 rounded-full bg-red-500 px-1.5 text-center text-xs font-extrabold text-white">{row.unread_count}</span>}
+                  {row.unread_count && <span className="min-w-5 rounded-full bg-red-600 px-1.5 text-center text-xs font-extrabold text-white">{row.unread_count}</span>}
                 </div>
-                <p className="mt-1 truncate text-xs text-slate-500">{row.latest_message?.message || conversationSubtitle(row, activeRole)}</p>
+                <p className="mt-1 truncate text-xs text-slate-600">{row.latest_message?.message || conversationSubtitle(row, activeRole)}</p>
               </button>
             ))}
           </div>
         </aside>
-        <div className="flex min-w-0 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-col">
           {active ? (
             <>
               <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4">
@@ -484,19 +529,19 @@ export default function RealtimeChatPage() {
                   <button type="button" onClick={() => setFullscreen((c) => !c)} title={fullscreen ? "Keluar layar penuh" : "Layar penuh"} className="flex h-9 w-9 items-center justify-center rounded-md text-slate-500 hover:bg-slate-200"><span className="material-symbols-outlined text-[19px]">{fullscreen ? "fullscreen_exit" : "fullscreen"}</span></button>
                 </div>
               </header>
-              <div className="flex-1 space-y-3 overflow-y-auto bg-slate-100 p-5">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4 sm:p-5">
                 {messages.map((item) => {
                   const mine = String(item.sender_id) === String(user?.id);
                   return (
                     <div key={item.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[78%] border px-4 py-3 text-sm ${mine ? "border-orange-500 bg-orange-500 text-white" : item.message_type === "system" ? "border-sky-200 bg-sky-50 text-sky-950" : item.message_type === "announcement" ? "border-amber-200 bg-amber-50 text-amber-950" : "border-slate-200 bg-white text-slate-800"}`}>
-                        <div className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold opacity-75">
+                      <div className={bubbleTone(mine, item.message_type)}>
+                        <div className={cn("mb-1 flex items-center gap-1.5 text-[11px] font-semibold", mine ? "text-emerald-50" : "text-slate-600")}>
                           {item.sender_identity_type === "store" && <span className="material-symbols-outlined text-[14px]">store</span>}
                           {item.message_type === "system" && <span className="material-symbols-outlined text-[14px]">notifications</span>}
                           <span>{item.message_type === "system" ? "Sistem" : item.sender_name || (mine ? "Anda" : "User")}</span>
                         </div>
                         <p className="whitespace-pre-wrap break-words">{item.message}</p>
-                        <p className="mt-1 text-right text-[10px] opacity-70">{item.created_at ? new Date(item.created_at).toLocaleString("id-ID") : ""}</p>
+                        <p className={cn("mt-1 text-right text-[11px]", mine ? "text-emerald-100" : "text-slate-500")}>{item.created_at ? new Date(item.created_at).toLocaleString("id-ID") : ""}</p>
                       </div>
                     </div>
                   );
@@ -504,17 +549,17 @@ export default function RealtimeChatPage() {
                 <div ref={bottomRef} />
               </div>
               {(active.type === "announcement" || active.type === "system") ? (
-                <div className="border-t border-slate-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-800">
+                <div className="shrink-0 border-t border-slate-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-900">
                   {active.type === "system" ? "Pesan sistem satu arah untuk informasi otomatis toko Anda." : "Pengumuman bersifat satu arah dan hanya dapat dikirim oleh admin."}
                 </div>
               ) : (
-                <form onSubmit={send} className="flex gap-2 border-t border-slate-200 bg-white p-4">
+                <form onSubmit={send} className="flex shrink-0 gap-2 border-t border-slate-200 bg-white p-4">
                   <Input ref={composerRef} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Tulis pesan" required autoComplete="off" />
                   <Button type="submit" disabled={sendMutation.isPending || !message.trim()}>Kirim</Button>
                 </form>
               )}
             </>
-          ) : <div className="flex flex-1 items-center justify-center p-8 text-sm text-slate-500">Pilih percakapan untuk mulai membaca pesan.</div>}
+          ) : <div className="flex flex-1 items-center justify-center p-8 text-sm text-slate-600">Pilih percakapan untuk mulai membaca pesan.</div>}
         </div>
       </div>
     </section>

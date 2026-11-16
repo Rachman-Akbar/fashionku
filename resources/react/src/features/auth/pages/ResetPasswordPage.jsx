@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
+import { PasswordInput } from "@/shared/components/ui/PasswordInput";
 import { emailVerificationEngine } from "@/core/engine/engine";
 import { applyResendCooldown } from "@/features/auth/services/otpResendCooldown";
 
@@ -225,8 +226,7 @@ export default function ResetPasswordPage() {
           <label className="mb-2 block text-sm font-bold text-slate-700">
             Password Baru
           </label>
-          <Input
-            type="password"
+          <PasswordInput
             placeholder="Minimal 8 karakter"
             value={form.password}
             onChange={(event) => {
@@ -244,8 +244,7 @@ export default function ResetPasswordPage() {
           <label className="mb-2 block text-sm font-bold text-slate-700">
             Konfirmasi Password
           </label>
-          <Input
-            type="password"
+          <PasswordInput
             placeholder="Ulangi password baru"
             value={form.password_confirmation}
             onChange={(event) => {

@@ -51,6 +51,20 @@ final class LoginUserUseCase
         $activeRole = 'buyer';
         $challengeId = (string) Str::uuid();
 
+        // Admin login ke panel admin langsung tanpa kode OTP.
+        if ($requestedRole === 'admin') {
+            $activeRole = $this->resolveRole($user, 'admin');
+            $token = $this->issueToken->execute($user, $deviceName ?: 'marketplace-web-admin', $activeRole, true);
+
+            return [
+                'otp_required' => false,
+                ...$this->payload->execute($user, $activeRole),
+                'token_type' => 'Bearer',
+                'access_token' => $token,
+                'api_token' => $token,
+            ];
+        }
+
         $code = $this->otpEngine->issue(
             email: $user->email,
             purpose: OtpPurpose::LOGIN->value,

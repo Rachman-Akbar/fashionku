@@ -42,6 +42,11 @@ export const Popover = memo(function Popover({
     emit(false);
   }, []);
 
+  const toggle = useCallback(() => {
+    if (!controlledRef.current) setInternalOpen((prev) => !prev);
+    emit(!open);
+  }, [open]);
+
   const scheduleClose = useCallback(() => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     hoverTimeoutRef.current = setTimeout(() => {

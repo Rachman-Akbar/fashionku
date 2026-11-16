@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { useSellerStore } from "@/features/seller/store/services/sellerStoreService";
 import { NotificationCenterPanel } from "@/shared/notifications/NotificationCenterPage";
@@ -8,6 +9,7 @@ import { PanelSidebar } from "@/shared/layout/PanelSidebar";
 import { PanelTabBar, PanelTabsProvider } from "@/shared/layout/tabs";
 import { RouteOutletBoundary } from "@/shared/layout/RouteOutletBoundary";
 import PageTransitionLoader from "@/shared/layout/PageTransitionLoader";
+import { cn } from "@/shared/utils/utils";
 
 export const SELLER_NAV_ITEMS = [
   { href: "/seller", label: "Ringkasan", icon: "dashboard", exact: true, hiddenInSidebar: true },
@@ -28,6 +30,8 @@ export const SELLER_NAV_ITEMS = [
 export default function SellerLayout() {
   const { user } = useAuth();
   const { data: store } = useSellerStore();
+  const { pathname } = useLocation();
+  const isChatRoute = pathname === "/seller/chat";
 
   return (
     <PanelTabsProvider items={SELLER_NAV_ITEMS}>
@@ -59,8 +63,8 @@ export default function SellerLayout() {
             />
             <PanelTabBar />
             <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-white px-4 pb-20 sm:px-6 lg:px-8 lg:pb-6">
-              <div className="mx-auto w-full max-w-6xl py-6">
-                <RouteOutletBoundary className="h-full w-full min-w-0 max-w-full" />
+              <div className={cn("mx-auto w-full max-w-6xl py-6", isChatRoute && "flex h-full min-h-0 flex-col")}>
+                <RouteOutletBoundary className={cn("h-full w-full min-w-0 max-w-full", isChatRoute && "min-h-0 flex-1")} />
               </div>
             </main>
           </div>

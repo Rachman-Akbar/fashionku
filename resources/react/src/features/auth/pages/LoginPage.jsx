@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
+import { PasswordInput } from "@/shared/components/ui/PasswordInput";
 import {
   getApiErrorMessage,
   handleGoogleRedirect,
@@ -464,9 +465,8 @@ export default function LoginPage({ portal = "buyer" }) {
               Lupa password?
             </Link>
           </div>
-          <Input
+          <PasswordInput
             name="password"
-            type="password"
             placeholder="Masukkan password"
             value={form.password}
             onChange={handleChange}

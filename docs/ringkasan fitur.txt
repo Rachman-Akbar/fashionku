@@ -7,12 +7,11 @@ A. Buyer
 
 B. Admin
 Admin mempunyai 2 cara menggunakan fitur, yaitu berjualan saja atau sekaligus melakukan operasional
-    1. Register Seller accout and Create Store
-    2.  CRUD Category, CatalogGroup, Promotion, Voucher, daily mission, user
-        CRUD Banner, Product, SHowcase, Voucher, Promotion (Main Marketplace)
-        CRUD Materials, HPP, Transaksi, Stock, Schedule (Operasional)
+    1. Manajemen User
+    2.  CRUD Category, Product (variant, hpp, stock, dll), Voucher, Promotion (Main Marketplace)
+        CRUD Materials, HPP, Transaksi, Stock, Schedule/jadwal/pengingat (Operasional)
     3. Import + Export Laporan dan Master data 
-    4. Manajemen Review Product, Order, Stock, dan Transaksi
+    4. Manajemen Rate&Review Product, Order, Stock, dan Transaksi
     5. Chat Buyer
        
 Tambahkan fitur import update yang menjadi acuan adalah kode nya bukan nama product, sehingga jika ada perubahan nama product tidak akan mempengaruhi data yang sudah ada. Bukan juga ID langsung dari database, karena ID tidak dapat dilihat oleh user secara langsung
