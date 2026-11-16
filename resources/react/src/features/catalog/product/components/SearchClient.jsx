@@ -8,7 +8,7 @@ import { Skeleton, SkeletonProductGrid } from "@/shared/components/feedback/Skel
 import { flattenProductPages, useInfiniteProducts } from "@/features/catalog/product/services/productService";
 import { getCategories } from "@/features/catalog/category/services/categoryService";
 
-const FILTER_TABS = ["Semua", "Official Store", "Power Merchant", "Diskon"];
+const FILTER_TABS = ["Semua", "Power Merchant", "Diskon"];
 const initialFilters = {
   categories: [],
   locations: [],
@@ -51,13 +51,8 @@ export default function SearchClient() {
         : undefined,
       min_price: debouncedFilters.minPrice || undefined,
       max_price: debouncedFilters.maxPrice || undefined,
-      store_type:
-        activeTab === 1
-          ? "official"
-          : activeTab === 2
-            ? "power_merchant"
-            : undefined,
-      has_discount: activeTab === 3 ? 1 : undefined,
+      store_type: activeTab === 1 ? "power_merchant" : undefined,
+      has_discount: activeTab === 2 ? 1 : undefined,
       sort,
     }),
     [activeTab, debouncedFilters, query, sort],

@@ -25,7 +25,6 @@ class AddressResource extends JsonResource
             'notes' => $this->notes,
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
-            'komerce_destination_id' => $this->komerce_destination_id,
             'is_primary' => $this->is_primary,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

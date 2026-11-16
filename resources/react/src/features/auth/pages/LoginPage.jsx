@@ -11,6 +11,7 @@ import {
   verifyFirebaseLoginOtp,
   resendFirebaseLoginOtp,
 } from "@/features/auth/services/authService";
+import { applyResendCooldown } from "@/features/auth/services/otpResendCooldown";
 
 const PORTALS = {
   buyer: {
@@ -283,7 +284,12 @@ export default function LoginPage({ portal = "buyer" }) {
       localStorage.setItem(RESEND_STORAGE_KEY, String(expiry));
       setLocalError("");
     } catch (err) {
-      setLocalError(getApiErrorMessage(err, "Gagal mengirim ulang kode OTP."));
+      const cooldown = applyResendCooldown(err, setResendExpiry, RESEND_STORAGE_KEY);
+      setLocalError(
+        cooldown
+          ? `Terlalu banyak permintaan. Tunggu ${cooldown} detik sebelum mengirim ulang kode.`
+          : getApiErrorMessage(err, "Gagal mengirim ulang kode OTP."),
+      );
     } finally {
       setSubmittingOtp(false);
     }

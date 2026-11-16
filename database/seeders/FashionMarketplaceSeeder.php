@@ -506,16 +506,10 @@ final class FashionMarketplaceSeeder extends Seeder
                     'phone_number' => $phone,
                     'latitude' => round(-6.2 + (($index % 40) / 10), 8),
                     'longitude' => round(106.8 + (($index % 30) / 10), 8),
-                    'komerce_destination_id' => $destinationId,
                     'is_primary' => true,
                     'created_at' => $now->subDays(120 - ($index % 100))->toDateTimeString(),
                     'updated_at' => $now->toDateTimeString(),
                 ]);
-            } else {
-                $destinationId = (string) (DB::table('addresses')
-                    ->where('user_id', $userId)
-                    ->where('is_primary', true)
-                    ->value('komerce_destination_id') ?? $destinationId);
             }
 
             $buyers[] = [

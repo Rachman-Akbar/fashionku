@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\Route;
 
 // Test/debug routes (bisa dihapus di production)
 Route::view('/test-firebase-login', 'login-firebase');
-Route::view('/test-map', 'test-address');
 Route::view('/test-checkout', 'checkout-test')->name('checkout.test');
 
 // Catch-all: semua route selain /api/* dan test routes dilayani React SPA

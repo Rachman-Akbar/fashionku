@@ -47,7 +47,6 @@ final class AddressMapper
             'is_primary' => $dto->is_primary,
             'latitude' => $dto->latitude,
             'longitude' => $dto->longitude,
-            'komerce_destination_id' => $dto->komerce_destination_id,
         ];
     }
 }

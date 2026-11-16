@@ -4,6 +4,7 @@ import { useAuth } from "@/features/auth/context/AuthContext";
 import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
 import { emailVerificationEngine } from "@/core/engine/engine";
+import { applyResendCooldown } from "@/features/auth/services/otpResendCooldown";
 
 function normalizeCode(value) {
   return String(value || "").replace(/[^\d]/g, "").slice(0, 6);
@@ -58,7 +59,16 @@ export default function ResetPasswordPage() {
       localStorage.setItem(RESEND_STORAGE_KEY, String(expiry));
       setResendMsg("Kode verifikasi baru sudah dikirim ke email kamu.");
     } catch (submitError) {
-      setResendMsg(getResetMessage(submitError, "Gagal mengirim ulang kode."));
+      const cooldown = applyResendCooldown(
+        submitError,
+        setResendExpiry,
+        RESEND_STORAGE_KEY,
+      );
+      setResendMsg(
+        cooldown
+          ? `Terlalu banyak permintaan. Tunggu ${cooldown} detik sebelum mengirim ulang kode.`
+          : getResetMessage(submitError, "Gagal mengirim ulang kode."),
+      );
     } finally {
       setResending(false);
     }

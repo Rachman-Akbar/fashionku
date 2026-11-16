@@ -40,9 +40,8 @@
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label">Kurir (Courier)</label>
                                     <select id="courier" class="form-select">
-                                        <option value="jne">JNE (RajaOngkir)</option>
                                         <option value="express">Express (Internal Haversine)</option>
-                                        <option value="ambil_sendiri">Ambil Sendiri (Tanpa Ongkir)</option>
+                                        <option value="haversine">Haversine</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6 mb-3">
@@ -51,7 +50,6 @@
                                         <option value="midtrans">Midtrans Gateway</option>
                                         <option value="cod">Cash on Delivery (COD)</option>
                                         <option value="transfer_manual">Transfer Manual</option>
-                                        <option value="tunai_toko">Bayar Tunai di Toko</option>
                                     </select>
                                 </div>
                             </div>

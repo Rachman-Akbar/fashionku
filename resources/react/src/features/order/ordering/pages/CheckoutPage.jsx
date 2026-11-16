@@ -655,8 +655,8 @@ export default function CheckoutPage() {
             ) : null}
 
             {shippingQuery.error && shippingErrorMessage ? (
-              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-                Ongkir belum dapat dihitung. Periksa alamat/koordinat atau coba lagi.
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800">
+                {shippingErrorMessage}
               </div>
             ) : null}
 

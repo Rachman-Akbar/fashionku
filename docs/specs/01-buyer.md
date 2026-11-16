@@ -79,7 +79,7 @@ Aturan:
 ### 5.1 Alur Umum
 
 1. Pilih item (dari cart atau langsung `items[]`).
-2. Isi/ pilih alamat (`POST /api/v1/order/addresses`, `resolve-destination`).
+2. Isi/ pilih alamat (`POST /api/v1/order/addresses`).
 3. Ambil opsi kirim: `POST /api/v1/order/orderings/shipping-options`.
 4. Buat order: `POST /api/v1/order/orderings` dengan `order_type` ∈ {`normal`, `preorder`, `booking`}.
 5. Pembayaran via Midtrans; notifikasi: `POST /api/v1/order/payments/midtrans/notification`.

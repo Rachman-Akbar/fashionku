@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Heart, ShoppingCart, X } from "lucide-react";
+import { Heart, ShoppingCart, X, Zap } from "lucide-react";
 import { getApiMessage } from "@/core/utils/apiClient";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { VariantSelector } from "@/features/catalog/product/components/VariantSelector";
@@ -406,6 +406,12 @@ export const ProductCard = memo(function ProductCard({
     setAvailableVariants(rows);
     setSelectedVariant(targetVariant);
 
+    if (!rows.length && fallbackVariantId <= 0) {
+      setCartStatus("error");
+      setCartMessage("Produk ini tidak memiliki varian yang dapat dipesan.");
+      return;
+    }
+
     if (!hasSingleVariant) {
       setOrderModalOpen(true);
       return;
@@ -644,22 +650,20 @@ export const ProductCard = memo(function ProductCard({
             </span>
           </div>
 
-          <div className="mt-[3px] flex min-w-0 items-center gap-[3px] pr-7">
-            <span className="text-[12px] leading-[15px] font-semibold text-[#10B981]">
-              Beli Sekarang atau Checkout Langsung
-            </span>
-          </div>
-
           {showAddToCart ? (
             <div className="pointer-events-auto mt-auto pt-3">
               <button
                 type="button"
                 onClick={handleCardOrderAction}
-                
-                className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#10B981] px-3 text-xs font-bold text-white transition hover:bg-[#059669]"
+                disabled={variantsLoading || buyingNow}
+                className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#10B981] px-3 text-xs font-bold text-white transition hover:bg-[#059669] disabled:cursor-wait disabled:opacity-70"
               >
                 <ShoppingCart size={15} />
-                {cartStatus === "success" ? "Ditambahkan" : cartStatus === "error" ? "Coba Lagi" : addToCartLabel}
+                {cartStatus === "success"
+                  ? "Ditambahkan"
+                  : cartStatus === "error"
+                    ? "Coba Lagi"
+                    : addToCartLabel}
               </button>
               {cartStatus === "error" && cartMessage ? (
                 <p className="mt-1.5 line-clamp-2 text-[10px] leading-4 text-red-500">
@@ -667,20 +671,29 @@ export const ProductCard = memo(function ProductCard({
                 </p>
               ) : null}
             </div>
-          ) : null}
+          ) : (
+            <div className="pointer-events-auto mt-auto pt-3">
+              <button
+                type="button"
+                onClick={handleCardOrderAction}
+                disabled={variantsLoading || buyingNow}
+                className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#10B981] px-3 text-xs font-bold text-white transition hover:bg-[#059669] disabled:cursor-wait disabled:opacity-70"
+              >
+                <Zap size={14} />
+                {buyingNow
+                  ? "Memproses..."
+                  : variantsLoading
+                    ? "Memuat varian..."
+                    : "Beli Sekarang"}
+              </button>
+              {cartStatus === "error" && cartMessage ? (
+                <p className="mt-1.5 line-clamp-2 text-[10px] leading-4 text-red-500">
+                  {cartMessage}
+                </p>
+              ) : null}
+            </div>
+          )}
         </div>
-
-        {!showAddToCart ? (
-          <button
-            type="button"
-            onClick={handleCardOrderAction}
-            
-            className="pointer-events-auto absolute bottom-[6px] right-[4px] z-20 flex h-6 w-6 items-center justify-center text-[#8a99b5] transition hover:text-[#10B981]"
-            aria-label="Atur pesanan"
-          >
-<ShoppingCart size={18} />
-          </button>
-        ) : null}
       </article>
 
       {orderModalOpen ? (

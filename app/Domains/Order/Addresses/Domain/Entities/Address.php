@@ -23,7 +23,6 @@ class Address extends Model
         'subdistrict',
         'full_address',
         'postal_code',
-        'komerce_destination_id',
         'notes',
         'latitude',
         'longitude',

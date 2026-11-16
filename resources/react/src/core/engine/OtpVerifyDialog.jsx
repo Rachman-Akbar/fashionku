@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2, MailCheck, RefreshCw, X, AlertCircle } from "lucide-react";
 import { emailVerificationEngine, toEmailVerificationError } from "./engine";
+import { getResendCooldownSeconds } from "@/features/auth/services/otpResendCooldown";
 
 const OTP_INPUT_CLASS =
   "h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-center text-lg font-black tracking-[0.4em] text-slate-900 outline-none transition focus:border-[#10B981] focus:bg-white focus:ring-2 focus:ring-[#10B981]/10";
@@ -48,9 +49,15 @@ export default function OtpVerifyDialog({
       });
       window.setTimeout(() => inputRef.current?.focus(), 50);
     } catch (error) {
+      const seconds = getResendCooldownSeconds(error);
+      if (seconds > 0) {
+        setCooldown(seconds);
+      }
       setNotice({
         type: "error",
-        text: toEmailVerificationError(error, "Gagal mengirim kode verifikasi.").message,
+        text: seconds > 0
+          ? `Terlalu banyak permintaan. Tunggu ${seconds} detik sebelum mengirim ulang kode.`
+          : toEmailVerificationError(error, "Gagal mengirim kode verifikasi.").message,
       });
     } finally {
       setSending(false);

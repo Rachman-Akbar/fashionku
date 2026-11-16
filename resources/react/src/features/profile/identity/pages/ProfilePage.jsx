@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
@@ -38,7 +38,6 @@ import {
   uploadMarketplaceImage,
 } from "@/shared/services/mediaUploadService";
 import AddressMapTracker from "@/features/profile/address/components/AddressMapTracker";
-import { resolveKomerceDestination } from "@/features/profile/address/destinationService";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { cn } from "@/shared/utils/utils";
 import { confirmLogout, toastError, toastSuccess } from "@/shared/utils/userFeedback";
@@ -67,8 +66,36 @@ const EMPTY_ADDRESS = {
   notes: "",
   latitude: "",
   longitude: "",
-  komerceDestinationId: "",
   isPrimary: false,
+};
+
+const ADDRESS_REQUIRED_FIELDS = [
+  "label",
+  "recipientName",
+  "phoneNumber",
+  "country",
+  "province",
+  "cityOrRegency",
+  "district",
+  "subdistrict",
+  "postalCode",
+  "fullAddress",
+  "latitude",
+];
+
+const ADDRESS_FIELD_LABELS = {
+  label: "Label Alamat",
+  recipientName: "Nama Penerima",
+  phoneNumber: "Nomor Telepon",
+  country: "Negara",
+  province: "Provinsi",
+  cityOrRegency: "Kota / Kabupaten",
+  district: "Kecamatan",
+  subdistrict: "Kelurahan / Desa",
+  postalCode: "Kode Pos",
+  fullAddress: "Alamat Lengkap",
+  latitude: "Pinpoint Lokasi",
+  longitude: "Pinpoint Lokasi",
 };
 
 function Field({ label, children }) {
@@ -172,10 +199,8 @@ function BiodataTab({ user, refreshMe }) {
 function AddressForm({ initialValue, onClose }) {
   const [form, setForm] = useState(initialValue || EMPTY_ADDRESS);
   const [message, setMessage] = useState("");
-  const [destinationStatus, setDestinationStatus] = useState({
-    loading: false,
-    message: "",
-  });
+  const [fieldErrors, setFieldErrors] = useState({});
+  const fieldRefs = useRef({});
   const createMutation = useCreateAddress();
   const updateMutation = useUpdateAddress();
   const isEdit = Boolean(initialValue?.id);
@@ -203,71 +228,51 @@ function AddressForm({ initialValue, onClose }) {
   );
 
   const update = (key, value) => {
-    const resetDestination = [
-      "province",
-      "cityOrRegency",
-      "district",
-      "subdistrict",
-      "postalCode",
-    ].includes(key);
-
     setMessage("");
-    setForm((current) => ({
-      ...current,
-      [key]: value,
-      ...(resetDestination ? { komerceDestinationId: "" } : {}),
-    }));
+    setFieldErrors((current) => {
+      if (!current[key]) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[key];
+
+      return next;
+    });
+    setForm((current) => ({ ...current, [key]: value }));
   };
 
-  const resolveDestination = async (values) => {
-    setDestinationStatus({
-      loading: true,
-      message: "Mencocokkan tujuan logistik...",
-    });
-
-    try {
-      const destination = await resolveKomerceDestination(values);
-      setForm((current) => ({
-        ...current,
-        komerceDestinationId: destination.id,
-      }));
-      setDestinationStatus({
-        loading: false,
-        message: `Tujuan logistik ditemukan: ${destination.label || destination.subdistrict || destination.id}`,
-      });
-      return destination.id;
-    } catch (error) {
-      setDestinationStatus({
-        loading: false,
-        message: error.message,
-      });
-      return "";
+  const registerField = (key) => (node) => {
+    if (node) {
+      fieldRefs.current[key] = node;
+    } else {
+      delete fieldRefs.current[key];
     }
   };
 
-  useEffect(() => {
-    if (
-      !form.subdistrict ||
-      !form.district ||
-      !form.cityOrRegency ||
-      !form.province
-    ) {
+  const focusFirstInvalidField = (keys) => {
+    const targetKey = keys[0];
+    if (!targetKey) {
       return;
     }
 
-    const timer = window.setTimeout(() => {
-      resolveDestination(addressValues);
-    }, 700);
+    window.requestAnimationFrame(() => {
+      const node = fieldRefs.current[targetKey];
 
-    return () => window.clearTimeout(timer);
-  }, [
-    addressValues,
-    form.cityOrRegency,
-    form.district,
-    form.postalCode,
-    form.province,
-    form.subdistrict,
-  ]);
+      if (node && typeof node.scrollIntoView === "function") {
+        node.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+
+      const focusable =
+        node && typeof node.focus === "function"
+          ? node
+          : node?.querySelector?.("input, textarea, select, button, [tabindex]");
+
+      if (focusable && typeof focusable.focus === "function") {
+        window.setTimeout(() => focusable.focus({ preventScroll: true }), 260);
+      }
+    });
+  };
 
   const resolveAddress = (address) => {
     setForm((current) => ({
@@ -279,7 +284,6 @@ function AddressForm({ initialValue, onClose }) {
       subdistrict: address.subdistrict || current.subdistrict,
       postalCode: address.postalCode || current.postalCode,
       fullAddress: address.fullAddress || current.fullAddress,
-      komerceDestinationId: "",
     }));
   };
 
@@ -289,27 +293,64 @@ function AddressForm({ initialValue, onClose }) {
       latitude,
       longitude,
     }));
+    setFieldErrors((current) => {
+      if (!current.latitude && !current.longitude) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next.latitude;
+      delete next.longitude;
+
+      return next;
+    });
+  };
+
+  const validate = () => {
+    const errors = {};
+    const invalidKeys = [];
+
+    for (const key of ADDRESS_REQUIRED_FIELDS) {
+      if (String(form[key] ?? "").trim() === "") {
+        errors[key] = `${ADDRESS_FIELD_LABELS[key] ?? "Field ini"} wajib diisi.`;
+        invalidKeys.push(key);
+      }
+    }
+
+    if (
+      errors.latitude &&
+      String(form.longitude ?? "").trim() !== "" &&
+      !errors.longitude
+    ) {
+      delete errors.latitude;
+      invalidKeys.splice(invalidKeys.indexOf("latitude"), 1);
+    }
+
+    if (
+      errors.longitude &&
+      String(form.latitude ?? "").trim() !== "" &&
+      !errors.latitude
+    ) {
+      delete errors.longitude;
+      invalidKeys.splice(invalidKeys.indexOf("longitude"), 1);
+    }
+
+    setFieldErrors(errors);
+
+    return invalidKeys;
   };
 
   const submit = async () => {
-    const requiredValues = [
-      form.label,
-      form.recipientName,
-      form.phoneNumber,
-      form.province,
-      form.cityOrRegency,
-      form.district,
-      form.subdistrict,
-      form.postalCode,
-      form.fullAddress,
-      form.latitude,
-      form.longitude,
-    ];
+    const invalidKeys = validate();
 
-    if (requiredValues.some((value) => String(value ?? "").trim() === "")) {
+    if (invalidKeys.length) {
+      const firstLabel =
+        ADDRESS_FIELD_LABELS[invalidKeys[0]] ?? "beberapa field wajib";
+
       setMessage(
-        "Lengkapi identitas penerima, wilayah, alamat, dan pinpoint lokasi.",
+        `Lengkapi field yang ditandai merah, mulai dari ${firstLabel}.`,
       );
+      focusFirstInvalidField(invalidKeys);
       return;
     }
 
@@ -352,10 +393,21 @@ function AddressForm({ initialValue, onClose }) {
               {field.label}
             </span>
             <input
+              ref={registerField(field.key)}
               value={form[field.key]}
               onChange={(event) => update(field.key, event.target.value)}
-              className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-[#10B981]"
+              aria-invalid={Boolean(fieldErrors[field.key])}
+              className={`h-11 w-full rounded-xl border px-3 text-sm outline-none ${
+                fieldErrors[field.key]
+                  ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10"
+                  : "border-slate-200 focus:border-[#10B981]"
+              }`}
             />
+            {fieldErrors[field.key] ? (
+              <span className="block text-xs font-semibold text-red-500">
+                {fieldErrors[field.key]}
+              </span>
+            ) : null}
           </label>
         ))}
       </div>
@@ -365,10 +417,21 @@ function AddressForm({ initialValue, onClose }) {
           Alamat Lengkap
         </span>
         <textarea
+          ref={registerField("fullAddress")}
           value={form.fullAddress}
           onChange={(event) => update("fullAddress", event.target.value)}
-          className="min-h-24 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#10B981]"
+          aria-invalid={Boolean(fieldErrors.fullAddress)}
+          className={`min-h-24 w-full rounded-xl border px-3 py-3 text-sm outline-none ${
+            fieldErrors.fullAddress
+              ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10"
+              : "border-slate-200 focus:border-[#10B981]"
+          }`}
         />
+        {fieldErrors.fullAddress ? (
+          <span className="block text-xs font-semibold text-red-500">
+            {fieldErrors.fullAddress}
+          </span>
+        ) : null}
       </label>
 
       <label className="block space-y-1.5">
@@ -382,35 +445,27 @@ function AddressForm({ initialValue, onClose }) {
         />
       </label>
 
-      <AddressMapTracker
-        latitude={form.latitude}
-        longitude={form.longitude}
-        addressValues={addressValues}
-        onCoordinateChange={setCoordinate}
-        onAddressResolved={resolveAddress}
-      />
-
-      <div className="rounded-2xl border border-[#10B981]/20 bg-[#ECFDF5] px-4 py-3">
-        <p className="text-sm font-black text-slate-800">
-          Tujuan logistik terisi otomatis
-        </p>
-        <p className="mt-1 text-xs leading-5 text-slate-500">
-          {destinationStatus.message ||
-            "OpenStreetMap mengisi wilayah dan backend mencocokkan ID tujuan kurir secara otomatis."}
-        </p>
-      </div>
-
-      <label className="block space-y-1.5">
-        <span className="text-xs font-semibold text-slate-500">
-          Komerce Destination ID (opsional)
-        </span>
-        <input
-          readOnly
-          value={form.komerceDestinationId}
-          placeholder="Terisi otomatis dari backend"
-          className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-600 outline-none"
+      <div
+        ref={registerField("latitude")}
+        className={`rounded-2xl border p-1 ${
+          fieldErrors.latitude || fieldErrors.longitude
+            ? "border-red-400"
+            : "border-transparent"
+        }`}
+      >
+        <AddressMapTracker
+          latitude={form.latitude}
+          longitude={form.longitude}
+          addressValues={addressValues}
+          onCoordinateChange={setCoordinate}
+          onAddressResolved={resolveAddress}
         />
-      </label>
+        {fieldErrors.latitude || fieldErrors.longitude ? (
+          <p className="mt-1 px-2 pb-1 text-xs font-semibold text-red-500">
+            {fieldErrors.latitude || fieldErrors.longitude}
+          </p>
+        ) : null}
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-1.5">

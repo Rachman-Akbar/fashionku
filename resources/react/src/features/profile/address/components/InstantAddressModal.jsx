@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, LoaderCircle, MapPin, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { X } from "lucide-react";
 import {
   getAddressError,
   useCreateAddress,
 } from "@/features/profile/address/addressService";
 import AddressMapTracker from "@/features/profile/address/components/AddressMapTracker";
-import { resolveKomerceDestination } from "@/features/profile/address/destinationService";
 
 const EMPTY_ADDRESS = {
   label: "Rumah",
@@ -21,11 +20,48 @@ const EMPTY_ADDRESS = {
   notes: "",
   latitude: "",
   longitude: "",
-  komerceDestinationId: "",
   isPrimary: false,
 };
 
-function Field({ label, required, children }) {
+// Urutan field wajib sesuai tampilan di modal. Dipakai untuk menemukan
+// field wajib pertama yang masih kosong agar bisa digulir + di-focus.
+const REQUIRED_FIELDS = [
+  "label",
+  "recipientName",
+  "phoneNumber",
+  "country",
+  "province",
+  "cityOrRegency",
+  "district",
+  "subdistrict",
+  "postalCode",
+  "fullAddress",
+  "latitude",
+];
+
+const FIELD_LABELS = {
+  label: "Label alamat",
+  recipientName: "Nama penerima",
+  phoneNumber: "Nomor telepon",
+  country: "Negara",
+  province: "Provinsi",
+  cityOrRegency: "Kota / Kabupaten",
+  district: "Kecamatan",
+  subdistrict: "Kelurahan / Desa",
+  postalCode: "Kode pos",
+  fullAddress: "Alamat lengkap",
+  latitude: "Pinpoint lokasi",
+  longitude: "Pinpoint lokasi",
+};
+
+const inputClass = (hasError) =>
+  `h-11 w-full rounded-xl border bg-slate-50 px-3 text-sm outline-none transition focus:bg-white ${
+    hasError
+      ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10"
+      : "border-slate-200 focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/10"
+  }`;
+
+function Field({ label, required, error, children }) {
   return (
     <label className="space-y-1.5">
       <span className="text-xs font-semibold text-slate-600">
@@ -33,6 +69,9 @@ function Field({ label, required, children }) {
         {required ? <span className="ml-1 text-red-500">*</span> : null}
       </span>
       {children}
+      {error ? (
+        <span className="block text-xs font-semibold text-red-500">{error}</span>
+      ) : null}
     </label>
   );
 }
@@ -48,11 +87,10 @@ export default function InstantAddressModal({
     ...EMPTY_ADDRESS,
     isPrimary: defaultPrimary,
   });
+  const [fieldErrors, setFieldErrors] = useState({});
   const [message, setMessage] = useState("");
-  const [destinationState, setDestinationState] = useState({
-    loading: false,
-    message: "",
-  });
+  const fieldRefs = useRef({});
+  const scrollRef = useRef(null);
 
   useEffect(() => {
     if (!open) {
@@ -63,8 +101,9 @@ export default function InstantAddressModal({
       ...EMPTY_ADDRESS,
       isPrimary: defaultPrimary,
     });
+    setFieldErrors({});
     setMessage("");
-    setDestinationState({ loading: false, message: "" });
+    fieldRefs.current = {};
   }, [defaultPrimary, open]);
 
   const addressValues = useMemo(
@@ -90,93 +129,64 @@ export default function InstantAddressModal({
 
   const update = (key, value) => {
     setMessage("");
-    setForm((current) => ({
-      ...current,
-      [key]: value,
-      ...(key === "province" ||
-      key === "cityOrRegency" ||
-      key === "district" ||
-      key === "subdistrict" ||
-      key === "postalCode"
-        ? { komerceDestinationId: "" }
-        : {}),
-    }));
+    setFieldErrors((current) => {
+      if (!current[key]) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[key];
+
+      return next;
+    });
+    setForm((current) => ({ ...current, [key]: value }));
   };
 
-  const resolveDestination = async (values) => {
-    setDestinationState({
-      loading: true,
-      message: "Mencocokkan tujuan logistik...",
-    });
-
-    try {
-      const destination = await resolveKomerceDestination(values);
-      setForm((current) => ({
-        ...current,
-        komerceDestinationId: destination.id,
-      }));
-      setDestinationState({
-        loading: false,
-        message: `Tujuan logistik ditemukan: ${destination.label || destination.subdistrict || destination.id}`,
-      });
-      return destination.id;
-    } catch (error) {
-      setDestinationState({
-        loading: false,
-        message: error.message,
-      });
-      return "";
+  const registerField = (key) => (node) => {
+    if (node) {
+      fieldRefs.current[key] = node;
+    } else {
+      delete fieldRefs.current[key];
     }
   };
 
-  useEffect(() => {
-    if (
-      !open ||
-      !form.subdistrict ||
-      !form.district ||
-      !form.cityOrRegency ||
-      !form.province
-    ) {
+  // Gulir container modal ke field pertama yang masih kosong lalu focus.
+  const focusFirstInvalidField = (keys) => {
+    const targetKey = keys[0];
+    if (!targetKey) {
       return;
     }
 
-    const timer = window.setTimeout(() => {
-      resolveDestination(addressValues);
-    }, 700);
+    window.requestAnimationFrame(() => {
+      const node = fieldRefs.current[targetKey];
 
-    return () => window.clearTimeout(timer);
-  }, [
-    addressValues,
-    form.cityOrRegency,
-    form.district,
-    form.postalCode,
-    form.province,
-    form.subdistrict,
-    open,
-  ]);
+      if (node && typeof node.scrollIntoView === "function") {
+        node.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+
+      const focusable =
+        node && typeof node.focus === "function"
+          ? node
+          : node?.querySelector?.(
+              "input, textarea, select, button, [tabindex]",
+            );
+
+      if (focusable && typeof focusable.focus === "function") {
+        window.setTimeout(() => focusable.focus({ preventScroll: true }), 260);
+      }
+    });
+  };
 
   const resolveAddress = (address) => {
-    const nextValues = {
-      ...addressValues,
-      country: address.country || form.country,
-      province: address.province || form.province,
-      cityOrRegency: address.cityOrRegency || form.cityOrRegency,
-      district: address.district || form.district,
-      subdistrict: address.subdistrict || form.subdistrict,
-      postalCode: address.postalCode || form.postalCode,
-      fullAddress: address.fullAddress || form.fullAddress,
-    };
-
     setForm((current) => ({
       ...current,
-      country: nextValues.country,
-      province: nextValues.province,
-      cityOrRegency: nextValues.cityOrRegency,
-      district: nextValues.district,
-      subdistrict: nextValues.subdistrict,
-      postalCode: nextValues.postalCode,
-      fullAddress: nextValues.fullAddress,
-      komerceDestinationId: "",
+      country: address.country || current.country,
+      province: address.province || current.province,
+      cityOrRegency: address.cityOrRegency || current.cityOrRegency,
+      district: address.district || current.district,
+      subdistrict: address.subdistrict || current.subdistrict,
+      postalCode: address.postalCode || current.postalCode,
+      fullAddress: address.fullAddress || current.fullAddress,
     }));
   };
 
@@ -186,27 +196,64 @@ export default function InstantAddressModal({
       latitude,
       longitude,
     }));
+    setFieldErrors((current) => {
+      if (!current.latitude && !current.longitude) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next.latitude;
+      delete next.longitude;
+
+      return next;
+    });
+  };
+
+  const validate = () => {
+    const errors = {};
+    const invalidKeys = [];
+
+    for (const key of REQUIRED_FIELDS) {
+      if (!String(form[key] ?? "").trim()) {
+        errors[key] = `${FIELD_LABELS[key] ?? "Field ini"} wajib diisi.`;
+        invalidKeys.push(key);
+      }
+    }
+
+    if (
+      errors.latitude &&
+      String(form.longitude ?? "").trim() &&
+      !errors.longitude
+    ) {
+      delete errors.latitude;
+      invalidKeys.splice(invalidKeys.indexOf("latitude"), 1);
+    }
+
+    if (
+      errors.longitude &&
+      String(form.latitude ?? "").trim() &&
+      !errors.latitude
+    ) {
+      delete errors.longitude;
+      invalidKeys.splice(invalidKeys.indexOf("longitude"), 1);
+    }
+
+    setFieldErrors(errors);
+
+    return invalidKeys;
   };
 
   const submit = async () => {
-    const required = [
-      form.label,
-      form.recipientName,
-      form.phoneNumber,
-      form.province,
-      form.cityOrRegency,
-      form.district,
-      form.subdistrict,
-      form.postalCode,
-      form.fullAddress,
-      form.latitude,
-      form.longitude,
-    ];
+    const invalidKeys = validate();
 
-    if (required.some((value) => !String(value || "").trim())) {
+    if (invalidKeys.length) {
+      const firstLabel =
+        FIELD_LABELS[invalidKeys[0]] ?? "beberapa field wajib";
+
       setMessage(
-        "Lengkapi identitas penerima, wilayah, alamat, dan pinpoint lokasi.",
+        `Lengkapi field yang ditandai merah, mulai dari ${firstLabel}.`,
       );
+      focusFirstInvalidField(invalidKeys);
       return;
     }
 
@@ -246,7 +293,10 @@ export default function InstantAddressModal({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6"
+        >
           <div className="grid gap-4 sm:grid-cols-2">
             {[
               ["label", "Label alamat", true],
@@ -259,23 +309,40 @@ export default function InstantAddressModal({
               ["subdistrict", "Kelurahan / Desa", true],
               ["postalCode", "Kode pos", true],
             ].map(([key, label, required]) => (
-              <Field key={key} label={label} required={required}>
+              <Field
+                key={key}
+                label={label}
+                required={required}
+                error={fieldErrors[key]}
+              >
                 <input
+                  ref={registerField(key)}
                   value={form[key]}
                   onChange={(event) => update(key, event.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-[#10B981] focus:bg-white focus:ring-2 focus:ring-[#10B981]/10"
+                  aria-invalid={Boolean(fieldErrors[key])}
+                  className={inputClass(Boolean(fieldErrors[key]))}
                 />
               </Field>
             ))}
           </div>
 
           <div className="mt-4 space-y-4">
-            <Field label="Alamat lengkap" required>
+            <Field
+              label="Alamat lengkap"
+              required
+              error={fieldErrors.fullAddress}
+            >
               <textarea
+                ref={registerField("fullAddress")}
                 value={form.fullAddress}
                 onChange={(event) => update("fullAddress", event.target.value)}
                 rows={3}
-                className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition focus:border-[#10B981] focus:bg-white focus:ring-2 focus:ring-[#10B981]/10"
+                aria-invalid={Boolean(fieldErrors.fullAddress)}
+                className={`w-full resize-none rounded-xl border bg-slate-50 px-3 py-3 text-sm outline-none transition focus:bg-white ${
+                  fieldErrors.fullAddress
+                    ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10"
+                    : "border-slate-200 focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/10"
+                }`}
               />
             </Field>
             <Field label="Catatan atau patokan">
@@ -288,7 +355,14 @@ export default function InstantAddressModal({
             </Field>
           </div>
 
-          <div className="mt-5">
+          <div
+            ref={registerField("latitude")}
+            className={`mt-5 rounded-2xl border p-1 ${
+              fieldErrors.latitude || fieldErrors.longitude
+                ? "border-red-400"
+                : "border-transparent"
+            }`}
+          >
             <AddressMapTracker
               compact
               latitude={form.latitude}
@@ -297,40 +371,12 @@ export default function InstantAddressModal({
               onCoordinateChange={setCoordinate}
               onAddressResolved={resolveAddress}
             />
+            {fieldErrors.latitude || fieldErrors.longitude ? (
+              <p className="mt-1 px-2 pb-1 text-xs font-semibold text-red-500">
+                {fieldErrors.latitude || fieldErrors.longitude}
+              </p>
+            ) : null}
           </div>
-
-          <div className="mt-4 rounded-2xl border border-[#10B981]/20 bg-[#ECFDF5] px-4 py-3">
-            <div className="flex items-start gap-3">
-              {destinationState.loading ? (
-                <LoaderCircle
-                  className="mt-0.5 text-[#10B981]"
-                  size={18}
-                />
-              ) : form.komerceDestinationId ? (
-                <CheckCircle2 className="mt-0.5 text-[#10B981]" size={18} />
-              ) : (
-                <MapPin className="mt-0.5 text-slate-400" size={18} />
-              )}
-              <div>
-                <p className="text-sm font-black text-slate-800">
-                  Tujuan logistik terisi otomatis
-                </p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
-                  {destinationState.message ||
-                    "OpenStreetMap mengisi wilayah. ID tujuan kurir akan diisi jika pencocokan backend menemukan data yang valid."}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <Field label="Komerce Destination ID (opsional)">
-            <input
-              readOnly
-              value={form.komerceDestinationId}
-              placeholder="Terisi otomatis dari backend"
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-600 outline-none"
-            />
-          </Field>
 
           <label className="mt-4 flex items-center gap-2 text-sm text-slate-600">
             <input
@@ -360,7 +406,7 @@ export default function InstantAddressModal({
           <button
             type="button"
             onClick={submit}
-            disabled={createMutation.isPending || destinationState.loading}
+            disabled={createMutation.isPending}
             className="h-11 rounded-xl bg-[#10B981] px-5 text-sm font-black text-white transition hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {createMutation.isPending

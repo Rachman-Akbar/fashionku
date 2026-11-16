@@ -81,7 +81,6 @@ export interface Address {
   notes: string | null;
   latitude: number | null;
   longitude: number | null;
-  komerceDestinationId: string | null;
   isPrimary: boolean;
 }
 
@@ -110,7 +109,6 @@ export interface ShippingOption {
   etd: string | null;
   type: "delivery" | "pickup";
   provider?: string;
-  requiresDestinationId?: boolean;
 }
 
 export interface OrderItem {

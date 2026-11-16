@@ -9,6 +9,7 @@ import {
   resendRegistrationOtp,
   getApiErrorMessage,
 } from "@/features/auth/services/authService";
+import { applyResendCooldown } from "@/features/auth/services/otpResendCooldown";
 
 export default function RegisterPage() {
   const { loginWithGoogle, loading: authLoading, clearError } = useAuth();
@@ -143,7 +144,12 @@ export default function RegisterPage() {
       localStorage.setItem(RESEND_STORAGE_KEY, String(expiry));
       setLocalError("");
     } catch (err) {
-      setLocalError(getApiErrorMessage(err, err?.message));
+      const cooldown = applyResendCooldown(err, setResendExpiry, RESEND_STORAGE_KEY);
+      setLocalError(
+        cooldown
+          ? `Terlalu banyak permintaan. Tunggu ${cooldown} detik sebelum mengirim ulang kode.`
+          : getApiErrorMessage(err, err?.message),
+      );
     } finally {
       setSubmitting(false);
     }

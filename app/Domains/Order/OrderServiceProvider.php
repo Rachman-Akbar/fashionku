@@ -7,9 +7,7 @@ namespace App\Domains\Order;
 use App\Domains\Admin\AdminServiceProvider;
 use App\Domains\Identity\IdentityServiceProvider;
 use App\Domains\Order\Addresses\Domain\Repositories\AddressRepositoryInterface;
-use App\Domains\Order\Addresses\Domain\Services\DestinationResolverInterface;
 use App\Domains\Order\Addresses\Infrastructure\Persistence\Repositories\EloquentAddressRepository;
-use App\Domains\Order\Addresses\Infrastructure\Services\NoopDestinationResolver;
 use App\Domains\Order\Cart\Application\Readers\ProductForCartReaderInterface;
 use App\Domains\Order\Cart\Domain\Repositories\CartRepositoryInterface;
 use App\Domains\Order\Cart\Infrastructure\Persistence\Readers\EloquentProductForCartReader;
@@ -42,7 +40,6 @@ final class OrderServiceProvider extends ServiceProvider
         $this->app->bind(CartRepositoryInterface::class, EloquentCartRepository::class);
         $this->app->bind(ProductForCartReaderInterface::class, EloquentProductForCartReader::class);
         $this->app->bind(AddressRepositoryInterface::class, EloquentAddressRepository::class);
-        $this->app->bind(DestinationResolverInterface::class, NoopDestinationResolver::class);
         $this->app->bind(WishlistRepositoryInterface::class, EloquentWishlistRepository::class);
         $this->app->bind(PaymentRepositoryInterface::class, EloquentPaymentRepository::class);
         $this->app->bind(OrderRepositoryInterface::class, EloquentOrderRepository::class);

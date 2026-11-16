@@ -299,6 +299,49 @@ function getShippingErrorSearchText(value, status = null) {
     .toLowerCase();
 }
 
+// Ongkir dihitung lokal (Haversine + tarif admin), tanpa RajaOngkir/Komerce.
+// Error di bawah ini berarti "alamat belum mendukung ongkir", bukan kegagalan
+// sistem: tampilkan pesan ramah, jangan hentikan proses checkout.
+const SHIPPING_UNAVAILABLE_PATTERNS = [
+  "pengiriman belum tersedia",
+  "pengiriman tidak tersedia",
+  "pengiriman belum dapat dihitung",
+  "ongkir belum tersedia",
+  "ongkir tidak tersedia",
+  "ongkir tidak dapat dihitung",
+  "pastikan koordinat",
+  "koordinat toko dan alamat penerima",
+  "destination not found",
+  "origin not found",
+];
+
+function isShippingUnavailableMessage(value, status = null) {
+  const searchText = getShippingErrorSearchText(value, status);
+
+  return SHIPPING_UNAVAILABLE_PATTERNS.some((pattern) =>
+    searchText.includes(pattern),
+  );
+}
+
+function normalizeShippingWarning(value) {
+  if (isShippingUnavailableMessage(value)) {
+    return "";
+  }
+
+  return getShippingMessage(value);
+}
+
+function isIgnoredShippingError(error) {
+  const status = Number(error?.response?.status || 0);
+  const errorPayload = {
+    response: error?.response?.data,
+    message: error?.message,
+    url: error?.config?.url,
+    status,
+  };
+
+  return isShippingUnavailableMessage(errorPayload, status);
+}
 
 export function normalizeShippingOption(option = {}, index = 0) {
   const provider = String(option.provider || option.source || "")
@@ -364,12 +407,7 @@ export function normalizeShippingOption(option = {}, index = 0) {
       option.estimate ||
       "",
     provider,
-    requiresDestinationId: false,
   };
-}
-
-export function isDestinationShippingOption() {
-  return false;
 }
 
 export async function getCustomerOrders(userId, filters = {}) {
@@ -654,7 +692,7 @@ export function getOrderError(error) {
 
 export function getShippingError(error) {
   if (isIgnoredShippingError(error)) {
-    return "";
+    return "Ongkir belum tersedia untuk alamat ini. Pastikan koordinat toko dan alamat penerima sudah diisi.";
   }
 
   return getApiMessage(error, "Ongkir belum dapat dihitung.");

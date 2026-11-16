@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
 import { MailCheck, Loader2, Mail, AlertCircle } from "lucide-react";import { emailVerificationEngine, toEmailVerificationError } from "@/core/engine/engine";
+import { applyResendCooldown } from "@/features/auth/services/otpResendCooldown";
 
 export default function OtpLoginPage() {
   const navigate = useNavigate();
@@ -51,7 +52,17 @@ export default function OtpLoginPage() {
       setNotice({ type: "success", text: "Kode OTP telah dikirim ke email kamu." });
       setStep("otp");
     } catch (error) {
-      setNotice({ type: "error", text: toEmailVerificationError(error, "Gagal mengirim kode OTP.").message });
+      const cooldown = applyResendCooldown(
+        error,
+        setResendExpiry,
+        RESEND_STORAGE_KEY,
+      );
+      setNotice({
+        type: "error",
+        text: cooldown
+          ? `Terlalu banyak permintaan. Tunggu ${cooldown} detik sebelum mengirim ulang kode.`
+          : toEmailVerificationError(error, "Gagal mengirim kode OTP.").message,
+      });
     } finally {
       setSending(false);
     }
