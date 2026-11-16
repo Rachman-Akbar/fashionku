@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Order\Ordering\Presentation\Http\Resources;
 
+use App\Domains\Shared\Settings\Application\Services\AppSettingService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -21,6 +22,7 @@ final class OrderItemResource extends JsonResource
 
         return [
             'id' => $this->read($item, 'id'),
+            'store_name' => (string) (app(AppSettingService::class)->storeProfile()['name'] ?? ''),
             'product_id' => $this->read($item, 'productId') ?? $this->read($item, 'product_id'),
             'variant_id' => $this->read($item, 'variantId') ?? $this->read($item, 'variant_id'),
             'product_name' => $this->read($item, 'productName') ?? $this->read($item, 'product_name'),

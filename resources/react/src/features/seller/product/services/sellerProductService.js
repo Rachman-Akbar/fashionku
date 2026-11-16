@@ -5,6 +5,7 @@ import { getCategories } from "@/features/catalog/category/services/categoryServ
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { toBoolean } from "@/core/utils/boolean";
 import { invalidateCatalogQueries } from "@/features/catalog/application/cache/catalogQueryClient";
+import { isOperatorRole } from "@/shared/utils/roles";
 import { useInfiniteList } from "@/shared/hooks/useInfiniteList";
 import { beginOptimisticEntityUpdate, mergeOptimisticValues, rollbackOptimisticEntityUpdate } from "@/shared/utils/optimisticQueryData";
 
@@ -238,7 +239,7 @@ export function useSellerProducts(params = {}) {
     queryKey: ["seller", "products", "list"],
     queryFn: getSellerProducts,
     params,
-    enabled: Boolean(isAuthenticated && activeRole === "seller"),
+    enabled: Boolean(isAuthenticated && isOperatorRole(activeRole)),
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });

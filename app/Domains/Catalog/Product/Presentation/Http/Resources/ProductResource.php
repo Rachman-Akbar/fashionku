@@ -7,6 +7,7 @@ namespace App\Domains\Catalog\Product\Presentation\Http\Resources;
 use App\Domains\Catalog\Product\Domain\Entities\ProductVariant;
 use App\Domains\Catalog\Product\Infrastructure\Persistence\Mappers\ProductMapper;
 use App\Domains\Catalog\Product\Infrastructure\Persistence\Models\ProductModel;
+use App\Domains\Shared\Settings\Application\Services\AppSettingService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -36,9 +37,15 @@ final class ProductResource extends JsonResource
         $targetMaxOrderQty = $targetVariant ? $targetVariant->maxOrderQty() : 999999;
         $targetAllowsPreorder = $targetVariant ? $targetVariant->allowsPreorder() : false;
         $targetMinStock = $targetVariant ? $targetVariant->minStock() : 0;
+        // Marketplace single-store: profil toko diambil dari `app_settings`
+        // (di-cache per-request oleh AppSettingService), bukan dari tabel multi-store.
+        $storeProfile = app(AppSettingService::class)->storeProfile();
 
         return [
             'id' => $product->id(),
+            'store_name' => (string) ($storeProfile['name'] ?? ''),
+            'store_city' => $storeProfile['city'] ?? null,
+            'store_province' => $storeProfile['province'] ?? null,
             'primary_category_id' => $product->primaryCategoryId(),
             'name' => $product->name(),
             'slug' => $product->slug(),

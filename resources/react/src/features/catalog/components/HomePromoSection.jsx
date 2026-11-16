@@ -238,7 +238,7 @@ const categoryCards = useMemo(() => {
             <h3 className="text-base font-black text-slate-900 sm:text-lg">Voucher Spesial</h3>
             <p className="mt-0.5 text-sm text-slate-500">Klaim dan pakai voucher hemat untuk belanja fashion favoritmu.</p>
           </div>
-          <Link to="/profile/vouchers" className="shrink-0 whitespace-nowrap text-sm font-bold text-[#10B981] hover:underline">
+          <Link to="/promotions?tab=voucher" className="shrink-0 whitespace-nowrap text-sm font-bold text-[#10B981] hover:underline">
             Lihat semua
           </Link>
         </div>

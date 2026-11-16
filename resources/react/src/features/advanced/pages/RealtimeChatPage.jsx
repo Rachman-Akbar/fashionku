@@ -17,13 +17,12 @@ import {
 import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
-import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
+import { isOperatorRole } from "@/shared/utils/roles";
 import { cn } from "@/shared/utils/utils";
 
 function conversationTitle(row, currentUserId, activeRole) {
   const otherParticipant = (row?.participants || []).find((item) => String(item.id) !== String(currentUserId));
-  if (activeRole === "seller" && otherParticipant?.name) return otherParticipant.name;
   if (activeRole === "buyer" && row?.store_name) return row.store_name;
   if (row?.subject) return row.subject;
   if (row?.order_number) return `Pesanan ${row.order_number}`;
@@ -91,22 +90,19 @@ function updateConversationRows(current, incoming, currentUserId, selectedId) {
 }
 
 const EMPTY_START_FORM = {
-  type: "store",
-  store_id: "",
+  type: "direct",
   order_id: "",
-  buyer_id: "",
   participant_ids: "",
   subject: "",
 };
 
 export default function RealtimeChatPage() {
-  const { user, activeRole, store } = useAuth();
+  const { user, activeRole } = useAuth();
   const panelTabs = usePanelTabs();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const admin = activeRole === "admin";
-  const seller = activeRole === "seller";
-  const canStartManually = admin || seller;
+  // Operator toko tunggal (admin) membuka chat baru lewat form konteks.
+  const canStartManually = isOperatorRole(activeRole);
   const queryConversationId = Number(searchParams.get("conversation") || 0) || null;
   const [selectedId, setSelectedId] = useState(queryConversationId);
   const [query, setQuery] = useState("");
@@ -167,6 +163,14 @@ export default function RealtimeChatPage() {
   const startMutation = useStartConversation();
   const readMutation = useMarkConversationRead();
 
+  // Stable refs for React Query results (new object every render)
+  const readMutationRef = useRef(readMutation);
+  const detailQueryRef = useRef(detailQuery);
+  const listQueryRef = useRef(listQuery);
+  readMutationRef.current = readMutation;
+  detailQueryRef.current = detailQuery;
+  listQueryRef.current = listQuery;
+
   // Stable callbacks using refs
   const selectConversation = useCallback((id) => {
     const value = Number(id);
@@ -216,8 +220,8 @@ export default function RealtimeChatPage() {
     if (!selectedId) return;
     const unsubscribe = subscribeConversation(selectedId, (incoming) => {
       if (!incoming?.id) {
-        detailQuery.refetch();
-        listQuery.refetch();
+        detailQueryRef.current.refetch();
+        listQueryRef.current.refetch();
         return;
       }
       queryClient.setQueryData([...advancedKeys.conversations, selectedId], (current) => {
@@ -227,18 +231,18 @@ export default function RealtimeChatPage() {
         return { ...current, messages: [...currentMessages, incoming], updated_at: incoming.created_at };
       });
       queryClient.setQueriesData({ queryKey: advancedKeys.conversations }, (current) => updateConversationRows(current, incoming, userIdRef.current, selectedId));
-      readMutation.mutate(selectedId);
+      readMutationRef.current.mutate(selectedId);
     });
     subscriptionsRef.current.conversation = unsubscribe;
     return () => { subscriptionsRef.current.conversation = null; };
-  }, [selectedId, queryClient, detailQuery, listQuery, readMutation]);
+  }, [selectedId, queryClient]);
 
   // Mark as read when selectedId changes
   useEffect(() => {
     if (!selectedId) return;
     queryClient.setQueriesData({ queryKey: advancedKeys.conversations }, (current) => markConversationReadInRows(current, selectedId));
-    readMutation.mutate(selectedId);
-  }, [selectedId, queryClient, readMutation]);
+    readMutationRef.current.mutate(selectedId);
+  }, [selectedId, queryClient]);
 
   // Handle URL params
   useEffect(() => {
@@ -279,7 +283,7 @@ export default function RealtimeChatPage() {
     setNotice("");
     try {
       const row = await startMutation.mutateAsync({
-        type: "admin",
+        type: "direct",
         subject: "Bantuan Pelanggan",
         participant_ids: [],
       });
@@ -291,13 +295,13 @@ export default function RealtimeChatPage() {
 
   const openStart = useCallback(() => {
     setNotice("");
-    setStartForm({ ...EMPTY_START_FORM, store_id: seller ? String(store?.id || "") : "" });
+    setStartForm({ ...EMPTY_START_FORM });
     if (panelTabs) {
-      panelTabs.openOperationTab("chat-create", { id: "new", label: seller ? "Chat Buyer Baru" : "Data Baru Chat" });
+      panelTabs.openOperationTab("chat-create", { id: "new", label: "Data Baru Chat" });
       return;
     }
     setLocalStartOpen(true);
-  }, [seller, store, panelTabs]);
+  }, [panelTabs]);
 
   const closeStart = useCallback(() => {
     if (panelTabs) {
@@ -330,21 +334,12 @@ export default function RealtimeChatPage() {
     event.preventDefault();
     setNotice("");
 
-    if (seller) {
-      if (!store?.id) { setNotice("Toko aktif tidak ditemukan pada sesi seller."); return; }
-      if (!startForm.buyer_id) { setNotice("Pilih buyer tujuan terlebih dahulu."); return; }
-    } else if (startForm.type === "store" && !startForm.store_id) { setNotice("ID toko wajib diisi untuk chat berbasis toko."); return; }
-    else if (startForm.type === "order" && (!startForm.order_id || !startForm.store_id)) { setNotice("ID pesanan dan ID toko tujuan wajib diisi untuk chat berbasis pesanan."); return; }
-    else if (startForm.type === "direct" && !startForm.participant_ids.trim()) { setNotice("User ID tujuan wajib diisi untuk chat langsung."); return; }
+    if (startForm.type === "order" && !startForm.order_id) { setNotice("ID pesanan tujuan wajib diisi untuk chat berbasis pesanan."); return; }
+    if (startForm.type === "direct" && !startForm.participant_ids.trim()) { setNotice("User ID tujuan wajib diisi untuk chat langsung."); return; }
 
     try {
-      const values = seller ? {
-        type: "store", store_id: Number(store.id), order_id: null,
-        subject: startForm.subject.trim() || `Chat ${store.name || "Toko"}`,
-        participant_ids: [startForm.buyer_id],
-      } : {
+      const values = {
         type: startForm.type,
-        store_id: startForm.store_id ? Number(startForm.store_id) : null,
         order_id: startForm.order_id ? Number(startForm.order_id) : null,
         subject: startForm.subject.trim() || null,
         participant_ids: startForm.participant_ids.split(",").map((v) => v.trim()).filter(Boolean),
@@ -354,32 +349,19 @@ export default function RealtimeChatPage() {
       setStartForm(EMPTY_START_FORM);
       closeStart();
     } catch (error) { setNotice(advancedError(error)); }
-  }, [seller, store, startForm, startMutation, selectConversation, closeStart]);
+  }, [startForm, startMutation, selectConversation, closeStart]);
 
   if (startOpen) {
     return (
-      <FormModal open title={seller ? "Chat Buyer Baru" : "Data Baru Chat"} subtitle={seller ? `Pesan dikirim atas nama ${store?.name || "toko aktif"}` : "Buka percakapan berdasarkan toko, pesanan, atau user tujuan."} onClose={closeStart} onSubmit={start} busy={startMutation.isPending} submitLabel="Buka Chat">
-        {seller ? (
-          <>
-            <Field label="Buyer" required hint="Hanya buyer yang pernah bertransaksi pada toko aktif.">
-              <SearchableSelect value={startForm.buyer_id} onChange={(value) => setStartForm((c) => ({ ...c, buyer_id: value }))} options={[]} placeholder="Pilih buyer" searchPlaceholder="Cari nama atau email buyer" />
-            </Field>
-            <Field label="Nama Pengirim"><Input value={store?.name || "Toko Aktif"} disabled /></Field>
-            <Field label="Subjek"><Input value={startForm.subject} onChange={(e) => setStartForm((c) => ({ ...c, subject: e.target.value }))} placeholder="Contoh: Informasi pesanan atau produk" /></Field>
-          </>
-        ) : (
-          <>
-            <Field label="Konteks" required>
-              <select value={startForm.type} onChange={(e) => setStartForm((c) => ({ ...c, type: e.target.value }))} className="h-10 w-full border border-slate-300 bg-white px-3 text-sm focus:border-orange-500 focus:outline-none">
-                <option value="store">Toko</option><option value="order">Pesanan</option><option value="direct">Langsung</option>
-              </select>
-            </Field>
-            {["store", "order"].includes(startForm.type) && <Field label="ID Toko" required><Input type="number" min="1" value={startForm.store_id} onChange={(e) => setStartForm((c) => ({ ...c, store_id: e.target.value }))} /></Field>}
-            {startForm.type === "order" && <Field label="ID Pesanan" required><Input type="number" min="1" value={startForm.order_id} onChange={(e) => setStartForm((c) => ({ ...c, order_id: e.target.value }))} /></Field>}
-            {startForm.type === "direct" && <Field label="User ID Tujuan" required hint="Pisahkan UUID dengan koma."><Input value={startForm.participant_ids} onChange={(e) => setStartForm((c) => ({ ...c, participant_ids: e.target.value }))} /></Field>}
-            <Field label="Subjek"><Input value={startForm.subject} onChange={(e) => setStartForm((c) => ({ ...c, subject: e.target.value }))} placeholder="Contoh: Pertanyaan pesanan atau produk" /></Field>
-          </>
-        )}
+      <FormModal open title="Data Baru Chat" subtitle="Buka percakapan berdasarkan pesanan atau user tujuan." onClose={closeStart} onSubmit={start} busy={startMutation.isPending} submitLabel="Buka Chat">
+        <Field label="Konteks" required>
+          <select value={startForm.type} onChange={(e) => setStartForm((c) => ({ ...c, type: e.target.value }))} className="h-10 w-full border border-slate-300 bg-white px-3 text-sm focus:border-orange-500 focus:outline-none">
+            <option value="direct">Langsung</option><option value="order">Pesanan</option>
+          </select>
+        </Field>
+        {startForm.type === "order" && <Field label="ID Pesanan" required><Input type="number" min="1" value={startForm.order_id} onChange={(e) => setStartForm((c) => ({ ...c, order_id: e.target.value }))} /></Field>}
+        {startForm.type === "direct" && <Field label="User ID Tujuan" required hint="Pisahkan UUID dengan koma."><Input value={startForm.participant_ids} onChange={(e) => setStartForm((c) => ({ ...c, participant_ids: e.target.value }))} placeholder="UUID buyer tujuan" /></Field>}
+        <Field label="Subjek"><Input value={startForm.subject} onChange={(e) => setStartForm((c) => ({ ...c, subject: e.target.value }))} placeholder="Contoh: Pertanyaan pesanan atau produk" /></Field>
         {notice && <p className="border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700">{notice}</p>}
       </FormModal>
     );
@@ -471,10 +453,10 @@ export default function RealtimeChatPage() {
         <aside className={cn("border-r border-slate-200", fullscreen && "flex min-h-0 flex-col")}>
           <div className="border-b border-slate-200 bg-slate-50 p-3">
             <div className="mb-3 flex items-start justify-between gap-3">
-              <div><h1 className="text-base font-extrabold text-slate-950">{seller ? "Chat Buyer" : "Chat"}</h1>
+              <div><h1 className="text-base font-extrabold text-slate-950">Chat</h1>
                 <p className={`mt-1 text-[11px] font-semibold ${connectionStatus === "connected" ? "text-emerald-700" : "text-amber-700"}`}>{connectionLabel(connectionStatus)}</p>
               </div>
-              {canStartManually && <Button size="sm" onClick={openStart}>{seller ? "Chat Buyer" : "Data Baru"}</Button>}
+              {canStartManually && <Button size="sm" onClick={openStart}>Data Baru</Button>}
             </div>
             <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari percakapan" className="h-9" />
           </div>

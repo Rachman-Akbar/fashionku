@@ -65,3 +65,9 @@ firebase
     // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const analytics = getAnalytics(app);
+
+Hapus validasi yang tidak digunakan seperti 
+    1. product milik toko ini
+    2. voucher tidak dapat digunakan di toko (voucher sudah pasti bisa digunakan)
+    3. tidak di temukan toko
+karena saat ini project merupakan marketplace internal bukan lagi marketplace multistore

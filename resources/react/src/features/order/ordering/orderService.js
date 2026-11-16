@@ -424,7 +424,7 @@ export async function getOrderDetail(id) {
   return normalizeOrder(resolved.order, resolved.payment);
 }
 
-export async function getSellerOrders(_storeId, filters = {}) {
+export async function getSellerOrders(filters = {}) {
   const response = await apiClient.get("/api/v1/order/orderings", {
     params: filters,
   });
@@ -646,12 +646,12 @@ export function useShippingOptions(payload, enabled = true) {
   });
 }
 
-export function useSellerOrders(_storeId, filters = {}) {
+export function useSellerOrders(filters = {}) {
   const { isAuthenticated } = useAuth();
 
   return useQuery({
     queryKey: orderKeys.seller(filters),
-    queryFn: () => getSellerOrders(null, filters),
+    queryFn: () => getSellerOrders(filters),
     enabled: Boolean(isAuthenticated),
     staleTime: 30000,
   });

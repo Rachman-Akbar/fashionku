@@ -19,13 +19,26 @@ function createMemoryStorage() {
 }
 
 if (typeof globalThis !== "undefined") {
-  if (typeof globalThis.localStorage === "undefined") {
+  // Node bisa menyediakan localStorage native tanpa API lengkap (tanpa
+  // `--localstorage-file` yang valid), sehingga `getItem` bukan fungsi.
+  const hasBrokenStorage =
+    typeof globalThis.localStorage !== "undefined" &&
+    typeof globalThis.localStorage.getItem !== "function";
+
+  if (
+    typeof globalThis.localStorage === "undefined" ||
+    hasBrokenStorage
+  ) {
     Object.defineProperty(globalThis, "localStorage", {
       value: createMemoryStorage(),
       configurable: true,
     });
   }
-  if (typeof globalThis.sessionStorage === "undefined") {
+  if (
+    typeof globalThis.sessionStorage === "undefined" ||
+    (typeof globalThis.sessionStorage !== "undefined" &&
+      typeof globalThis.sessionStorage.getItem !== "function")
+  ) {
     Object.defineProperty(globalThis, "sessionStorage", {
       value: createMemoryStorage(),
       configurable: true,

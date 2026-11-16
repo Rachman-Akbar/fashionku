@@ -7,6 +7,7 @@ import { ReviewSection } from "@/features/order/review/components/ReviewSection"
 import { Skeleton, SkeletonLine } from "@/shared/components/feedback/Skeleton";
 import { advancedError, usePublicReviews, useStartConversation } from "@/features/advanced/services/advancedMarketplaceService";
 import { useAuth } from "@/features/auth/context/AuthContext";
+import { isOperatorRole } from "@/shared/utils/roles";
 import { formatPrice } from "@/shared/utils/utils";
 import {
   useProductBySlug,
@@ -146,7 +147,11 @@ export function ProductDetailClient({ slug }) {
   const reviewTotal = Number(product?.review_count ?? product?.reviewCount ?? reviewsQuery.data?.meta?.total ?? reviewRows.length ?? 0);
   const averageRating = Number(product?.average_rating ?? product?.rating ?? reviewsQuery.data?.summary?.average ?? 0);
   const storeOwnerId = store.user_id ?? store.owner_id ?? store.seller_id;
-  const ownStore = Boolean(user?.id && storeOwnerId && String(user.id) === String(storeOwnerId));
+  // Single-store: seluruh produk berasal dari toko yang dioperasikan akun ini,
+  // sehingga operator tidak boleh membuka chat "kepada dirinya sendiri".
+  const ownStore =
+    isOperatorRole(activeRole) ||
+    Boolean(user?.id && storeOwnerId && String(user.id) === String(storeOwnerId));
 
   async function handleStartChat() {
     if (ownStore) {
@@ -166,7 +171,7 @@ export function ProductDetailClient({ slug }) {
         type: "store",
         subject: `Produk: ${product.name}`,
       });
-      const chatPath = activeRole === "admin" ? "/admin/chat" : activeRole === "seller" ? "/seller/chat" : "/chat";
+      const chatPath = isOperatorRole(activeRole) ? "/seller/chat" : "/chat";
       const draft = `Halo, saya ingin bertanya tentang produk ${product.name}.`;
       navigate(`${chatPath}?conversation=${encodeURIComponent(conversation.id)}&draft=${encodeURIComponent(draft)}`);
     } catch (error) {

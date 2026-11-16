@@ -14,6 +14,17 @@ function migrateLegacySession() {
 
   const sessionStorage = window.sessionStorage;
   const localStorage = window.localStorage;
+
+  // Storage bisa tidak tersedia (private mode, lingkungan tanpa dukungan,
+  // atau implementasi native tanpa API lengkap). Jangan sampai memecah
+  // seluruh aplikasi hanya karena migrasi sesi gagal.
+  if (
+    typeof localStorage?.getItem !== "function" ||
+    typeof sessionStorage?.getItem !== "function"
+  ) {
+    return;
+  }
+
   const legacyToken = sessionStorage.getItem(BASE_TOKEN_KEY);
   const legacySession = sessionStorage.getItem(BASE_SESSION_KEY);
   const baseToken = localStorage.getItem(BASE_TOKEN_KEY);

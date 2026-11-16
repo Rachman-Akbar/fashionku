@@ -23,7 +23,7 @@ const statusLabels = {
 export default function SellerDashboardPage() {
   const storeQuery = useSellerStore();
   const productsQuery = useSellerProducts({ per_page: 24 });
-  const ordersQuery = useSellerOrders(null, { per_page: 15 });
+  const ordersQuery = useSellerOrders({ per_page: 15 });
   const trendQuery = useSellerOrderTrend({ period: "monthly" });
 
   const products = useMemo(() => productsQuery.data?.rows || [], [productsQuery.data]);

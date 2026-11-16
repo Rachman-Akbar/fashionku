@@ -110,6 +110,8 @@ export const ProductCard = memo(function ProductCard({
   discountPct,
   originalPrice,
   average_rating,
+  rating,
+  reviewCount,
   sold,
   sold_count,
   location,
@@ -184,6 +186,9 @@ export const ProductCard = memo(function ProductCard({
     const target = slug || resolvedProductId || "#";
     return `/products/${target}`;
   }, [resolvedProductId, slug]);
+
+  const displayRating = normalizeNumber(rating ?? average_rating, 0);
+  const displayReviewCount = normalizeNumber(reviewCount, 0);
 
   const hasVariantChoices = availableVariants.length > 0;
   const productStock = getValidStock(stock);
@@ -645,7 +650,8 @@ export const ProductCard = memo(function ProductCard({
               star
             </span>
             <span className="min-w-0 truncate text-[12px] leading-[15px] text-[#5f6f8f]">
-              {average_rating ? `${average_rating}` : ""}{" "}
+              {displayRating ? `${displayRating}` : ""}{" "}
+              {displayReviewCount > 0 ? `(${displayReviewCount})` : ""}{" "}
               {sold_count ? `· ${sold_count} terjual` : sold ? `· ${sold} terjual` : ""}
             </span>
           </div>
@@ -671,20 +677,33 @@ export const ProductCard = memo(function ProductCard({
                 </p>
               ) : null}
             </div>
-          ) : (
-            <div className="pointer-events-auto mt-auto pt-3">
+) : (
+            <div className="pointer-events-auto mt-auto pt-3 space-y-2">
               <button
                 type="button"
-                onClick={handleCardOrderAction}
-                disabled={variantsLoading || buyingNow}
+                onClick={handleBuyNow}
+                disabled={variantsLoading || buyingNow || selectedOutOfStock}
                 className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#10B981] px-3 text-xs font-bold text-white transition hover:bg-[#059669] disabled:cursor-wait disabled:opacity-70"
               >
                 <Zap size={14} />
                 {buyingNow
                   ? "Memproses..."
                   : variantsLoading
-                    ? "Memuat varian..."
-                    : "Beli Sekarang"}
+                  ? "Memuat varian..."
+                  : "Beli Sekarang"}
+              </button>
+              <button
+                type="button"
+                onClick={handleCardOrderAction}
+                disabled={variantsLoading || isAdding || selectedOutOfStock}
+                className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[#10B981] bg-white px-3 text-xs font-bold text-[#047857] transition hover:bg-emerald-50 disabled:cursor-wait disabled:opacity-70 disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                <ShoppingCart size={14} />
+                {cartStatus === "success"
+                  ? "Ditambahkan"
+                  : cartStatus === "error"
+                  ? "Coba Lagi"
+                  : addToCartLabel}
               </button>
               {cartStatus === "error" && cartMessage ? (
                 <p className="mt-1.5 line-clamp-2 text-[10px] leading-4 text-red-500">

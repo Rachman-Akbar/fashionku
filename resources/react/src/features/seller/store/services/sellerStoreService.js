@@ -7,6 +7,7 @@ import {
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { toBoolean } from "@/core/utils/boolean";
+import { isOperatorRole } from "@/shared/utils/roles";
 import {
   addressKeys,
   createAddress,
@@ -88,7 +89,7 @@ export function useSellerStore(options = {}) {
   return useQuery({
     queryKey: sellerStoreKeys.detail(),
     queryFn: () => getSellerStoreData(),
-    enabled: Boolean(enabled && isAuthenticated && activeRole === "seller"),
+    enabled: Boolean(enabled && isAuthenticated && isOperatorRole(activeRole)),
     staleTime: 120000,
     ...queryOptions,
   });
@@ -101,7 +102,7 @@ export function useSellerStoreAddress(options = {}) {
   return useQuery({
     queryKey: sellerStoreKeys.address(),
     queryFn: async () => (await getAddresses("store"))[0] || null,
-    enabled: Boolean(enabled && isAuthenticated && activeRole === "seller"),
+    enabled: Boolean(enabled && isAuthenticated && isOperatorRole(activeRole)),
     staleTime: 300000,
     ...queryOptions,
   });

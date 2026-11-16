@@ -12,6 +12,7 @@ export const ADMIN_NAV_ITEMS = [
   { href: "/admin", label: "Ringkasan", icon: "dashboard", exact: true, hiddenInSidebar: true },
   { href: "/admin/orders", label: "Pesanan", icon: "receipt_long", group: "Operasional" },
   { href: "/admin/shipping", label: "Ongkir", icon: "local_shipping", group: "Pengaturan" },
+  { href: "/admin/store", label: "Alamat Toko", icon: "storefront", group: "Pengaturan" },
 ];
 
 export default function AdminShell({ children }) {

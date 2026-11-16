@@ -6,8 +6,10 @@ import {
   useCodePatterns,
   useSaveCodePatterns,
 } from "@/features/advanced/services/codePatternService";
+import { useSellerStore } from "@/features/seller/store/services/sellerStoreService";
 import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
+import { isOperatorRole } from "@/shared/utils/roles";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 
 const FALLBACK_TOKENS = {
@@ -66,8 +68,9 @@ function PatternField({ item, value, onChange, onReset }) {
 }
 
 export default function CodePatternSettingsPage() {
-  const { activeRole, store } = useAuth();
-  const isAdmin = activeRole === "admin";
+  const { activeRole } = useAuth();
+  const { data: store } = useSellerStore();
+  const isAdmin = isOperatorRole(activeRole);
   const query = useCodePatterns();
   const saveMutation = useSaveCodePatterns();
 

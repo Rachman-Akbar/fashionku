@@ -1,4 +1,5 @@
 import { useAuth } from "@/features/auth/context/AuthContext";
+import { useSellerStore } from "@/features/seller/store/services/sellerStoreService";
 import { NotificationCenterPanel } from "@/shared/notifications/NotificationCenterPage";
 import { NotificationFeedbackBridge } from "@/shared/notifications/NotificationFeedbackBridge";
 import { PanelHeader } from "@/shared/layout/PanelHeader";
@@ -25,7 +26,8 @@ export const SELLER_NAV_ITEMS = [
 ];
 
 export default function SellerLayout() {
-  const { user, store } = useAuth();
+  const { user } = useAuth();
+  const { data: store } = useSellerStore();
 
   return (
     <PanelTabsProvider items={SELLER_NAV_ITEMS}>

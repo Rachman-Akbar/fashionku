@@ -5,9 +5,11 @@ import { FormPageLayout } from "@/shared/components/crud/FormPageLayout";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { Input } from "@/shared/components/ui/Input";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
+import { parseShipping } from "@/shared/utils/shipping";
 import { formatPrice } from "@/shared/utils/utils";
 import { getOrderManagementError, useDeleteOrder, useUpdateOrder } from "@/features/admin/order/services/orderManagementService";
 import { useAuth } from "@/features/auth/context/AuthContext";
+import { isOperatorRole } from "@/shared/utils/roles";
 import { FormActionDock, FormEditorLayout } from "@/shared/components/crud";
 import OrderPrintSheet from "@/features/seller/order/components/OrderPrintSheet";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
@@ -76,8 +78,6 @@ function itemsOf(row) {
   return [];
 }
 
-import { parseShipping } from "@/shared/utils/shipping";
-
 function OrderDetailForm({ row, onDeleted, onSaved }) {
   const { activeRole } = useAuth();
   const [printOpen, setPrintOpen] = useState(false);
@@ -120,8 +120,10 @@ function OrderDetailForm({ row, onDeleted, onSaved }) {
   const grandTotal = Math.max(0, subtotal + Number(shippingCost || 0) - discount - shippingDiscount);
   const canEditItems = isManual && ["pending", "processing"].includes(orderStatus);
   const customerLocked = !isManual;
-  const isSeller = activeRole === "seller";
-  const canDelete = isManual || !isSeller;
+  // Panel penjual dioperasikan oleh admin (single-store): aturan yang sama
+  // berlaku — hanya order manual yang boleh dihapus, order marketplace
+  // dibatalkan lewat perubahan status.
+  const canDelete = isManual || !isOperatorRole(activeRole);
 
   const handleDelete = async () => {
     setDeleteMessage("");

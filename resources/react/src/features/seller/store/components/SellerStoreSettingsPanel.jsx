@@ -182,11 +182,6 @@ export function SellerStoreSettingsPanel({ store }) {
     if (logo) data.append("logo", logo);
     if (banner) data.append("banner", banner);
 
-    if (!store?.id) {
-      toastError("Simpan Pengaturan Toko", "Data toko tidak ditemukan. Hubungi administrator untuk menyiapkan toko.");
-      return;
-    }
-
     try {
       await updateMutation.mutateAsync({ id: store.id, formData: data });
       await saveAddressMutation.mutateAsync(address);

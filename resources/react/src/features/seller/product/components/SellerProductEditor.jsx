@@ -14,7 +14,6 @@ import { ProductVariantFields } from "@/features/seller/product/components/Produ
 import { createClientId } from "@/core/utils/clientId";
 import { toTitleCase } from "@/shared/utils/textFormatter";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
-import { useRelationCreateTab } from "@/shared/hooks/useRelationCreateTab";
 import { useTabDirtyGuard } from "@/shared/hooks/useTabDirtyGuard";
 import { getRelationQuickCreateError, useQuickCreateCategory, useQuickCreateProductAttribute } from "@/shared/services/relationQuickCreateService";
 import {
@@ -31,7 +30,6 @@ import { toastError } from "@/shared/utils/userFeedback";
 function createInitialValues(product) {
   if (!product) {
     return {
-      storeId: "",
       name: "",
       brand: "",
       description: "",
@@ -53,7 +51,6 @@ function createInitialValues(product) {
   }
 
   return {
-    storeId: product.storeId || "",
     name: product.name,
     brand: product.brand,
     description: product.description,
@@ -109,7 +106,7 @@ function getCategoryPath(category) {
 
 function getErrorTabs(errors) {
   const tabs = [];
-  if (errors.storeId || errors.name || errors.categoryId || errors.price) tabs.push("general");
+  if (errors.name || errors.categoryId || errors.price) tabs.push("general");
   if (errors.variants) tabs.push("variant");
   if (errors.images || errors.thumbnail) tabs.push("images");
   if (errors.stock || errors.poStock || errors.maxOrderQty || errors.minStock || errors.variantStock) tabs.push("stock");
@@ -120,7 +117,6 @@ export function SellerProductEditor({
   open,
   product,
   portal = "seller",
-  stores = [],
   categories = null,
   attributes = null,
   useCreateMutation = useCreateSellerProduct,
@@ -141,7 +137,6 @@ export function SellerProductEditor({
   useTabDirtyGuard(formDirty);
   const [activeSection, setActiveSection] = useState("general");
   const notifications = useNotificationCenter();
-  const openRelationCreateTab = useRelationCreateTab();
   const quickCreateCategoryMutation = useQuickCreateCategory();
   const quickCreateAttributeMutation = useQuickCreateProductAttribute();
   const categoriesQuery = useSellerProductCategories({ enabled: categories === null });
@@ -213,7 +208,6 @@ export function SellerProductEditor({
   const sortedCategoryOptions = useMemo(() => categoryOptions, [categoryOptions]);
 
   const rules = useMemo(() => ({
-    storeId: isAdmin ? required("Toko") : () => "",
     name: required("Nama produk"),
     categoryId: required("Kategori"),
     price: values.mode === "simple" ? [required("Harga"), minimumNumber("Harga", 1)] : () => "",
@@ -399,20 +393,6 @@ export function SellerProductEditor({
                     <p className="mt-0.5 text-xs text-slate-500">Data utama yang digunakan pada katalog dan halaman toko.</p>
 
                     <div className="mt-3 grid gap-4 md:grid-cols-2">
-                  {isAdmin ? (
-                    <FormField label="Toko" error={errors.storeId} required>
-                      <SearchableSelect
-                        value={values.storeId}
-                        onChange={(nextValue) => setField("storeId", nextValue)}
-                        options={stores.map((store) => ({ value: store.id, label: toTitleCase(store.name), keywords: `${store.slug || ""} ${store.city || ""}` }))}
-                        placeholder="Pilih toko"
-                        searchPlaceholder="Cari toko"
-                        onCreate={(name) => openRelationCreateTab({ href: "/admin/stores", relationLabel: "Toko", searchName: name })}
-                        createLabel={(name) => `Data tidak ditemukan, buka Data Baru Toko untuk “${name}”`}
-                      />
-                    </FormField>
-                  ) : null}
-
                   <FormField label="Nama produk" error={errors.name} required>
                     <input value={values.name} onChange={(event) => setField("name", event.target.value)} className={inputClassName} />
                   </FormField>

@@ -5,7 +5,7 @@ import { useActiveVouchers } from "@/features/order/voucher/services/voucherServ
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { Ticket, Tag } from "lucide-react";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 const PLACEHOLDER_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";
 
@@ -44,7 +44,8 @@ function VoucherCard({ voucher }) {
 }
 
 export default function PromotionPage() {
-  const [activeTab, setActiveTab] = useState("promotion");
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "promotion");
   const promotionsQuery = usePromotionHighlights();
   const vouchersQuery = useActiveVouchers();
   const promotions = promotionsQuery.data || [];

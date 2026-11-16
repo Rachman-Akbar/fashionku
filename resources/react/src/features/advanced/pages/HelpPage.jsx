@@ -19,6 +19,7 @@ import { toolbarControlClassName } from "@/shared/components/crud/toolbarControl
 import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { usePanelTabs } from "@/shared/layout/tabs";
+import { isOperatorRole } from "@/shared/utils/roles";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 
 const initialForm = {
@@ -27,7 +28,6 @@ const initialForm = {
   description: "",
   priority: "normal",
   order_id: "",
-  store_id: "",
 };
 
 function optionLabel(order) {
@@ -36,9 +36,9 @@ function optionLabel(order) {
 }
 
 export default function HelpPage() {
-  const { activeRole, user, store } = useAuth();
-  const admin = activeRole === "admin";
-  const seller = activeRole === "seller";
+  const { activeRole, user } = useAuth();
+  // Halaman ini hanya untuk panel operator toko tunggal (admin).
+  const admin = isOperatorRole(activeRole);
   const tabs = usePanelTabs();
   const editor = useEntityEditor();
   const detailTab = tabs?.activeTab?.type === "help-detail" ? tabs.activeTab : null;
@@ -58,38 +58,19 @@ export default function HelpPage() {
   const ticket = ticketQuery.data || detailTab?.entity || null;
   const context = contextQuery.data || null;
   const contextUser = context?.user || user || null;
-  const contextStore = context?.store || (seller && store?.id ? { id: Number(store.id), name: store.name || "Toko Aktif" } : null);
   const orders = context?.orders || [];
-  const selectedOrder = useMemo(
-    () => orders.find((item) => String(item.id) === String(form.order_id)) || null,
-    [form.order_id, orders],
-  );
-  const availableStores = useMemo(() => {
-    if (seller) return contextStore ? [contextStore] : [];
-    if (selectedOrder?.stores?.length) return selectedOrder.stores;
-    return context?.stores || [];
-  }, [context?.stores, contextStore, selectedOrder?.stores, seller]);
 
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: listQuery.refetch });
 
   useEffect(() => {
     if (!editor.open) return;
-    setForm({
-      ...initialForm,
-      store_id: seller && contextStore?.id ? String(contextStore.id) : "",
-    });
-  }, [contextStore?.id, editor.open, seller]);
-
-  useEffect(() => {
-    if (!editor.open || !seller || !contextStore?.id) return;
-    setForm((current) => ({ ...current, store_id: String(contextStore.id) }));
-  }, [contextStore?.id, editor.open, seller]);
+    setForm({ ...initialForm });
+  }, [editor.open]);
 
   const columns = useMemo(() => [
     { key: "ticket_number", label: "Nomor Help" },
     { key: "subject", label: "Subjek" },
     { key: "user_name", label: "Pengaju" },
-    { key: "store_name", label: "Toko" },
     { key: "category", label: "Kategori" },
     { key: "priority", label: "Prioritas" },
     { key: "status", label: "Status" },
@@ -102,25 +83,7 @@ export default function HelpPage() {
   }
 
   function changeOrder(value) {
-    const nextOrder = orders.find((item) => String(item.id) === String(value)) || null;
-    const orderStores = nextOrder?.stores || [];
-
-    setForm((current) => {
-      if (seller) {
-        return { ...current, order_id: value, store_id: contextStore?.id ? String(contextStore.id) : "" };
-      }
-
-      const currentStoreAllowed = orderStores.some((item) => String(item.id) === String(current.store_id));
-      const nextStoreId = !value
-        ? current.store_id
-        : orderStores.length === 1
-          ? String(orderStores[0].id)
-          : currentStoreAllowed
-            ? current.store_id
-            : "";
-
-      return { ...current, order_id: value, store_id: nextStoreId };
-    });
+    setForm((current) => ({ ...current, order_id: value }));
   }
 
   async function create(event) {
@@ -132,7 +95,6 @@ export default function HelpPage() {
         description: form.description,
         priority: form.priority,
         order_id: form.order_id ? Number(form.order_id) : null,
-        ...(!seller && form.store_id ? { store_id: Number(form.store_id) } : {}),
       });
       toastSuccess("Buat Help", "Help berhasil diajukan.");
       editor.markListDirty();
@@ -202,12 +164,6 @@ export default function HelpPage() {
           <Field label="Pengaju"><Input value={contextUser?.name || user?.name || "User login"} disabled /></Field>
           <Field label="User ID"><Input value={contextUser?.id || user?.id || ""} disabled /></Field>
         </div>
-        {seller ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Toko"><Input value={contextStore?.name || "Toko belum terhubung"} disabled /></Field>
-            <Field label="Store ID"><Input value={contextStore?.id || ""} disabled /></Field>
-          </div>
-        ) : null}
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Kategori"><select value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} className={inputClassName}>{["order", "payment", "product", "store", "account", "technical", "other"].map((item) => <option key={item}>{item}</option>)}</select></Field>
           <Field label="Prioritas"><select value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))} className={inputClassName}>{["low", "normal", "high", "urgent"].map((item) => <option key={item}>{item}</option>)}</select></Field>
@@ -218,14 +174,6 @@ export default function HelpPage() {
             {orders.map((order) => <option key={order.id} value={order.id}>{optionLabel(order)}</option>)}
           </select>
         </Field>
-        {!seller ? (
-          <Field label="Toko Terkait" hint={selectedOrder ? "Daftar toko mengikuti pesanan yang dipilih." : "Opsional. Daftar berasal dari toko pada riwayat pesanan Anda."}>
-            <select value={form.store_id} onChange={(event) => setForm((current) => ({ ...current, store_id: event.target.value }))} className={inputClassName}>
-              <option value="">Tidak terkait toko</option>
-              {availableStores.map((item) => <option key={item.id} value={item.id}>{item.name} (Store #{item.id})</option>)}
-            </select>
-          </Field>
-        ) : null}
         <Field label="Subjek" required><Input value={form.subject} onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))} required /></Field>
         <Field label="Keluhan" required><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="min-h-32 w-full border border-slate-300 p-3 text-sm" required /></Field>
       </FormModal>
@@ -241,7 +189,6 @@ export default function HelpPage() {
               <>
                 <div className="grid gap-4 rounded-xl border border-slate-200 p-4 md:grid-cols-2">
                   <label className="grid gap-1.5 text-sm font-bold text-slate-700"><span>Pengaju</span><Input value={ticket?.user_name || "-"} disabled /></label>
-                  <label className="grid gap-1.5 text-sm font-bold text-slate-700"><span>Toko</span><Input value={ticket?.store_name || "Tidak terkait toko"} disabled /></label>
                   <label className="grid gap-1.5 text-sm font-bold text-slate-700"><span>Kategori</span><Input value={ticket?.category || "-"} disabled /></label>
                   <label className="grid gap-1.5 text-sm font-bold text-slate-700"><span>Prioritas</span><Input value={ticket?.priority || "-"} disabled /></label>
                 </div>

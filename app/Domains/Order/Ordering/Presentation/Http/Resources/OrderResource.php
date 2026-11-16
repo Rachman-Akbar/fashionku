@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Order\Ordering\Presentation\Http\Resources;
 
+use App\Domains\Shared\Settings\Application\Services\AppSettingService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Collection;
@@ -13,6 +14,8 @@ final class OrderResource extends JsonResource
     public function toArray(Request $request): array
     {
         $order = $this->resource;
+        // Single-store: nama toko tunggal berasal dari `app_settings`.
+        $storeName = (string) (app(AppSettingService::class)->storeProfile()['name'] ?? '');
         $subOrders = $this->toArrayValue($this->read($order, 'subOrders') ?? $this->read($order, 'sub_orders'));
         $items = [];
         $shippingCost = 0.0;
@@ -29,6 +32,7 @@ final class OrderResource extends JsonResource
 
             $subOrderRows[] = [
                 'id' => $this->read($subOrder, 'id'),
+                'store_name' => $storeName,
                 'sub_order_number' => $this->read($subOrder, 'subOrderNumber') ?? $this->read($subOrder, 'sub_order_number'),
                 'total_items_price' => $itemsTotal,
                 'shipping_cost' => $shipping,
@@ -48,6 +52,7 @@ final class OrderResource extends JsonResource
 
         return [
             'id' => $this->read($order, 'id'),
+            'store_name' => $storeName,
             'order_number' => $this->read($order, 'orderNumber') ?? $this->read($order, 'order_number'),
             'order_type' => $this->read($order, 'orderType') ?? $this->read($order, 'order_type') ?? 'normal',
             'preorder_release_at' => $this->date($this->read($order, 'preorderReleaseAt') ?? $this->read($order, 'preorder_release_at')),

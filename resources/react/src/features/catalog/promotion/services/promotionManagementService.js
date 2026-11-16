@@ -4,6 +4,7 @@ import { assetUrl } from "@/features/seller/store/services/sellerStoreService";
 import { toAppPath } from "@/core/utils/url";
 import { toTitleCase } from "@/shared/utils/textFormatter";
 import { useAuth } from "@/features/auth/context/AuthContext";
+import { isOperatorRole } from "@/shared/utils/roles";
 import { beginOptimisticEntityUpdate, mergeOptimisticValues, rollbackOptimisticEntityUpdate } from "@/shared/utils/optimisticQueryData";
 import { publicQueryOptions } from "@/core/api/publicQueryOptions";
 
@@ -128,7 +129,7 @@ export function useSellerPromotions(params = {}) {
   return useQuery({
     queryKey: [...promotionManagementKeys.seller, params],
     queryFn: () => getSellerPromotions(params),
-    enabled: activeRole === "seller",
+    enabled: isOperatorRole(activeRole),
     staleTime: 30000,
   });
 }

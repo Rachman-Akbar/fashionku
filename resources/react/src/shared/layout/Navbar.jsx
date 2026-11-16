@@ -58,6 +58,7 @@ export function Navbar() {
   const [logoutPending, setLogoutPending] = useState(false);
   const [navHidden, setNavHidden] = useState(false);
   const lastScrollY = useRef(0);
+  const profileCloseTimer = useRef(null);
 
   useEffect(() => {
     const onScroll = () => {
@@ -92,6 +93,7 @@ export function Navbar() {
   }
 
   function closeProfileMenu() {
+    if (profileCloseTimer.current) clearTimeout(profileCloseTimer.current);
     setProfileHover(false);
   }
 
@@ -213,10 +215,13 @@ export function Navbar() {
               <div
                 className="relative"
                 onMouseEnter={() => {
+                  if (profileCloseTimer.current) clearTimeout(profileCloseTimer.current);
                   setCategoryOpen(false);
                   setProfileHover(true);
                 }}
-                onMouseLeave={() => setProfileHover(false)}
+                onMouseLeave={() => {
+                  profileCloseTimer.current = setTimeout(() => setProfileHover(false), 150);
+                }}
               >
                 <Link
                   to="/profile"
@@ -237,7 +242,7 @@ export function Navbar() {
                   </span>
                 </Link>
                 {profileHover && (
-                  <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-[10px] border border-slate-200 bg-white py-1 shadow-sm">
+                  <div className="absolute right-0 mt-[-8px] w-48 overflow-hidden rounded-[10px] border border-slate-200 bg-white py-1 shadow-sm">
                     <button
                       type="button"
                       onClick={handleLogout}

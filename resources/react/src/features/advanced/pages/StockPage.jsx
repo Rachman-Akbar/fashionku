@@ -99,16 +99,6 @@ export default function StockPage() {
   const activeSpreadsheetModule = stockSpreadsheet.activeOperation?.payload?.module;
   const activeWorkspace = workspaceByModule[activeSpreadsheetModule] || stockSpreadsheet;
 
-  const storeOptions = useMemo(() => {
-    const map = new Map();
-    (products.data?.rows || []).forEach((product) => {
-      const id = Number(product.store_id || product.storeId || product.store?.id || 0);
-      const name = product.store_name || product.storeName || product.store?.name || `Toko ${id}`;
-      if (id) map.set(id, { id, name });
-    });
-    return [...map.values()];
-  }, [products.data?.rows]);
-
   const variants = useMemo(() => {
     const rows = (products.data?.rows || []).flatMap((product) => (product.variants || []).map((variant) => ({ ...variant, product_name: product.name, product_id: product.id })));
     if (!deferred) return rows;
@@ -309,7 +299,6 @@ export default function StockPage() {
 
     <FormModal open={Boolean(materialForm)} title={materialForm?.id ? "Edit Bahan Baku" : "Data Baru Bahan Baku"} onClose={() => setMaterialForm(null)} onSubmit={submitMaterial} busy={saveMaterial.isPending} submitLabel="Simpan" extraActions={materialForm?.id ? [{ icon: "add_box", label: "Stock / Restock", tone: "teal", onClick: () => { setMaterialAdjust(materialForm); setDelta(""); setUnitCost(String(materialForm?.average_cost || "")); setStockReference(""); setMaterialForm(null); } }] : []}>
       <div className="grid gap-4 md:grid-cols-2">
-        {activeRole === "admin" ? <Field label="Toko" required><select className={inputClassName} value={materialForm?.store_id || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, store_id: event.target.value }))} required><option value="">Pilih toko</option>{storeOptions.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select></Field> : null}
         <Field label="Kode" hint="Kosongkan agar dibuat otomatis oleh sistem (mis. RM-GULA), atau isi kode manual."><Input value={materialForm?.code || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, code: event.target.value }))} placeholder="Otomatis bila dikosongkan" /></Field>
         <Field label="Nama" required><Input value={materialForm?.name || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, name: event.target.value }))} required /></Field>
         <Field label="Satuan" required hint="Pilih satuan yang sudah ada, atau ketik satuan baru untuk menambah langsung ke daftar."><SearchableSelect value={materialForm?.unit || ""} onChange={(nextValue) => setMaterialForm((current) => ({ ...current, unit: nextValue }))} options={unitOptions} clearable={false} onCreate={createUnit} createLabel={(name) => `Satuan “${name}” belum ada, tambahkan sekarang`} placeholder="Pilih / ketik satuan" searchPlaceholder="Cari atau ketik satuan baru" /></Field>

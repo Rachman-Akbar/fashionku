@@ -111,30 +111,29 @@ function PanelHeaderComponent({
             ) : notificationButton()}
             {backToMarketplace ? (
               <Popover
-                trigger={({ toggle, open }) => (
-                  <button
-                    type="button"
-                    onClick={toggle}
-                    aria-expanded={open}
-                    className="flex items-center gap-[5px] rounded-lg bg-white px-2.5 py-1.5 text-left hover:bg-slate-50"
+                trigger={({ close }) => (
+                  <div
+                    className="flex min-w-[180px] items-center gap-[8px] rounded-t-lg bg-white px-4 py-2.5 text-left hover:bg-slate-50 transition-colors"
                     aria-label="Buka menu kembali ke marketplace"
+                    onMouseEnter={() => {}}
+                    onMouseLeave={() => {}}
                   >
-                    <div className={cn("flex h-8 w-8 items-center justify-center rounded-full text-white", avatarClassName)}>
+                    <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white", avatarClassName)}>
                       <span className="material-symbols-outlined text-[18px]">storefront</span>
                     </div>
                     <div className="hidden min-w-0 sm:block">
                       <p className="max-w-[150px] truncate text-xs font-extrabold text-slate-900">{storeName || title || userName}</p>
                       <p className="text-[10px] font-semibold text-slate-400">{userName}</p>
                     </div>
-                  </button>
+                  </div>
                 )}
               >
                 {({ close }) => (
-                  <div className="w-64 overflow-hidden rounded-[10px] border border-slate-200 bg-white p-1.5 shadow-2xl">
+                  <div className="w-64 overflow-hidden rounded-b-[10px] border border-t-0 border-slate-200 bg-white p-0 shadow-2xl">
                     <Link
                       to="/"
                       onClick={close}
-                      className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-extrabold text-slate-800 transition hover:bg-slate-50"
+                      className="flex items-center gap-2.5 rounded-t-lg px-3 py-2 text-sm font-extrabold text-slate-800 transition hover:bg-slate-50"
                     >
                       <span className="material-symbols-outlined text-[19px] text-emerald-600">storefront</span>
                       <span className="min-w-0 flex-1 truncate">Kembali ke Marketplace</span>
@@ -151,8 +150,14 @@ function PanelHeaderComponent({
                 )}
               </Popover>
             ) : (
-              <button type="button" onClick={handleLogout} disabled={logoutPending} className="flex items-center gap-[5px] rounded-lg bg-white px-2.5 py-1.5 text-left hover:bg-slate-50 disabled:opacity-60" aria-label="Buka logout">
-                <div className={cn("flex h-8 w-8 items-center justify-center rounded-full text-xs font-extrabold text-white", avatarClassName)}>{initial}</div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={logoutPending}
+                className="flex min-w-[180px] items-center gap-[8px] rounded-lg bg-white px-4 py-2.5 text-left hover:bg-slate-50 transition-colors disabled:opacity-60"
+                aria-label="Buka logout"
+              >
+                <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-extrabold text-white", avatarClassName)}>{initial}</div>
                 <div className="hidden min-w-0 sm:block">
                   <p className="max-w-[120px] truncate text-xs font-extrabold text-slate-900">{userName}</p>
                   <p className="text-[10px] font-semibold text-slate-400">{roleLabel}</p>

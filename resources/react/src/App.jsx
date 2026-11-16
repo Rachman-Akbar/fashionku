@@ -35,6 +35,7 @@ const SellerOrdersPage = lazyWithRetry(() => import("@/features/seller/order/pag
 const AdminHomePage = lazyWithRetry(() => import("@/features/admin/pages/AdminHomePage"));
 const AdminOrdersPage = lazyWithRetry(() => import("@/features/admin/order/pages/AdminOrdersPage"));
 const AdminShippingSettingsPage = lazyWithRetry(() => import("@/features/admin/shipping/pages/AdminShippingSettingsPage"));
+const AdminStoreAddressPage = lazyWithRetry(() => import("@/features/admin/store/pages/AdminStoreAddressPage"));
 const ProfilePage = lazyWithRetry(() => import("@/features/profile/identity/pages/ProfilePage"));
 const AddressesPage = lazyWithRetry(() => import("@/features/profile/address/pages/AddressesPage"));
 const GroupChatPage = lazyWithRetry(() => import("@/features/profile/chat/pages/GroupChatPage"));
@@ -50,11 +51,34 @@ const ReviewsPage = lazyWithRetry(() => import("@/features/advanced/pages/Review
 const RealtimeChatPage = lazyWithRetry(() => import("@/features/advanced/pages/RealtimeChatPage"));
 
 
+/**
+ * Reset posisi scroll saat pindah halaman.
+ *
+ * Selain window, beberapa layout (admin/seller/profile) memakai kontainer
+ * scroll sendiri ber-overflow-y-auto sehingga posisi lama ikut terbawa ke
+ * halaman berikutnya bila tidak direset.
+ */
+function resetScrollPosition() {
+  window.scrollTo(0, 0);
+
+  const containers = document.querySelectorAll(
+    'main, [data-scroll-container], .overflow-y-auto, .overflow-scroll',
+  );
+
+  containers.forEach((container) => {
+    if (container.scrollTop > 0) {
+      container.scrollTop = 0;
+    }
+  });
+}
+
 function ScrollToTop() {
   const { pathname } = useLocation();
+
   useEffect(() => {
-    window.scrollTo(0, 0);
+    resetScrollPosition();
   }, [pathname]);
+
   return null;
 }
 
@@ -156,6 +180,7 @@ function renderAdminRoutes() {
       <Route path="/admin" element={<AdminHomePage />} />
       <Route path="/admin/orders" element={<AdminOrdersPage />} />
       <Route path="/admin/shipping" element={<AdminShippingSettingsPage />} />
+      <Route path="/admin/store" element={<AdminStoreAddressPage />} />
     </Route>
   );
 }
@@ -165,8 +190,9 @@ export default function App() {
     <AppLayout>
       <ErrorBoundary>
         <Suspense fallback={<LoadingScreen />}>
+          {/* Harus di luar <Routes>: React Router v7 hanya menerima <Route>/<React.Fragment> sebagai anak <Routes>. */}
+          <ScrollToTop />
           <Routes>
-            <ScrollToTop />
             {renderBuyerRoutes()}
             {renderAuthenticationRoutes()}
             {renderAccountRoutes()}

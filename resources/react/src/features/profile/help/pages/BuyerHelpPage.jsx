@@ -36,7 +36,6 @@ function initialForm() {
     description: "",
     priority: "normal",
     order_id: "",
-    store_id: "",
   };
 }
 
@@ -73,9 +72,6 @@ export default function BuyerHelpPage() {
   const meta = listQuery.data?.meta || {};
   const context = contextQuery.data || {};
   const orders = context.orders || [];
-  const stores = context.stores || [];
-  const selectedOrder = orders.find((item) => String(item.id) === String(form.order_id));
-  const availableStores = selectedOrder?.stores?.length ? selectedOrder.stores : stores;
   const ticket = ticketQuery.data || null;
 
   const summary = useMemo(() => ({
@@ -102,13 +98,7 @@ export default function BuyerHelpPage() {
   }
 
   function changeOrder(value) {
-    const order = orders.find((item) => String(item.id) === String(value));
-    const orderStores = order?.stores || [];
-    setForm((current) => ({
-      ...current,
-      order_id: value,
-      store_id: !value ? "" : orderStores.length === 1 ? String(orderStores[0].id) : "",
-    }));
+    setForm((current) => ({ ...current, order_id: value }));
   }
 
   async function createHelp(event) {
@@ -120,7 +110,6 @@ export default function BuyerHelpPage() {
         description: form.description.trim(),
         priority: form.priority,
         order_id: form.order_id ? Number(form.order_id) : null,
-        store_id: form.store_id ? Number(form.store_id) : null,
       });
       setSelectedId(created?.id || null);
       setForm(initialForm());
@@ -183,13 +172,6 @@ export default function BuyerHelpPage() {
                 <select value={form.order_id} onChange={(event) => changeOrder(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-[#10B981]">
                   <option value="">Tidak terkait pesanan</option>
                   {orders.map((order) => <option key={order.id} value={order.id}>{orderLabel(order)}</option>)}
-                </select>
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-800">Toko terkait</span>
-                <select value={form.store_id} onChange={(event) => setForm((current) => ({ ...current, store_id: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-[#10B981]">
-                  <option value="">Tidak terkait toko</option>
-                  {availableStores.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
               </label>
             </div>

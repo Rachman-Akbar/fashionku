@@ -99,7 +99,8 @@ class OrderingController extends Controller
 
     public function storeManual(CreateManualOrderRequest $request): JsonResponse
     {
-        if ($this->activeRole($request) !== 'seller') {
+        // Single-store: operator toko adalah admin (role seller digabung ke admin).
+        if (! in_array($this->activeRole($request), ['seller', 'admin'], true)) {
             throw new AccessDeniedHttpException('Hanya seller yang dapat membuat order manual.');
         }
 
@@ -213,7 +214,8 @@ class OrderingController extends Controller
         }
 
         $parent = $subOrder->parentOrder;
-        if ($role === 'seller' && $parent && ! $this->isManualOrder($parent)) {
+        // Order marketplace tidak boleh dihapus paksa: batalkan lewat status.
+        if (in_array($role, ['seller', 'admin'], true) && $parent && ! $this->isManualOrder($parent)) {
             throw new AccessDeniedHttpException('Order marketplace tidak dapat dihapus oleh seller. Batalkan pesanan melalui status.');
         }
         if ($parent && in_array(strtolower((string) $parent->payment_status), ['paid', 'success'], true)) {

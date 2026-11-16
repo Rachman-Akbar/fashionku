@@ -184,7 +184,7 @@ export default function CheckoutPage() {
       ),
     [selectedItems],
   );
-  const vouchersQuery = useCheckoutVouchers([], {
+  const vouchersQuery = useCheckoutVouchers({
     enabled: selectedItems.length > 0,
   });
   const vouchers = vouchersQuery.data || [];
@@ -839,7 +839,7 @@ export default function CheckoutPage() {
                 recommendedVoucher={bestVoucher}
                 onUseRecommended={handleUseRecommendedVoucher}
                 allowManualInput={false}
-                emptyMessage="Belum ada voucher yang aktif dan memenuhi syarat untuk toko dalam pesanan ini."
+                emptyMessage="Belum ada voucher aktif yang memenuhi syarat untuk pesanan ini."
               />
             </div>
           </section>

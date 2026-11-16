@@ -66,7 +66,7 @@ export function useActiveVouchers(options = {}) {
   });
 }
 
-export function useCheckoutVouchers(_storeIds = [], options = {}) {
+export function useCheckoutVouchers(options = {}) {
   const { enabled = true, ...queryOptions } = options;
 
   return useQuery({

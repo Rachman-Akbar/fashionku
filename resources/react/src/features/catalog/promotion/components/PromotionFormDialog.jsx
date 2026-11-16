@@ -47,7 +47,6 @@ async function getPublicProducts(query = "") {
 
 function initialValues(entity) {
   return {
-    storeId: entity?.storeId || "",
     promotionPaymentId: entity?.promotionPaymentId || "",
     name: entity?.name || "",
     imageUrl: entity?.imageUrl || "",

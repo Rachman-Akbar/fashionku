@@ -6,6 +6,7 @@ import {
   unwrapApiData,
 } from "@/core/utils/apiClient";
 import { useAuth } from "@/features/auth/context/AuthContext";
+import { isOperatorRole } from "@/shared/utils/roles";
 
 export const addressKeys = {
   all: ["order", "addresses", "user"],
@@ -20,7 +21,6 @@ export function normalizeAddress(row = {}) {
   return {
     id: Number(row.id),
     userId: row.user_id ? String(row.user_id) : null,
-    storeId: row.store_id ? String(row.store_id) : null,
     label: row.label || "Alamat",
     recipientName: row.recipient_name || "",
     phoneNumber: row.phone_number || "",
@@ -119,7 +119,7 @@ export async function deleteAddress(id, scope = "user") {
 
 export function useAddresses(scope = "user", options = {}) {
   const { isAuthenticated, activeRole } = useAuth();
-  const enabledByRole = scope !== "store" || activeRole === "seller";
+  const enabledByRole = scope !== "store" || isOperatorRole(activeRole);
 
   return useQuery({
     queryKey: addressKeys.list(scope),

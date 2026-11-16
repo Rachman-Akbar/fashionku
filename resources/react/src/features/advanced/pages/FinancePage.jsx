@@ -36,7 +36,6 @@ function initialForm(type, mode) {
     occurred_at: nowInput(),
     is_active: true,
     order_id: "",
-    store_id: "",
     reference_number: autoReference(type),
   };
 }
@@ -138,7 +137,6 @@ export default function FinancePage({ mode = "cashflow" }) {
       occurred_at: row.occurred_at ? new Date(row.occurred_at).toISOString().slice(0, 16) : nowInput(),
       is_active: row.is_active !== false,
       order_id: row.order_id ? String(row.order_id) : "",
-      store_id: row.store_id ? String(row.store_id) : "",
       reference_number: row.reference_number || autoReference(row.type || allowedTypes[0]),
     } : initialForm(allowedTypes[0], mode));
   }, [allowedTypes, editor.open, editor.entity, mode]);
@@ -160,7 +158,6 @@ export default function FinancePage({ mode = "cashflow" }) {
     const list = [
       { key: "reference_number", label: "Referensi" },
       { key: "title", label: "Keterangan" },
-      { key: "store_name", label: "Toko" },
       { key: "order_number", label: "Pesanan" },
       { key: "amount", label: "Nominal", render: (row) => <span className="font-bold text-slate-900">{money(row.amount)}</span> },
       { key: "paid_amount", label: "Terbayar", render: (row) => money(row.paid_amount) },
@@ -204,7 +201,6 @@ export default function FinancePage({ mode = "cashflow" }) {
     setForm((current) => ({
       ...current,
       order_id: order ? nextId : "",
-      store_id: order?.storeId ? String(order.storeId) : current.store_id,
       title: order && !current.title.trim() ? `Pesanan ${order.orderNumber}` : current.title,
       amount: order && !String(current.amount).trim() ? String(order.total || "") : current.amount,
       reference_number: order && !String(current.reference_number).trim() ? `INV/${order.orderNumber}` : current.reference_number,
@@ -221,7 +217,6 @@ export default function FinancePage({ mode = "cashflow" }) {
           ...editableForm,
           amount: Number(form.amount),
           order_id: form.order_id ? Number(form.order_id) : null,
-          store_id: activeRole === "admin" && form.store_id ? Number(form.store_id) : null,
           reference_number: String(form.reference_number || "").trim() || null,
           due_date: form.due_date || null,
           occurred_at: new Date(form.occurred_at).toISOString(),

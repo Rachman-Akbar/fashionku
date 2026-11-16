@@ -16,6 +16,8 @@ export const Popover = memo(function Popover({
   const open = isControlled ? Boolean(openProp) : internalOpen;
   const openRef = useRef(open);
   const controlledRef = useRef(isControlled);
+  const hoverTimeoutRef = useRef(null);
+  const isHoveringRef = useRef(false);
 
   openRef.current = open;
   controlledRef.current = isControlled;
@@ -40,41 +42,68 @@ export const Popover = memo(function Popover({
     emit(false);
   }, []);
 
-  const toggle = useCallback(() => {
-    const next = !openRef.current;
-    if (!controlledRef.current) setInternalOpen(next);
-    emit(next);
+  const scheduleClose = useCallback(() => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => {
+      if (!isHoveringRef.current) {
+        close();
+      }
+    }, 150);
+  }, [close]);
+
+  const cancelClose = useCallback(() => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
   }, []);
+
+  const handlePointerDown = useCallback((event) => {
+    if (rootRef.current?.contains(event.target)) return;
+    close();
+  }, [close]);
 
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event) => {
       if (event.key === "Escape") close();
     };
-    const onPointerDown = (event) => {
-      if (rootRef.current?.contains(event.target)) return;
-      close();
-    };
     window.addEventListener("keydown", onKeyDown);
-    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("pointerdown", handlePointerDown);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
     };
-  }, [open, close]);
+  }, [open, close, handlePointerDown]);
 
   const state = { open, close, toggle };
 
   return (
-    <div ref={rootRef} className="relative">
+    <div
+      ref={rootRef}
+      className="relative"
+      onMouseEnter={() => {
+        isHoveringRef.current = true;
+        cancelClose();
+      }}
+      onMouseLeave={() => {
+        isHoveringRef.current = false;
+        scheduleClose();
+      }}
+    >
       {typeof trigger === "function" ? trigger(state) : trigger}
       <div
         className={cn(
-          "absolute right-0 top-full z-[150] mt-2 origin-top-right transition-all duration-150",
+          "absolute right-0 top-full z-[150] mt-0 origin-top-right transition-all duration-150",
           open ? "pointer-events-auto scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0",
           className,
         )}
         aria-hidden={!open}
+        onMouseEnter={() => {
+          isHoveringRef.current = true;
+          cancelClose();
+        }}
+        onMouseLeave={() => {
+          isHoveringRef.current = false;
+          scheduleClose();
+        }}
       >
         {typeof children === "function" ? children(state) : children}
       </div>
