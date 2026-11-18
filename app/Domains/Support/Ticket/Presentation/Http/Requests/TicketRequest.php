@@ -28,7 +28,6 @@ final class TicketRequest extends FormRequest
             'user_id' => $activeRole === 'admin'
                 ? ['nullable', 'uuid', 'exists:users,id']
                 : ['prohibited'],
-            'seller_id' => ['prohibited'],
             'order_id' => ['nullable', 'integer', 'exists:orders,id'],
             'category' => ['required', Rule::in(['order', 'payment', 'product', 'store', 'account', 'technical', 'other'])],
             'subject' => ['required', 'string', 'max:180'],

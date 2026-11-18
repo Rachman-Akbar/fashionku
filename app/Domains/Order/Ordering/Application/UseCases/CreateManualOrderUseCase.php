@@ -50,7 +50,7 @@ final class CreateManualOrderUseCase
         string $paymentMethod,
         string $paymentStatus,
         string $status,
-        string $orderType = 'normal',
+        string $orderType = 'manual',
         ?string $preorderReleaseAt = null,
         ?string $scheduledAt = null,
         ?string $orderNumber = null
@@ -59,11 +59,22 @@ final class CreateManualOrderUseCase
         $paymentMethod = strtolower(trim($paymentMethod));
         $orderType = strtolower(trim($orderType));
 
-        if (! in_array($orderType, ['manual', 'normal', 'preorder', 'booking'], true)) {
+        if (! in_array($orderType, ['manual', 'reguler', 'terjadwal', 'normal', 'booking', 'preorder'], true)) {
             throw new RuntimeException('Metode pembelian tidak valid.');
         }
-        if ($orderType === 'booking' && $scheduledAt === null) {
-            throw new RuntimeException('Tanggal kirim wajib diisi untuk metode pembelian booking.');
+
+        // Alias lama -> tipe baru. `preorder` tetap diterima untuk order manual
+        // admin (ditandai lewat `orders.is_preorder`).
+        $isPreorder = $orderType === 'preorder';
+        $orderType = match ($orderType) {
+            'normal' => 'reguler',
+            'booking' => 'terjadwal',
+            'preorder' => 'reguler',
+            default => $orderType,
+        };
+
+        if ($orderType === 'terjadwal' && ($scheduledAt === null || trim((string) $scheduledAt) === '')) {
+            throw new RuntimeException('Tanggal kirim wajib diisi untuk pesanan terjadwal.');
         }
 
         $inputs = [];
@@ -147,8 +158,9 @@ final class CreateManualOrderUseCase
             id: null,
             orderNumber: $orderNumber,
             orderType: $orderType,
-            preorderReleaseAt: $orderType === 'preorder' ? $preorderReleaseAt : null,
-            scheduledAt: $orderType === 'booking' ? $scheduledAt : null,
+            preorderReleaseAt: ($isPreorder || $orderType === 'preorder') ? $preorderReleaseAt : null,
+            scheduledAt: $orderType === 'terjadwal' ? $scheduledAt : null,
+            isPreorder: $isPreorder,
             receivedAt: $paid ? now()->toDateTimeString() : null,
             userId: $userId,
             voucherId: null,

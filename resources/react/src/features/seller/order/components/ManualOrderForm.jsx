@@ -35,9 +35,8 @@ const STATUS_OPTIONS = [
 ];
 
 const PURCHASE_TYPE_OPTIONS = [
-  { value: "normal", label: "Langsung" },
-  { value: "preorder", label: "Preorder" },
-  { value: "booking", label: "Booking" },
+  { value: "reguler", label: "Reguler" },
+  { value: "terjadwal", label: "Pesanan Terjadwal" },
 ];
 
 function emptyLine() {
@@ -59,7 +58,8 @@ export function ManualOrderForm({ open = true, onClose, onSaved }) {
   const [shippingCost, setShippingCost] = useState("0");
   const [paymentMethod, setPaymentMethod] = useState("tunai_toko");
   const [status, setStatus] = useState("processing");
-  const [purchaseType, setPurchaseType] = useState("normal");
+  const [purchaseType, setPurchaseType] = useState("reguler");
+  const [waitingProduct, setWaitingProduct] = useState(false);
   const [preorderReleaseAt, setPreorderReleaseAt] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [busy, setBusy] = useState(false);
@@ -119,7 +119,8 @@ export function ManualOrderForm({ open = true, onClose, onSaved }) {
       setPaymentMethod("tunai_toko");
       setOrderNumber("");
       setStatus("processing");
-      setPurchaseType("normal");
+      setPurchaseType("reguler");
+      setWaitingProduct(false);
       setPreorderReleaseAt("");
       setScheduledAt("");
       setBusy(false);
@@ -160,8 +161,8 @@ export function ManualOrderForm({ open = true, onClose, onSaved }) {
       toastError("Order Manual", "Alamat pengiriman wajib diisi.");
       return;
     }
-    if (purchaseType === "booking" && !scheduledAt) {
-      toastError("Order Manual", "Tanggal kirim wajib diisi untuk metode pembelian booking.");
+    if (purchaseType === "terjadwal" && !scheduledAt) {
+      toastError("Order Manual", "Tanggal kirim wajib diisi untuk pesanan terjadwal.");
       return;
     }
     setBusy(true);
@@ -179,9 +180,12 @@ export function ManualOrderForm({ open = true, onClose, onSaved }) {
         payment_method: paymentMethod,
         payment_status: "paid",
         status,
-        order_type: purchaseType,
-        preorder_release_at: purchaseType === "preorder" ? preorderReleaseAt || null : null,
-        scheduled_at: purchaseType === "booking" ? scheduledAt || null : null,
+        // Backend manual order tidak punya input `is_preorder` terpisah:
+        // `order_type=preorder` diterima valid lalu disimpan sebagai `reguler`
+        // dengan `is_preorder = true` (lihat CreateManualOrderUseCase).
+        order_type: purchaseType === "reguler" && waitingProduct ? "preorder" : purchaseType,
+        preorder_release_at: purchaseType === "reguler" && waitingProduct ? preorderReleaseAt || null : null,
+        scheduled_at: purchaseType === "terjadwal" ? scheduledAt || null : null,
         items: validLines.map((line) => ({ variant_id: Number(line.variantId), quantity: Number(line.quantity || 0) })),
       };
       const saved = await createManualOrder(payload);
@@ -326,13 +330,28 @@ export function ManualOrderForm({ open = true, onClose, onSaved }) {
                 <span>Status pesanan</span>
                 <SearchableSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} clearable={false} buttonClassName="h-10" />
               </label>
-              {purchaseType === "preorder" ? (
+              {purchaseType === "reguler" ? (
+                <div className="grid gap-1.5 text-sm font-bold text-slate-700 sm:col-span-2">
+                  <span>Status persiapan barang</span>
+                  <label className="flex items-center gap-[5px] rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={waitingProduct}
+                      onChange={(event) => setWaitingProduct(event.target.checked)}
+                      className="h-4 w-4 accent-emerald-600"
+                    />
+                    Tandai menunggu produk (preorder)
+                  </label>
+                  <p className="text-[11px] font-medium text-slate-500">Pesanan menunggu produksi karena stok habis — tampil sebagai "Menunggu Produk" di daftar pesanan.</p>
+                </div>
+              ) : null}
+              {purchaseType === "reguler" && waitingProduct ? (
                 <label className="grid gap-1.5 text-sm font-bold text-slate-700">
-                  <span>Perkiraan rilis preorder (opsional)</span>
+                  <span>Perkiraan rilis (opsional)</span>
                   <Input type="date" min={new Date().toISOString().slice(0, 10)} value={preorderReleaseAt} onChange={(event) => setPreorderReleaseAt(event.target.value)} placeholder="Tanggal rilis" />
                 </label>
               ) : null}
-              {purchaseType === "booking" ? (
+              {purchaseType === "terjadwal" ? (
                 <label className="grid gap-1.5 text-sm font-bold text-slate-700">
                   <span>Tanggal kirim<span className="ml-1 text-red-500">*</span></span>
                   <Input type="date" min={new Date().toISOString().slice(0, 10)} value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} />

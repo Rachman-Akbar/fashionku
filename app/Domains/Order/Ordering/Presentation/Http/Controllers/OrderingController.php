@@ -79,10 +79,12 @@ class OrderingController extends Controller
                 service: $data['service'] ?? null,
                 paymentMethod: (string) $data['payment_method'],
                 voucherCode: $data['voucher_code'] ?? null,
-                orderType: $data['order_type'] ?? 'normal',
+                orderType: $data['order_type'] ?? 'reguler',
                 preorderReleaseAt: $data['preorder_release_at'] ?? null,
                 scheduledAt: $data['scheduled_at'] ?? null,
-                items: $data['items'] ?? []
+                items: $data['items'] ?? [],
+                pickupAt: $data['pickup_at'] ?? null,
+                pickupNote: $data['pickup_note'] ?? null
             );
 
             return (new OrderResource($order))
@@ -346,7 +348,7 @@ class OrderingController extends Controller
                 return [
                     'order_id' => (int) $parent->id,
                     'user_id' => (string) $parent->user_id,
-                    'order_type' => (string) ($parent->order_type ?? 'normal'),
+                    'order_type' => (string) ($parent->order_type ?? 'reguler'),
                     'parent_completed' => $previousParentStatus !== 'completed' && $parentStatus === 'completed',
                     'parent_changed' => $previousParentStatus !== $parentStatus,
                     'parent_status' => $parentStatus,
@@ -550,7 +552,7 @@ class OrderingController extends Controller
                 'notify' => true,
                 'order_id' => (int) $parent->id,
                 'user_id' => (string) $parent->user_id,
-                'order_type' => (string) ($parent->order_type ?? 'normal'),
+                'order_type' => (string) ($parent->order_type ?? 'reguler'),
                 'parent_status' => $parentStatus,
             ];
         });
@@ -615,7 +617,7 @@ class OrderingController extends Controller
             return false;
         }
 
-        return (string) ($order->order_type ?? 'normal') === 'manual'
+        return (string) ($order->order_type ?? 'reguler') === 'manual'
             || str_starts_with((string) ($order->order_number ?? ''), 'MAN-');
     }
 

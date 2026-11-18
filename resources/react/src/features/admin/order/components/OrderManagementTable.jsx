@@ -9,6 +9,7 @@ import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
 import { cn, formatPrice } from "@/shared/utils/utils";
 import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { toTitleCase } from "@/shared/utils/textFormatter";
+import { orderTypeLabel } from "@/features/admin/order/services/orderManagementService";
 
 const STATUS_OPTIONS = [
   { value: "pending", label: "Pending" },
@@ -70,10 +71,19 @@ function rowOrigin(row) {
 }
 
 const ORDER_TYPE_OPTIONS = [
-  { value: "normal", label: "Normal" },
-  { value: "preorder", label: "Preorder" },
-  { value: "booking", label: "Booking" },
+  { value: "reguler", label: "Reguler" },
+  { value: "terjadwal", label: "Pesanan Terjadwal" },
+  { value: "manual", label: "Manual" },
 ];
+
+function isPreorderRow(row) {
+  return Boolean(row.isPreorder ?? row.is_preorder ?? false)
+    || String(row.orderType || row.order_type || "").trim().toLowerCase() === "preorder";
+}
+
+function pickupAtOf(row) {
+  return row.pickupAt || row.pickup_at || row.raw?.pickup_at || null;
+}
 
 function hasFilterValue(type, value) {
   if (type === "range") return Boolean(value?.min !== "" || value?.max !== "");
@@ -89,9 +99,9 @@ function columnValue(column, row) {
   if (column.key === "items") return (row.items || []).map((item) => item.productName).join(" ");
   if (column.key === "total") return row.total;
   if (column.key === "payment") return row.paymentStatus;
-  if (column.key === "tracking") return row.trackingNumber;
+  if (column.key === "tracking") return pickupAtOf(row) ? `Ambil di Toko ${pickupAtOf(row)}` : row.trackingNumber;
   if (column.key === "orderType") return row.orderType;
-  if (column.key === "release") return row.preorderReleaseAt;
+  if (column.key === "release") return row.preorderReleaseAt || row.preorder_release_at;
   if (column.key === "schedule") return row.scheduledAt;
   if (column.key === "status") return row.status;
   return resolveTableValue(row, column.key);
@@ -170,9 +180,13 @@ export const OrderManagementTable = memo(function OrderManagementTable({ rows, p
     }
     if (column.key === "total") return <td key={column.key} className="px-4 py-3 font-extrabold text-slate-800">{formatPrice(row.total)}</td>;
     if (column.key === "payment") return <td key={column.key} className="px-4 py-3"><StatusBadge status={row.paymentStatus} /></td>;
-    if (column.key === "tracking") return <td key={column.key} className="truncate px-4 py-3 text-slate-600">{row.trackingNumber || "-"}</td>;
-    if (column.key === "orderType") return <td key={column.key} className="px-4 py-3"><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-extrabold uppercase text-slate-700">{row.orderType || "normal"}</span></td>;
-    if (column.key === "release") return <td key={column.key} className="truncate px-4 py-3 text-slate-600">{row.preorderReleaseAt ? new Date(row.preorderReleaseAt).toLocaleString("id-ID") : "-"}</td>;
+    if (column.key === "tracking") {
+      const pickupAt = pickupAtOf(row);
+      if (pickupAt) return <td key={column.key} className="truncate px-4 py-3 text-xs font-bold text-emerald-700">Ambil di Toko · {new Date(pickupAt).toLocaleString("id-ID")}</td>;
+      return <td key={column.key} className="truncate px-4 py-3 text-slate-600">{row.trackingNumber || "-"}</td>;
+    }
+    if (column.key === "orderType") return <td key={column.key} className="px-4 py-3"><div className="flex flex-wrap items-center gap-[5px]"><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-extrabold uppercase text-slate-700">{orderTypeLabel(row.orderType || row.order_type)}</span>{isPreorderRow(row) ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-extrabold text-amber-700">Menunggu Produk</span> : null}</div></td>;
+    if (column.key === "release") return <td key={column.key} className="truncate px-4 py-3 text-slate-600">{row.preorderReleaseAt || row.preorder_release_at ? new Date(row.preorderReleaseAt || row.preorder_release_at).toLocaleString("id-ID") : "-"}</td>;
     if (column.key === "schedule") return <td key={column.key} className="truncate px-4 py-3 text-slate-600">{row.scheduledAt ? new Date(row.scheduledAt).toLocaleString("id-ID") : "-"}</td>;
     return <td key={column.key} className="px-4 py-3"><div className="flex w-full items-center gap-[5px]" onClick={(event) => event.stopPropagation()}>{onPrint ? <button type="button" onClick={() => onPrint(row)} title="Lihat / cetak nota pesanan" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 text-xs font-extrabold text-slate-700 transition hover:bg-teal-50 hover:text-teal-700"><span className="material-symbols-outlined text-[16px]">receipt_long</span>Nota</button> : null}<div className="w-full"><SearchableSelect value={row.status} disabled={pendingId === row.id} onChange={(nextValue) => onStatusChange(row, nextValue)} options={STATUS_OPTIONS} clearable={false} buttonClassName={`h-9 border text-xs ${STATUS_BUTTON_STYLES[row.status] || "border-slate-200 bg-white"}`} indicatorClassName={STATUS_DOT_STYLES[row.status]} /></div></div></td>;
   };

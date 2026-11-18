@@ -56,6 +56,28 @@ export function normalizeStore(row = {}) {
       tiktokUrl: detail.tiktok_url || detail.tiktokUrl || "",
       websiteUrl: detail.website_url || detail.websiteUrl || "",
     },
+    // Ikut disimpan agar blok pembayaran (QRIS) selamat saat profil toko
+    // di-cache ulang lewat `normalizeStore()`.
+    payment: normalizePayment(row.payment),
+  };
+}
+
+/**
+ * Normalisasi blok `payment.qris` dari endpoint `seller/settings/store`
+ * (`GET`/`POST`) supaya konsumen lama tetap aman: field baru bersifat aditif
+ * dan selalu memiliki tipe yang konsisten.
+ */
+export function normalizePayment(payment) {
+  const qris = payment?.qris || {};
+
+  return {
+    qris: {
+      enabled: toBoolean(qris.enabled, false),
+      image: qris.image || null,
+      image_url: qris.image_url ? resolveMediaUrl(qris.image_url) : null,
+      merchant_name: qris.merchant_name || "",
+      notes: qris.notes || null,
+    },
   };
 }
 

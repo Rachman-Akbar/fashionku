@@ -301,6 +301,9 @@ final class EloquentUserRepository implements UserRepositoryInterface
             ['created_at' => now(), 'updated_at' => now()]
         );
 
+        // Peran berubah: buang cache penerima notifikasi admin.
+        \Illuminate\Support\Facades\Cache::forget('admin.notification.recipients');
+
         $user->unsetRelation('roles');
     }
 

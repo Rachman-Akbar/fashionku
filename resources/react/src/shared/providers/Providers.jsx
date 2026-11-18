@@ -5,6 +5,7 @@ import { AuthProvider } from "@/features/auth/context/AuthContext";
 import { CartProvider } from "@/features/order/cart/context/CartContext";
 import { WishlistProvider } from "@/features/order/wishlist/context/WishlistContext";
 import { NotificationCenterProvider, useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
+import { ThemeProvider } from "@/shared/theme/ThemeProvider";
 
 const NotificationCenterPage = lazy(() =>
   import("@/shared/notifications/NotificationCenterPage").then((module) => ({
@@ -30,16 +31,18 @@ export function Providers({ children }) {
   const [queryClient] = useState(createAppQueryClient);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <NotificationCenterProvider>
-          <NotificationLayer>
-            <CartProvider>
-              <WishlistProvider>{children}</WishlistProvider>
-            </CartProvider>
-          </NotificationLayer>
-        </NotificationCenterProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <NotificationCenterProvider>
+            <NotificationLayer>
+              <CartProvider>
+                <WishlistProvider>{children}</WishlistProvider>
+              </CartProvider>
+            </NotificationLayer>
+          </NotificationCenterProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

@@ -14,6 +14,7 @@ use App\Domains\Order\Ordering\Domain\Services\ShippingCostCalculator;
 use App\Domains\Order\Payment\Domain\Entities\Payment;
 use App\Domains\Order\Payment\Domain\Repositories\PaymentRepositoryInterface;
 use App\Domains\Order\Payment\Infrastructure\Services\MidtransService;
+use App\Domains\Order\Voucher\Application\Services\VoucherCheckoutService;
 use App\Domains\Seller\Stock\Application\Services\StockMovementService;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -29,7 +30,8 @@ class CreateOrderUseCase
         private MidtransService $midtransService,
         private PaymentRepositoryInterface $paymentRepository,
         private StockMovementService $stockMovementService,
-        private AdminNotificationService $notificationService
+        private AdminNotificationService $notificationService,
+        private VoucherCheckoutService $voucherCheckoutService
     ) {}
 
     public function execute(
@@ -40,10 +42,12 @@ class CreateOrderUseCase
         ?string $service,
         string $paymentMethod,
         ?string $voucherCode = null,
-        string $orderType = 'normal',
+        string $orderType = 'reguler',
         ?string $preorderReleaseAt = null,
         ?string $scheduledAt = null,
-        array $items = []
+        array $items = [],
+        ?string $pickupAt = null,
+        ?string $pickupNote = null
     ): Order {
         if (trim($userId) === '') {
             throw new RuntimeException('Sesi Anda telah berakhir. Silakan login kembali.');
@@ -135,24 +139,23 @@ class CreateOrderUseCase
             $service = 'HAVERSINE';
         }
         $paymentMethod = strtolower(trim($paymentMethod));
-        $orderType = strtolower(trim($orderType));
-
-        if (! in_array($orderType, ['normal', 'preorder', 'booking'], true)) {
-            throw new RuntimeException('Tipe pesanan tidak valid.');
-        }
+        [$orderType, $wantsPreorder] = $this->normalizeOrderType($orderType);
 
         if ($paymentMethod === 'tunai_toko' && $courier !== 'ambil_sendiri') {
-            throw new RuntimeException('Bayar tunai di toko hanya tersedia untuk metode ambil sendiri.');
+            throw new RuntimeException('Bayar tunai di toko hanya tersedia untuk metode diambil pembeli.');
         }
         if ($paymentMethod === 'cod' && $courier === 'ambil_sendiri') {
-            throw new RuntimeException('COD tidak tersedia untuk metode ambil sendiri.');
+            throw new RuntimeException('COD tidak tersedia untuk metode diambil pembeli.');
         }
+
         $shippingTotal = 0.0;
         $shippingAddress = 'Ambil sendiri di toko';
         $destinationId = 'STORE-PICKUP';
+        $pickupSchedule = ['at' => null, 'note' => null];
 
         if ($courier === 'ambil_sendiri') {
             $service = 'PICKUP';
+            $pickupSchedule = $this->resolvePickupSchedule($pickupAt, $pickupNote);
         } else {
             if (! $addressId) {
                 throw new RuntimeException('Alamat pengiriman wajib ditentukan.');
@@ -222,27 +225,36 @@ class CreateOrderUseCase
             $customer,
             $orderType,
             $preorderReleaseAt,
-            $scheduledAt
+            $scheduledAt,
+            $wantsPreorder,
+            $pickupSchedule
         ): Order {
-            $orderType = $this->resolveOrderType($orderType, $orderItems, $scheduledAt);
+            [$orderType, $isPreorder] = $this->resolveOrderType(
+                $orderType,
+                $orderItems,
+                $scheduledAt,
+                $wantsPreorder
+            );
 
-            // Preorder otomatis (stok habis saat checkout normal/booking) tetap
-            // wajib punya tanggal rilis agar data pesanan tidak null. Bila buyer
-            // tidak menyertakannya, isi default 7 hari ke depan.
-            if ($orderType === 'preorder' && (! is_string($preorderReleaseAt) || trim($preorderReleaseAt) === '')) {
+            // Preorder (stok habis saat checkout) tetap wajib punya tanggal rilis
+            // agar data pesanan tidak null. Bila buyer tidak menyertakannya,
+            // isi default 7 hari ke depan.
+            if ($isPreorder && (! is_string($preorderReleaseAt) || trim($preorderReleaseAt) === '')) {
                 $preorderReleaseAt = now()->addDays(7)->toDateTimeString();
             }
 
-            [$voucherId, $discountAmount, $shippingDiscountAmount] = $this->calculateVoucher(
+            $voucherResult = $this->voucherCheckoutService->evaluate(
                 $userId,
                 $voucherCode,
                 $itemsTotal,
                 $shippingTotal,
                 $orderItems
             );
+            $voucherId = $voucherResult['voucher_id'] > 0 ? $voucherResult['voucher_id'] : null;
+            $discountAmount = $voucherResult['discount'];
+            $shippingDiscountAmount = $voucherResult['shipping_discount'];
 
-            $domainItems = [];
-            foreach ($orderItems as $item) {
+            $domainItems = [];            foreach ($orderItems as $item) {
                 $label = $item['variant_name'] && $item['variant_name'] !== $item['product_name']
                     ? $item['product_name'].' - '.$item['variant_name']
                     : $item['product_name'];
@@ -290,8 +302,8 @@ class CreateOrderUseCase
                 id: null,
                 orderNumber: $orderNumber,
                 orderType: $orderType,
-                preorderReleaseAt: $orderType === 'preorder' ? $preorderReleaseAt : null,
-                scheduledAt: $orderType === 'booking' ? $scheduledAt : null,
+                preorderReleaseAt: $isPreorder ? $preorderReleaseAt : null,
+                scheduledAt: $orderType === 'terjadwal' ? $scheduledAt : null,
                 receivedAt: null,
                 userId: $userId,
                 voucherId: $voucherId,
@@ -303,7 +315,10 @@ class CreateOrderUseCase
                 paymentMethod: $paymentMethod,
                 snapToken: $snapToken,
                 shippingAddress: $shippingAddress,
-                subOrders: $subOrders
+                subOrders: $subOrders,
+                isPreorder: $isPreorder,
+                pickupAt: $pickupSchedule['at'],
+                pickupNote: $pickupSchedule['note']
             );
 
             $created = $this->orderRepository->create($order);
@@ -352,16 +367,74 @@ class CreateOrderUseCase
                 'reference_type' => 'order',
                 'reference_id' => $created->id,
                 'url' => '/admin/orders?order='.$created->id,
-                'meta' => ['order_number' => $orderNumber, 'order_type' => $orderType, 'payment_method' => $paymentMethod],
+                'meta' => ['order_number' => $orderNumber, 'order_type' => $orderType, 'is_preorder' => $isPreorder, 'payment_method' => $paymentMethod],
             ], $userId);
 
             return $created;
         });
     }
 
-    private function resolveOrderType(string $requestedType, array $items, ?string $scheduledAt): string
+    /**
+     * Normalisasi tipe pesanan dari client.
+     *
+     * Nilai legacy diterima sebagai alias agar client lama tetap jalan:
+     *  - `normal`   -> `reguler`
+     *  - `booking`  -> `terjadwal`
+     *  - `preorder` -> `reguler` + sinyal "menunggu produk" (is_preorder)
+     *
+     * @return array{0: string, 1: bool} [tipe pesanan, minta tampil sebagai preorder]
+     */
+    private function normalizeOrderType(string $requestedType): array
     {
-        $requestedType = in_array($requestedType, ['normal', 'preorder', 'booking'], true) ? $requestedType : 'normal';
+        return match (strtolower(trim($requestedType))) {
+            'booking', 'terjadwal' => ['terjadwal', false],
+            'preorder' => ['reguler', true],
+            'normal', 'reguler', '' => ['reguler', false],
+            default => throw new RuntimeException('Tipe pesanan tidak valid.'),
+        };
+    }
+
+    /**
+     * Survey pengambilan pembeli (courier = ambil_sendiri): tanggal + jam ambil.
+     *
+     * @return array{at: ?string, note: ?string}
+     */
+    private function resolvePickupSchedule(?string $pickupAt, ?string $pickupNote): array
+    {
+        $rawAt = trim((string) $pickupAt);
+
+        if ($rawAt === '') {
+            throw new RuntimeException('Jadwal pengambilan (tanggal & jam) wajib diisi untuk metode diambil pembeli.');
+        }
+
+        $parsed = null;
+        foreach (['Y-m-d\TH:i:s', 'Y-m-d\TH:i', 'Y-m-d H:i:s', 'Y-m-d H:i'] as $format) {
+            try {
+                $parsed = \Illuminate\Support\Carbon::createFromFormat($format, $rawAt);
+                break;
+            } catch (\Throwable) {
+                // coba format berikutnya
+            }
+        }
+
+        if (! $parsed) {
+            throw new RuntimeException('Format jadwal pengambilan tidak valid.');
+        }
+
+        $note = trim((string) $pickupNote);
+
+        return [
+            'at' => $parsed->toDateTimeString(),
+            'note' => $note !== '' ? mb_substr($note, 0, 255) : null,
+        ];
+    }
+
+    /**
+     * @return array{0: string, 1: bool} [tipe pesanan tersimpan, apakah preorder]
+     */
+    private function resolveOrderType(string $requestedType, array $items, ?string $scheduledAt, bool $wantsPreorder): array
+    {
+        $requestedType = in_array($requestedType, ['reguler', 'terjadwal'], true) ? $requestedType : 'reguler';
         $needsPreorder = false;
 
         foreach ($items as $item) {
@@ -398,11 +471,11 @@ class CreateOrderUseCase
                     throw new RuntimeException("Stok {$item['product_name']} habis dan preorder untuk produk ini tidak tersedia.");
                 }
 
-                // Pesanan booking bergantung pada jadwal kirim/pickup yang sudah
+                // Pesanan terjadwal bergantung pada jadwal kirim/pickup yang sudah
                 // dipilih buyer. Jangan ubah diam-diam menjadi preorder.
-                if ($requestedType === 'booking') {
+                if ($requestedType === 'terjadwal') {
                     throw new RuntimeException(
-                        "Stok {$item['product_name']} habis sehingga pesanan booking tidak dapat diproses. Silakan tunggu restock atau ubah ke pesanan biasa/preorder."
+                        "Stok {$item['product_name']} habis sehingga pesanan terjadwal tidak dapat diproses. Silakan tunggu restock atau ubah ke pesanan reguler."
                     );
                 }
 
@@ -426,15 +499,16 @@ class CreateOrderUseCase
         }
 
         if ($needsPreorder) {
-            return 'preorder';
+            // Stok habis saat checkout: pesanan otomatis menjadi "menunggu produk".
+            return ['reguler', true];
         }
 
-        if ($requestedType === 'booking') {
-            if ($scheduledAt === null) {
-                throw new RuntimeException('Jadwal kirim/pickup wajib diisi untuk pesanan booking.');
+        if ($requestedType === 'terjadwal') {
+            if ($scheduledAt === null || trim((string) $scheduledAt) === '') {
+                throw new RuntimeException('Jadwal kirim/pickup wajib diisi untuk pesanan terjadwal.');
             }
 
-            // G-11: booking harus memvalidasi kapasitas slot jadwal (schedules.capacity).
+            // G-11: pesanan terjadwal harus memvalidasi kapasitas slot jadwal (schedules.capacity).
             $scheduleDate = substr((string) $scheduledAt, 0, 10);
             $schedule = DB::table('schedules')
                 ->where('date', $scheduleDate)
@@ -454,89 +528,9 @@ class CreateOrderUseCase
                 throw new RuntimeException('Kapasitas jadwal yang dipilih sudah penuh. Silakan pilih jadwal lain.');
             }
 
-            return 'booking';
+            return ['terjadwal', false];
         }
 
-        return $requestedType === 'preorder' ? 'preorder' : 'normal';
-    }
-
-    private function calculateVoucher(
-        string $userId,
-        ?string $voucherCode,
-        float $itemsTotal,
-        float $shippingTotal,
-        array $items
-    ): array {
-        $code = strtolower(trim((string) $voucherCode));
-
-        if ($code === '') {
-            return [null, 0.0, 0.0];
-        }
-
-        $voucher = DB::table('vouchers')
-            ->where('code', $code)
-            ->where('is_active', true)
-            ->whereNull('deleted_at')
-            ->lockForUpdate()
-            ->first();
-
-        if (! $voucher) {
-            throw new RuntimeException('Voucher tidak dikenali.');
-        }
-
-        if (now()->lt($voucher->starts_at) || now()->gt($voucher->ends_at)) {
-            throw new RuntimeException('Voucher sudah kedaluwarsa atau belum berlaku.');
-        }
-
-        if ((int) $voucher->usage_limit > 0 && (int) $voucher->used_count >= (int) $voucher->usage_limit) {
-            throw new RuntimeException('Kuota penggunaan voucher sudah habis.');
-        }
-
-        $eligibleSubtotal = $itemsTotal;
-        $eligibleShipping = $shippingTotal;
-
-        if ($eligibleSubtotal < (float) $voucher->min_spend) {
-            throw new RuntimeException('Minimal belanja voucher belum terpenuhi.');
-        }
-
-        // Syarat & ketentuan berbasis item (belanja minimal N item / N item berbeda).
-        $totalItems = 0;
-        $products = [];
-        foreach ($items as $item) {
-            $totalItems += (int) ($item['quantity'] ?? 0);
-            $products[(int) ($item['product_id'] ?? 0)] = true;
-        }
-        $distinctProducts = count($products);
-
-        if ((int) $voucher->min_items > 0 && $totalItems < (int) $voucher->min_items) {
-            throw new RuntimeException("Voucher membutuhkan minimal {$voucher->min_items} item dalam pesanan.");
-        }
-
-        if ((int) $voucher->min_distinct_products > 0 && $distinctProducts < (int) $voucher->min_distinct_products) {
-            throw new RuntimeException("Voucher hanya berlaku untuk minimal {$voucher->min_distinct_products} item produk berbeda.");
-        }
-
-        $target = strtolower((string) $voucher->discount_target);
-        $type = strtolower((string) $voucher->discount_type);
-        $value = (float) $voucher->discount_value;
-        $baseAmount = $target === 'shipping' ? $eligibleShipping : $eligibleSubtotal;
-
-        if (! in_array($target, ['product', 'shipping'], true) || ! in_array($type, ['fixed', 'percentage'], true)) {
-            throw new RuntimeException('Konfigurasi diskon voucher tidak didukung.');
-        }
-
-        $discount = $type === 'percentage' ? $baseAmount * $value / 100 : $value;
-
-        if ($voucher->max_discount !== null) {
-            $discount = min($discount, (float) $voucher->max_discount);
-        }
-
-        $discount = min($baseAmount, max(0.0, $discount));
-
-        return [
-            (int) $voucher->id,
-            $target === 'product' ? $discount : 0.0,
-            $target === 'shipping' ? $discount : 0.0,
-        ];
+        return ['reguler', $wantsPreorder];
     }
 }

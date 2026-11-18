@@ -2,11 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Banknote,
+  CalendarClock,
   CreditCard,
   Info,
   Landmark,
   MapPin,
+  QrCode,
   ShoppingBag,
+  Store,
   Truck,
 } from "lucide-react";
 import { useCart } from "@/features/order/cart/context/CartContext";
@@ -16,11 +19,15 @@ import {
   getOrderError,
   getShippingError,
   useCreateOrder,
+  usePaymentConfig,
   useShippingOptions,
 } from "@/features/order/ordering/orderService";
 import { openMidtransPayment } from "@/features/order/ordering/midtransService";
 import VoucherSearchSelect from "@/features/order/voucher/components/VoucherSearchSelect";
-import { useCheckoutVouchers } from "@/features/order/voucher/services/voucherService";
+import {
+  useCheckoutVouchers,
+  useVoucherPreview,
+} from "@/features/order/voucher/services/voucherService";
 import {
   calculateCheckoutVoucherDiscount,
   getAvailableCheckoutVouchers,
@@ -31,11 +38,24 @@ import { showOrderCreatedAlert } from "@/shared/utils/userFeedback";
 import { Separator } from "@/shared/components/ui/Separator";
 import { formatPrice } from "@/shared/utils/utils";
 
-const PAYMENT_METHODS = [
+const BASE_PAYMENT_METHODS = [
   { id: "midtrans", label: "Midtrans", icon: Landmark },
+  { id: "qris", label: "QRIS", icon: QrCode },
   { id: "cod", label: "Bayar di Tempat", icon: Banknote },
   { id: "transfer_manual", label: "Transfer Manual", icon: CreditCard },
 ];
+
+// Opsi "Diambil Pembeli" ditambahkan di sisi klien karena backend hanya
+// menghitung opsi pengiriman (haversine). Biaya = 0, tanpa alamat.
+const PICKUP_OPTION = {
+  id: "pickup",
+  courier: "ambil_sendiri",
+  service: "PICKUP",
+  courier_label: "Diambil Pembeli",
+  price: 0,
+  cost: 0,
+  description: "Ambil sendiri di toko sesuai jadwal survey yang dipilih.",
+};
 
 function formatAddress(address) {
   return [
@@ -123,9 +143,15 @@ export default function CheckoutPage() {
   const [addressId, setAddressId] = useState(null);
   const [shippingId, setShippingId] = useState("");
   const [payment, setPayment] = useState("midtrans");
-  const [orderType, setOrderType] = useState("normal");
+  // Tipe pesanan kini hanya `reguler` | `terjadwal`; stok habis otomatis
+  // ditandai backend sebagai "menunggu produk" (preorder).
+  const [orderType, setOrderType] = useState("reguler");
   const [preorderReleaseAt, setPreorderReleaseAt] = useState("");
-  const [scheduledAt, setScheduledAt] = useState("");
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("09:00");
+  const [pickupDate, setPickupDate] = useState("");
+  const [pickupTime, setPickupTime] = useState("");
+  const [pickupNote, setPickupNote] = useState("");
   const initialVoucherCode = String(location.state?.voucherCode || "")
     .trim()
     .toUpperCase();
@@ -167,7 +193,10 @@ export default function CheckoutPage() {
   const anyOutOfStock = selectedItems.some(
     (item) => Number(item.availableStock ?? item.stock ?? 0) <= 0,
   );
-  const effectiveOrderType = anyOutOfStock ? "preorder" : orderType;
+  // Stok habis: pesanan tetap `reguler`, backend yang menandai "menunggu
+  // produk" (is_preorder). Pesanan terjadwal ditolak saat stok habis.
+  const effectiveOrderType = anyOutOfStock ? "reguler" : orderType;
+  const waitingForProduct = anyOutOfStock;
   const cartItemIds = useMemo(
     () =>
       directItems.length
@@ -217,16 +246,52 @@ export default function CheckoutPage() {
   const effectiveCartItemIds = cartItemIds.length
     ? cartItemIds
     : resolvedCartItemIds;
-  const shippingOptions = useMemo(
-    () => mergeShippingOptions(remoteShippingOptions),
-    [remoteShippingOptions],
-  );
+  const shippingOptions = useMemo(() => {
+    const remote = mergeShippingOptions(remoteShippingOptions);
+
+    if (remote.some((option) => String(option.courier) === "ambil_sendiri")) {
+      return remote;
+    }
+
+    return [...remote, PICKUP_OPTION];
+  }, [remoteShippingOptions]);
   const shipping =
     shippingOptions.find(
       (option) => String(option.id) === String(shippingId),
     ) || shippingOptions[0];
-  const availablePaymentMethods = useMemo(() => PAYMENT_METHODS, []);
-  const shippingPrice = Number(shipping?.price || shipping?.cost || 0);
+  const isPickup = String(shipping?.courier || "") === "ambil_sendiri";
+  const paymentConfigQuery = usePaymentConfig();
+  const qris = paymentConfigQuery.data?.qris || {
+    enabled: false,
+    imageUrl: "",
+    merchantName: "",
+    notes: "",
+  };
+  const availablePaymentMethods = useMemo(() => {
+    const list = BASE_PAYMENT_METHODS.filter((method) => {
+      if (method.id === "qris") {
+        return Boolean(qris.enabled && qris.imageUrl);
+      }
+
+      // COD tidak berlaku untuk pengambilan sendiri (dilakukan backend).
+      if (method.id === "cod") {
+        return !isPickup;
+      }
+
+      return true;
+    }).map((method) =>
+      method.id === "qris" ? { ...method, label: `QRIS${qris.merchantName ? ` (${qris.merchantName})` : ""}` } : method,
+    );
+
+    if (isPickup) {
+      list.push({ id: "tunai_toko", label: "Tunai di Toko", icon: Store });
+    }
+
+    return list;
+  }, [isPickup, qris.enabled, qris.imageUrl, qris.merchantName]);
+  const shippingPrice = isPickup
+    ? 0
+    : Number(shipping?.price || shipping?.cost || 0);
   const availableVouchers = useMemo(
     () => getAvailableCheckoutVouchers(vouchers, selectedItems),
     [selectedItems, vouchers],
@@ -257,15 +322,66 @@ export default function CheckoutPage() {
       ) || null
     );
   }, [availableVouchers, voucherCode]);
-  const voucherCalculation = useMemo(
+  const voucherCodeNormalized = String(voucherCode || "").trim().toUpperCase();
+  const voucherPreviewItems = useMemo(
     () =>
-      calculateCheckoutVoucherDiscount({
-        voucher: selectedVoucher,
-        items: selectedItems,
-        shippingPrice,
-      }),
-    [selectedItems, selectedVoucher, shippingPrice],
+      selectedItems.map((item) => ({
+        productId: item.productId,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+    [selectedItems],
   );
+  // Kelayakan + nominal voucher ditentukan backend (tanggal berlaku, kuota,
+  // kuota per user, scope produk, minimal belanja/item) — bukan frontend.
+  const voucherPreviewQuery = useVoucherPreview({
+    enabled: Boolean(voucherCodeNormalized) && voucherPreviewItems.length > 0,
+    voucherCode: voucherCodeNormalized,
+    items: voucherPreviewItems,
+    shippingCost: shippingPrice,
+  });
+  const voucherPreview = voucherPreviewQuery.data || null;
+  const voucherCalculation = useMemo(() => {
+    const local = calculateCheckoutVoucherDiscount({
+      voucher: selectedVoucher,
+      items: selectedItems,
+      shippingPrice,
+    });
+
+    if (!voucherCodeNormalized || !voucherPreview) {
+      return {
+        ...local,
+        source: "local",
+        checking: Boolean(voucherCodeNormalized),
+      };
+    }
+
+    const discount =
+      voucherPreview.productDiscount + voucherPreview.shippingDiscount;
+
+    return {
+      discount,
+      productDiscount: voucherPreview.productDiscount,
+      shippingDiscount: voucherPreview.shippingDiscount,
+      eligibleSubtotal: voucherPreview.eligibleSubtotal,
+      eligibleShipping: shippingPrice,
+      eligible: voucherPreview.valid && discount > 0,
+      message: voucherPreview.valid
+        ? discount > 0
+          ? ""
+          : local.message
+        : voucherPreview.reason,
+      source: "backend",
+      checking: voucherPreviewQuery.isFetching,
+    };
+  }, [
+    selectedItems,
+    selectedVoucher,
+    shippingPrice,
+    voucherCodeNormalized,
+    voucherPreview,
+    voucherPreviewQuery.isFetching,
+  ]);
   const voucherDiscount = voucherCalculation.discount;
   const totalBeforeVoucher = subtotal + shippingPrice;
   const total = Math.max(0, totalBeforeVoucher - voucherDiscount);
@@ -337,19 +453,32 @@ export default function CheckoutPage() {
     );
   }
 
+  // Jadwal dikirim dalam format lokal (tanpa zona) agar sesuai parser backend.
+  const scheduledAt =
+    scheduledDate && scheduledTime ? `${scheduledDate}T${scheduledTime}` : "";
+  const pickupAt =
+    pickupDate && pickupTime ? `${pickupDate}T${pickupTime}` : "";
+
   const validateCheckout = () => {
     if (!shipping) {
       setError("Pilih layanan pengiriman terlebih dahulu.");
       return false;
     }
 
-    if (!addressId) {
+    if (!isPickup && !addressId) {
       setError("Pilih alamat pengiriman untuk layanan kurir.");
       return false;
     }
 
-    if (effectiveOrderType === "booking" && !scheduledAt) {
-      setError("Tentukan jadwal kirim atau slot pickup untuk pesanan booking.");
+    if (isPickup && !pickupAt) {
+      setError(
+        "Tentukan tanggal & jam pengambilan (survey) untuk metode Diambil Pembeli.",
+      );
+      return false;
+    }
+
+    if (effectiveOrderType === "terjadwal" && !scheduledAt) {
+      setError("Tentukan tanggal & jam kirim untuk pesanan terjadwal.");
       return false;
     }
 
@@ -367,21 +496,27 @@ export default function CheckoutPage() {
       setSubmitStage("creating");
       setError("");
       order = await createOrderMutation.mutateAsync({
-        addressId,
+        addressId: isPickup ? null : addressId,
         cartItemIds: effectiveCartItemIds,
         items: effectiveCartItemIds.length ? [] : directItems,
         courier: shipping.courier,
         service: shipping.service,
         paymentMethod: payment,
-        voucherCode: selectedVoucher?.code || null,
+        // Bila preview backend menyatakan voucher tidak berlaku, jangan kirim
+        // kode voucher agar pesanan tetap dapat dibuat.
+        voucherCode:
+          voucherPreview && !voucherPreview.valid
+            ? null
+            : selectedVoucher?.code || null,
         orderType: effectiveOrderType,
-        preorderReleaseAt: preorderReleaseAt
-          ? new Date(preorderReleaseAt).toISOString()
-          : null,
+        preorderReleaseAt:
+          waitingForProduct && preorderReleaseAt ? preorderReleaseAt : null,
         scheduledAt:
-          effectiveOrderType === "booking" && scheduledAt
-            ? new Date(scheduledAt).toISOString()
+          effectiveOrderType === "terjadwal" && scheduledAt
+            ? scheduledAt
             : null,
+        pickupAt: isPickup ? pickupAt : null,
+        pickupNote: isPickup ? pickupNote : null,
       });
     } catch (requestError) {
       setError(getOrderError(requestError));
@@ -483,19 +618,32 @@ export default function CheckoutPage() {
 
           <div className="grid gap-5 p-5 sm:p-7 md:grid-cols-2">
             <section className="rounded-xl border border-slate-200 p-4">
-              <p className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Penerima</p>
-              <p className="mt-2 font-bold text-slate-900">{selectedAddress?.recipientName || "-"}</p>
-              <p className="mt-1 text-sm leading-5 text-slate-600">{selectedAddress ? formatAddress(selectedAddress) : "-"}</p>
+              <p className="text-xs font-extrabold uppercase tracking-wide text-slate-500">{isPickup ? "Pengambilan" : "Penerima"}</p>
+              {isPickup ? (
+                <>
+                  <p className="mt-2 font-bold text-slate-900">Diambil pembeli di toko</p>
+                  <p className="mt-1 text-sm leading-5 text-slate-600">
+                    {pickupAt ? `Jadwal ${new Date(pickupAt.replace(" ", "T")).toLocaleString("id-ID")}` : "Jadwal belum dipilih"}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="mt-2 font-bold text-slate-900">{selectedAddress?.recipientName || "-"}</p>
+                  <p className="mt-1 text-sm leading-5 text-slate-600">{selectedAddress ? formatAddress(selectedAddress) : "-"}</p>
+                </>
+              )}
             </section>
 
             <section className="rounded-xl border border-slate-200 p-4">
               <p className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Pengiriman dan Pembayaran</p>
-              <p className="mt-2 font-bold text-slate-900">{shipping?.courier_label || shipping?.courier} {shipping?.service}</p>
-              <p className="mt-1 text-sm text-slate-600">{PAYMENT_METHODS.find((method) => method.id === payment)?.label || payment}</p>
-              <p className="mt-2 text-xs font-black uppercase text-[#047857]">{effectiveOrderType}</p>
-              {effectiveOrderType === "preorder" && preorderReleaseAt ? <p className="mt-1 text-xs text-slate-500">Perkiraan rilis {new Date(preorderReleaseAt).toLocaleString("id-ID")}</p> : null}
-              {effectiveOrderType === "preorder" && !preorderReleaseAt ? <p className="mt-1 text-xs text-slate-500">Preorder otomatis, tanpa kuota</p> : null}
-              {effectiveOrderType === "booking" && scheduledAt ? <p className="mt-1 text-xs text-slate-500">Jadwal kirim/pickup {new Date(scheduledAt).toLocaleString("id-ID")}</p> : null}
+              <p className="mt-2 font-bold text-slate-900">{isPickup ? "Diambil Pembeli" : `${shipping?.courier_label || shipping?.courier} ${shipping?.service}`}</p>
+              <p className="mt-1 text-sm text-slate-600">{availablePaymentMethods.find((method) => method.id === payment)?.label || payment}</p>
+              <p className="mt-2 text-xs font-black uppercase text-[#047857]">{effectiveOrderType === "terjadwal" ? "Pesanan Terjadwal" : "Reguler"}</p>
+              {waitingForProduct ? <p className="mt-1 text-xs font-semibold text-amber-600">Menunggu produk (preorder otomatis, stok habis)</p> : null}
+              {waitingForProduct && preorderReleaseAt ? <p className="mt-1 text-xs text-slate-500">Perkiraan rilis {new Date(preorderReleaseAt).toLocaleString("id-ID")}</p> : null}
+              {effectiveOrderType === "terjadwal" && scheduledAt ? <p className="mt-1 text-xs text-slate-500">Jadwal kirim {new Date(scheduledAt.replace(" ", "T")).toLocaleString("id-ID")}</p> : null}
+              {isPickup && pickupAt ? <p className="mt-1 text-xs text-slate-500">Jadwal ambil {new Date(pickupAt.replace(" ", "T")).toLocaleString("id-ID")}</p> : null}
+              {isPickup && pickupNote ? <p className="mt-1 text-xs text-slate-500">Catatan: {pickupNote}</p> : null}
             </section>
 
             <section className="rounded-xl border border-slate-200 p-4 md:col-span-2">
@@ -585,6 +733,14 @@ export default function CheckoutPage() {
                 + Tambah Alamat
               </button>
             </div>
+
+            {isPickup ? (
+              <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs leading-5 text-emerald-800">
+                Metode <strong>Diambil Pembeli</strong> dipilih — alamat tidak
+                wajib. Cukup tentukan jadwal survey pengambilan di bagian
+                pengiriman.
+              </div>
+            ) : null}
 
             {!addresses.length ? (
               <button
@@ -696,6 +852,53 @@ export default function CheckoutPage() {
               ))}
 
             </div>
+
+            {isPickup ? (
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                <p className="flex items-center gap-2 text-sm font-extrabold text-slate-900">
+                  <CalendarClock size={16} className="text-[#047857]" />
+                  Jadwal Survey Pengambilan
+                </p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  Pesanan disiapkan dan diambil di toko sesuai tanggal & jam
+                  yang kamu pilih.
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+                    Tanggal Pengambilan
+                    <input
+                      type="date"
+                      min={new Date().toISOString().slice(0, 10)}
+                      value={pickupDate}
+                      onChange={(event) => setPickupDate(event.target.value)}
+                      className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+                      required
+                    />
+                  </label>
+                  <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+                    Jam Pengambilan
+                    <input
+                      type="time"
+                      value={pickupTime}
+                      onChange={(event) => setPickupTime(event.target.value)}
+                      className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+                      required
+                    />
+                  </label>
+                </div>
+                <label className="mt-3 grid gap-1.5 text-sm font-bold text-slate-700">
+                  Catatan survey (opsional)
+                  <input
+                    type="text"
+                    maxLength={255}
+                    placeholder="Contoh: cek ukuran dan bahan sebelum ambil"
+                    value={pickupNote}
+                    onChange={(event) => setPickupNote(event.target.value)}
+                    className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+                  />
+                </label>
+              </div>
+            ) : null}
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
@@ -703,39 +906,82 @@ export default function CheckoutPage() {
               <ShoppingBag size={18} className="text-[#10B981]" />
               Tipe Pesanan
             </h2>
-            {anyOutOfStock ? (
+            {waitingForProduct ? (
               <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800">
-                Sebagian produk stok habis, sehingga pesanan ini otomatis menjadi{" "}
-                <strong>preorder (tanpa kuota)</strong>. Preorder ini tidak
-                ditampilkan sebagai stok di marketplace dan akan diproses setelah
-                toko selesai memproduksi.
+                Sebagian produk stok habis, sehingga pesanan ini otomatis
+                ditandai <strong>Menunggu Produk (preorder)</strong> oleh
+                sistem. Pilihan pesanan terjadwal tidak tersedia saat stok
+                habis; pesanan diproses setelah toko selesai memproduksi.
               </div>
             ) : (
-              <label
-                className={`mt-4 flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
-                  orderType === "booking"
-                    ? "border-[#10B981] bg-emerald-50"
-                    : "border-slate-200"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  className="mt-0.5 accent-[#10B981]"
-                  checked={orderType === "booking"}
-                  onChange={(event) =>
-                    setOrderType(event.target.checked ? "booking" : "normal")
-                  }
-                />
-                <span className="text-sm font-bold text-slate-800">
-                  Jadwalkan kirim/pickup (Booking)
-                </span>
-                <span className="ml-auto text-[11px] leading-4 text-slate-500 sm:max-w-[220px]">
-                  Pilih tanggal kirim (kurir) atau slot tanggal & jam (ambil
-                  sendiri) untuk pesanan stok tersedia.
-                </span>
-              </label>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {[
+                  {
+                    id: "reguler",
+                    label: "Reguler",
+                    desc: "Diproses sesuai ketersediaan stok toko.",
+                  },
+                  {
+                    id: "terjadwal",
+                    label: "Pesanan Terjadwal",
+                    desc: "Dikirim pada tanggal & jam yang kamu tentukan.",
+                  },
+                ].map((option) => (
+                  <label
+                    key={option.id}
+                    className={`cursor-pointer rounded-xl border p-4 transition ${
+                      effectiveOrderType === option.id
+                        ? "border-[#10B981] bg-emerald-50"
+                        : "border-slate-200 hover:border-emerald-300"
+                    }`}
+                  >
+                    <div className="flex gap-3">
+                      <input
+                        type="radio"
+                        name="order-type"
+                        className="mt-0.5 accent-[#10B981]"
+                        checked={effectiveOrderType === option.id}
+                        onChange={() => setOrderType(option.id)}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-slate-800">
+                          {option.label}
+                        </p>
+                        <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
+                          {option.desc}
+                        </p>
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
             )}
-            {effectiveOrderType === "preorder" ? (
+            {effectiveOrderType === "terjadwal" && !waitingForProduct ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+                  Tanggal Kirim
+                  <input
+                    type="date"
+                    min={new Date().toISOString().slice(0, 10)}
+                    value={scheduledDate}
+                    onChange={(event) => setScheduledDate(event.target.value)}
+                    className="h-10 rounded-md border border-slate-300 px-3 text-sm"
+                    required
+                  />
+                </label>
+                <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+                  Jam Kirim
+                  <input
+                    type="time"
+                    value={scheduledTime}
+                    onChange={(event) => setScheduledTime(event.target.value)}
+                    className="h-10 rounded-md border border-slate-300 px-3 text-sm"
+                    required
+                  />
+                </label>
+              </div>
+            ) : null}
+            {waitingForProduct ? (
               <label className="mt-4 grid gap-1.5 text-sm font-bold text-slate-700">
                 Perkiraan Tanggal Rilis (opsional)
                 <input
@@ -744,19 +990,6 @@ export default function CheckoutPage() {
                   value={preorderReleaseAt}
                   onChange={(event) => setPreorderReleaseAt(event.target.value)}
                   className="h-10 rounded-md border border-slate-300 px-3 text-sm"
-                />
-              </label>
-            ) : null}
-            {effectiveOrderType === "booking" ? (
-              <label className="mt-4 grid gap-1.5 text-sm font-bold text-slate-700">
-                Tanggal Kirim
-                <input
-                  type="date"
-                  min={new Date().toISOString().slice(0, 10)}
-                  value={scheduledAt}
-                  onChange={(event) => setScheduledAt(event.target.value)}
-                  className="h-10 rounded-md border border-slate-300 px-3 text-sm"
-                  required
                 />
               </label>
             ) : null}
@@ -794,6 +1027,32 @@ export default function CheckoutPage() {
                 );
               })}
             </div>
+
+            {payment === "qris" ? (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                {qris.imageUrl ? (
+                  <img
+                    src={qris.imageUrl}
+                    alt="QRIS Pembayaran"
+                    className="mx-auto max-h-60 w-auto rounded-lg border border-slate-200 bg-white object-contain p-2"
+                  />
+                ) : (
+                  <p className="text-center text-xs text-slate-500">
+                    Gambar QRIS belum tersedia. Pilih metode pembayaran lain.
+                  </p>
+                )}
+                <p className="mt-2 text-center text-sm font-bold text-slate-900">
+                  {qris.merchantName || "QRIS"}
+                </p>
+                <p className="mt-1 text-center text-xs leading-5 text-slate-600">
+                  {qris.notes ||
+                    "Scan kode QRIS menggunakan aplikasi pembayaranmu, lalu kirim bukti pembayaran."}
+                </p>
+                <p className="mt-2 text-center text-[11px] leading-4 text-slate-500">
+                  Pesanan diproses setelah pembayaran dikonfirmasi toko.
+                </p>
+              </div>
+            ) : null}
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">

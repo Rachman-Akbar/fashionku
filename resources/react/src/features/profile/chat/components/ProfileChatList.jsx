@@ -16,14 +16,14 @@ export function ProfileChatList({ threads = [], activeId, onSelect }) {
         <div className="flex items-center gap-3 text-slate-500">
           <button
             type="button"
-            className="transition hover:text-[#10B981]"
+            className="transition hover:text-[var(--color-primary)]"
             aria-label="Chat baru"
           >
             <SquarePlus size={20} />
           </button>
           <button
             type="button"
-            className="transition hover:text-[#10B981]"
+            className="transition hover:text-[var(--color-primary)]"
             aria-label="Menu"
           >
             <MoreVertical size={20} />
@@ -45,19 +45,19 @@ export function ProfileChatList({ threads = [], activeId, onSelect }) {
       <div className={profileLayout.filterRow}>
         <button
           type="button"
-          className="shrink-0 rounded-full bg-[#D1FAE5] px-3 py-1 font-semibold text-[#10B981]"
+          className="shrink-0 rounded-full bg-[var(--color-primary-soft-strong)] px-3 py-1 font-semibold text-[var(--color-primary)]"
         >
           Semua
         </button>
         <button
           type="button"
-          className="shrink-0 rounded-full bg-[#f0f2f5] px-3 py-1 font-semibold text-slate-500 transition hover:bg-[#D1FAE5] hover:text-[#10B981]"
+          className="shrink-0 rounded-full bg-[#f0f2f5] px-3 py-1 font-semibold text-slate-500 transition hover:bg-[var(--color-primary-soft-strong)] hover:text-[var(--color-primary)]"
         >
           Belum dibaca
         </button>
         <button
           type="button"
-          className="shrink-0 rounded-full bg-[#f0f2f5] px-3 py-1 font-semibold text-slate-500 transition hover:bg-[#D1FAE5] hover:text-[#10B981]"
+          className="shrink-0 rounded-full bg-[#f0f2f5] px-3 py-1 font-semibold text-slate-500 transition hover:bg-[var(--color-primary-soft-strong)] hover:text-[var(--color-primary)]"
         >
           Favorit
         </button>
@@ -67,7 +67,7 @@ export function ProfileChatList({ threads = [], activeId, onSelect }) {
         type="button"
         className="flex h-[52px] shrink-0 items-center px-4 text-left text-sm font-medium text-slate-800 transition hover:bg-[#f7f8fa]"
       >
-        <Archive size={17} className="mr-6 text-[#10B981]" />
+        <Archive size={17} className="mr-6 text-[var(--color-primary)]" />
         <span className="flex-1">Diarsipkan</span>
       </button>
       <hr className={profileLayout.divider} />
@@ -84,7 +84,7 @@ export function ProfileChatList({ threads = [], activeId, onSelect }) {
               onClick={() => onSelect(thread.id)}
               className={cn(
                 profileLayout.listItem,
-                active ? "bg-[#ECFDF5]" : "hover:bg-[#f7f8fa]",
+                active ? "bg-[var(--color-primary-soft)]" : "hover:bg-[#f7f8fa]",
               )}
             >
               <div
@@ -115,13 +115,13 @@ export function ProfileChatList({ threads = [], activeId, onSelect }) {
                 <span
                   className={cn(
                     "text-[11px] font-medium",
-                    thread.unread > 0 ? "text-[#10B981]" : "text-slate-400",
+                    thread.unread > 0 ? "text-[var(--color-primary)]" : "text-slate-400",
                   )}
                 >
                   {thread.time}
                 </span>
                 {thread.unread > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#10B981] px-1.5 text-[11px] font-bold text-white">
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--color-primary)] px-1.5 text-[11px] font-bold text-white">
                     {thread.unread}
                   </span>
                 )}
@@ -132,7 +132,7 @@ export function ProfileChatList({ threads = [], activeId, onSelect }) {
         })}
       </div>
 
-      <div className="flex h-14 shrink-0 items-center gap-3 border-t border-[#e5e7eb] bg-white px-4 text-xs font-medium text-[#10B981]">
+      <div className="flex h-14 shrink-0 items-center gap-3 border-t border-[#e5e7eb] bg-white px-4 text-xs font-medium text-[var(--color-primary)]">
         <Laptop size={16} />
         <span className="cursor-pointer hover:underline">
           Gunakan chat marketplace versi desktop

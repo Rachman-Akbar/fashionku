@@ -15,7 +15,9 @@ final class ListSellerProductsQuery
 
     public function execute(string $sellerId, array $filters = []): LengthAwarePaginator
     {
-        $filters['seller_id'] = $sellerId;
+        // Single-store: seluruh produk adalah produk toko ini, jadi filter
+        // `seller_id` lama tidak lagi dipakai (tidak ada kolomnya).
+        unset($filters['seller_id'], $filters['store_id']);
         $filters['include_inactive'] = true;
 
         $perPage = max(1, min(100, (int) ($filters['per_page'] ?? 20)));

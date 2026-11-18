@@ -25,6 +25,9 @@ final class StockMovementService
         'preorder' => 'stock_preorder',
     ];
 
+    /** @var array<int, array<string, true>> cache `movement_key` per order item */
+    private array $movementKeys = [];
+
     public function __construct(private StockMovementRepositoryInterface $repository,
         private CodePatternService $codePatterns) {}
 
@@ -99,15 +102,19 @@ final class StockMovementService
 
     public function reserveCheckout(int $orderId): void
     {
-        foreach ($this->loadOrderItems($orderId, null) as $item) {
+        $items = $this->loadOrderItems($orderId, null);
+        $this->prefetchMovementKeys($items);
+        $variants = $this->lockVariants($items->pluck('variant_id'));
+
+        foreach ($items as $item) {
             foreach ($this->resolveReservationDimensions($item) as $dimension) {
                 $movementKey = 'checkout-reserved.'.$dimension;
 
-                if ($this->repository->existsForOrderItem((int) $item->order_item_id, $movementKey)) {
+                if ($this->hasMovement((int) $item->order_item_id, $movementKey)) {
                     continue;
                 }
 
-                $variant = ProductVariantModel::query()->lockForUpdate()->find((int) $item->variant_id);
+                $variant = $variants[(int) $item->variant_id] ?? null;
                 if (! $variant) {
                     continue;
                 }
@@ -190,6 +197,9 @@ final class StockMovementService
         $current = $this->loadOrderItems(null, $subOrderId);
 
         DB::transaction(function () use ($subOrderId, $keyed, $current): void {
+            $this->prefetchMovementKeys($current);
+            $variants = $this->lockVariants($current->pluck('variant_id'));
+
             foreach ($current as $item) {
                 $target = $keyed->get((int) $item->order_item_id);
 
@@ -205,7 +215,7 @@ final class StockMovementService
                     continue;
                 }
 
-                $variant = ProductVariantModel::query()->lockForUpdate()->find((int) $item->variant_id);
+                $variant = $variants[(int) $item->variant_id] ?? null;
                 if (! $variant) {
                     continue;
                 }
@@ -215,8 +225,8 @@ final class StockMovementService
                     throw new InvalidArgumentException('Jumlah pesanan melebihi batas order toko (maksimal '.$maxOrderQty.' unit).');
                 }
 
-                $committed = $this->repository->existsForOrderItem((int) $item->order_item_id, 'paid-commit.available')
-                    || $this->repository->existsForOrderItem((int) $item->order_item_id, 'paid-commit.preorder');
+                $committed = $this->hasMovement((int) $item->order_item_id, 'paid-commit.available')
+                    || $this->hasMovement((int) $item->order_item_id, 'paid-commit.preorder');
 
                 if ($committed) {
                     $available = max(0, (int) $variant->stock);
@@ -302,14 +312,18 @@ final class StockMovementService
             $referenceType = $subOrderId !== null ? 'sub_order_status' : 'order_status';
             $referenceId = $subOrderId !== null ? (string) $subOrderId : (string) $orderId;
 
-            foreach ($this->loadOrderItems($orderId, $subOrderId) as $item) {
+            $items = $this->loadOrderItems($orderId, $subOrderId);
+            $this->prefetchMovementKeys($items);
+            $variants = $this->lockVariants($items->pluck('variant_id'));
+
+            foreach ($items as $item) {
                 $movementKey = $keyPrefix.'-status-'.$nextStatus;
 
-                if ($this->repository->existsForOrderItem((int) $item->order_item_id, $movementKey)) {
+                if ($this->hasMovement((int) $item->order_item_id, $movementKey)) {
                     continue;
                 }
 
-                $variant = ProductVariantModel::query()->lockForUpdate()->find((int) $item->variant_id);
+                $variant = $variants[(int) $item->variant_id] ?? null;
 
                 $this->saveItemMovement(
                     (int) ($item->order_id ?? $orderId),
@@ -333,13 +347,17 @@ final class StockMovementService
             throw new InvalidArgumentException('commitOrderItems membutuhkan orderId atau subOrderId yang spesifik.');
         }
 
-        foreach ($this->loadOrderItems($orderId, $subOrderId) as $item) {
-            if ($this->repository->existsForOrderItem((int) $item->order_item_id, 'paid-commit.available')
-                || $this->repository->existsForOrderItem((int) $item->order_item_id, 'paid-commit.preorder')) {
+        $items = $this->loadOrderItems($orderId, $subOrderId);
+        $this->prefetchMovementKeys($items);
+        $variants = $this->lockVariants($items->pluck('variant_id'));
+
+        foreach ($items as $item) {
+            if ($this->hasMovement((int) $item->order_item_id, 'paid-commit.available')
+                || $this->hasMovement((int) $item->order_item_id, 'paid-commit.preorder')) {
                 continue;
             }
 
-            $variant = ProductVariantModel::query()->lockForUpdate()->find((int) $item->variant_id);
+            $variant = $variants[(int) $item->variant_id] ?? null;
             if (! $variant) {
                 continue;
             }
@@ -348,7 +366,7 @@ final class StockMovementService
             $orderIdValue = (int) ($item->order_id ?? $orderId);
 
             foreach (['reserved', 'booked', 'preorder'] as $dimension) {
-                if (! $this->repository->existsForOrderItem((int) $item->order_item_id, 'checkout-reserved.'.$dimension)) {
+                if (! $this->hasMovement((int) $item->order_item_id, 'checkout-reserved.'.$dimension)) {
                     continue;
                 }
 
@@ -387,8 +405,8 @@ final class StockMovementService
                 );
             }
 
-            if ($this->repository->existsForOrderItem((int) $item->order_item_id, 'checkout-reserved.reserved')
-                || $this->repository->existsForOrderItem((int) $item->order_item_id, 'checkout-reserved.booked')) {
+            if ($this->hasMovement((int) $item->order_item_id, 'checkout-reserved.reserved')
+                || $this->hasMovement((int) $item->order_item_id, 'checkout-reserved.booked')) {
                 $nextStock = (int) $variant->stock - $quantity;
                 $variant->forceFill(['stock' => $nextStock])->save();
 
@@ -410,16 +428,20 @@ final class StockMovementService
 
     private function releasePreorderCommit(?int $orderId, ?int $subOrderId): void
     {
-        foreach ($this->loadOrderItems($orderId, $subOrderId) as $item) {
-            if (! $this->repository->existsForOrderItem((int) $item->order_item_id, 'paid-commit.preorder')) {
+        $items = $this->loadOrderItems($orderId, $subOrderId);
+        $this->prefetchMovementKeys($items);
+        $variants = $this->lockVariants($items->pluck('variant_id'));
+
+        foreach ($items as $item) {
+            if (! $this->hasMovement((int) $item->order_item_id, 'paid-commit.preorder')) {
                 continue;
             }
 
-            if ($this->repository->existsForOrderItem((int) $item->order_item_id, 'preorder-fulfilled')) {
+            if ($this->hasMovement((int) $item->order_item_id, 'preorder-fulfilled')) {
                 continue;
             }
 
-            $variant = ProductVariantModel::query()->lockForUpdate()->find((int) $item->variant_id);
+            $variant = $variants[(int) $item->variant_id] ?? null;
             if (! $variant) {
                 continue;
             }
@@ -445,20 +467,24 @@ final class StockMovementService
 
     private function releaseOrderItems(?int $orderId, ?int $subOrderId): void
     {
-        foreach ($this->loadOrderItems($orderId, $subOrderId) as $item) {
-            $variant = ProductVariantModel::query()->lockForUpdate()->find((int) $item->variant_id);
+        $items = $this->loadOrderItems($orderId, $subOrderId);
+        $this->prefetchMovementKeys($items);
+        $variants = $this->lockVariants($items->pluck('variant_id'));
+
+        foreach ($items as $item) {
+            $variant = $variants[(int) $item->variant_id] ?? null;
             if (! $variant) {
                 continue;
             }
 
             $quantity = (int) $item->quantity;
             $orderIdValue = (int) ($item->order_id ?? $orderId);
-            $committed = $this->repository->existsForOrderItem((int) $item->order_item_id, 'paid-commit.available')
-                || $this->repository->existsForOrderItem((int) $item->order_item_id, 'paid-commit.preorder');
+            $committed = $this->hasMovement((int) $item->order_item_id, 'paid-commit.available')
+                || $this->hasMovement((int) $item->order_item_id, 'paid-commit.preorder');
 
             if ($committed) {
-                $physical = $this->repository->existsForOrderItem((int) $item->order_item_id, 'checkout-reserved.reserved')
-                    || $this->repository->existsForOrderItem((int) $item->order_item_id, 'checkout-reserved.booked');
+                $physical = $this->hasMovement((int) $item->order_item_id, 'checkout-reserved.reserved')
+                    || $this->hasMovement((int) $item->order_item_id, 'checkout-reserved.booked');
 
                 if ($physical) {
                     $nextBalance = (int) $variant->stock + $quantity;
@@ -495,7 +521,7 @@ final class StockMovementService
             }
 
             foreach (['reserved', 'booked', 'preorder'] as $dimension) {
-                if (! $this->repository->existsForOrderItem((int) $item->order_item_id, 'checkout-reserved.'.$dimension)) {
+                if (! $this->hasMovement((int) $item->order_item_id, 'checkout-reserved.'.$dimension)) {
                     continue;
                 }
 
@@ -568,7 +594,11 @@ final class StockMovementService
         $available = max(0, (int) $item->stock - (int) $item->stock_reserved - (int) $item->stock_booked);
 
         if ($quantity <= $available) {
-            return $item->order_type === 'booking' ? ['reserved', 'booked'] : ['reserved'];
+            // Pesanan terjadwal (dulu "booking") ikut mengunci slot jadwal,
+            // sehingga mengurangi stok reserved + booked sekaligus.
+            return in_array($item->order_type, ['terjadwal', 'booking'], true)
+                ? ['reserved', 'booked']
+                : ['reserved'];
         }
 
         if ((int) $item->stock === 0) {
@@ -580,6 +610,67 @@ final class StockMovementService
         }
 
         throw new InvalidArgumentException('Stok tidak mencukupi. Tersedia '.$available.' unit.');
+    }
+
+    /**
+     * Ambil banyak varian sekaligus dengan row-lock, menggantikan pemanggilan
+     * `lockForUpdate()->find()` satu per satu di dalam loop (N+1).
+     *
+     * @param  iterable<int>  $variantIds
+     * @return Collection<int, ProductVariantModel>
+     */
+    private function lockVariants(iterable $variantIds): Collection
+    {
+        $ids = collect($variantIds)
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        return ProductVariantModel::query()
+            ->whereIn('id', $ids->all())
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+    }
+
+    /**
+     * Prefetch seluruh `movement_key` milik item pesanan dalam satu query,
+     * sehingga pemeriksaan idempotensi di dalam loop tidak memicu N+1.
+     *
+     * @param  Collection<int, object>|array<int, object>  $items
+     */
+    private function prefetchMovementKeys(iterable $items): void
+    {
+        $this->movementKeys = [];
+
+        $ids = collect($items)
+            ->map(fn (object $item): int => (int) ($item->order_item_id ?? 0))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        DB::table('stock_movements')
+            ->whereIn('order_item_id', $ids->all())
+            ->whereNotNull('movement_key')
+            ->get(['order_item_id', 'movement_key'])
+            ->each(function (object $row): void {
+                $this->movementKeys[(int) $row->order_item_id][(string) $row->movement_key] = true;
+            });
+    }
+
+    private function hasMovement(int $orderItemId, string $movementKey): bool
+    {
+        return isset($this->movementKeys[$orderItemId][$movementKey]);
     }
 
     private function saveItemMovement(
@@ -609,6 +700,9 @@ final class StockMovementService
             'notes' => $notes,
             'occurred_at' => now(),
         ]));
+
+        // Tandai agar pemeriksaan berikutnya di loop yang sama tidak query ulang.
+        $this->movementKeys[(int) $item->order_item_id][$movementKey] = true;
     }
 
     private function consumeRawMaterialsForProduction(int $productId, int $producedQuantity, string $referenceType, mixed $referenceId, mixed $occurredAt): void
@@ -630,12 +724,25 @@ final class StockMovementService
         }
 
         $lockedMaterials = [];
+        $materialIds = $recipe
+            ->filter(fn (object $row): bool => $row->deleted_at === null && (bool) $row->is_active)
+            ->map(fn (object $row): int => (int) $row->raw_material_id)
+            ->unique()
+            ->values();
+
+        $materials = RawMaterialModel::query()
+            ->whereIn('id', $materialIds->all())
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
         foreach ($recipe as $row) {
             if ($row->deleted_at !== null || ! (bool) $row->is_active) {
                 throw new InvalidArgumentException('Bahan baku '.$row->code.' - '.$row->name.' pada resep produk sudah nonaktif atau dihapus. Perbarui HPP sebelum menambah stok produk.');
             }
 
-            $material = RawMaterialModel::query()->lockForUpdate()->find((int) $row->raw_material_id);
+            $material = $materials[(int) $row->raw_material_id] ?? null;
             if (! $material) {
                 throw new InvalidArgumentException('Bahan baku untuk pembentukan produk tidak ditemukan.');
             }

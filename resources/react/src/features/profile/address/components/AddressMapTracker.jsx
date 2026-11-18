@@ -12,7 +12,7 @@ function createPinIcon() {
   return L.divIcon({
     className: "",
     html: `
-      <div style="width:34px;height:34px;border-radius:50% 50% 50% 0;background:#10B981;border:3px solid #ffffff;box-shadow:0 8px 20px rgba(15,23,42,.28);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;">
+      <div style="width:34px;height:34px;border-radius:50% 50% 50% 0;background:var(--color-primary);border:3px solid #ffffff;box-shadow:0 8px 20px rgba(15,23,42,.28);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;">
         <div style="width:10px;height:10px;border-radius:9999px;background:#ffffff;transform:rotate(45deg);"></div>
       </div>
     `,
@@ -298,7 +298,7 @@ export default function AddressMapTracker({
             type="button"
             onClick={() => resolveFromForm()}
             disabled={loading}
-            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:border-[#10B981] hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary-strong)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Sinkronkan dari Form
           </button>
@@ -306,7 +306,7 @@ export default function AddressMapTracker({
             type="button"
             onClick={locateCurrentPosition}
             disabled={loading}
-            className="h-10 rounded-xl bg-[#10B981] px-3 text-xs font-black text-white transition hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-10 rounded-xl bg-[var(--color-primary)] px-3 text-xs font-black text-white transition hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Gunakan Lokasi Saya
           </button>
@@ -320,7 +320,7 @@ export default function AddressMapTracker({
 
       {message ? (
         <p
-          className={`text-xs font-semibold ${message.includes("berhasil") || message.includes("otomatis") ? "text-[#10B981]" : "text-slate-500"}`}
+          className={`text-xs font-semibold ${message.includes("berhasil") || message.includes("otomatis") ? "text-[var(--color-primary)]" : "text-slate-500"}`}
         >
           {message}
         </p>

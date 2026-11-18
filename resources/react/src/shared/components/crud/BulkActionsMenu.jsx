@@ -23,7 +23,6 @@ export const BulkActionsMenu = memo(function BulkActionsMenu({ selectedCount = 0
       <ActionIconButton
         icon="checklist"
         title="Bulk Action"
-        tooltip={false}
         badge={selectedCount > 0 ? selectedCount : undefined}
         active={open}
         onClick={() => setOpen((current) => !current)}

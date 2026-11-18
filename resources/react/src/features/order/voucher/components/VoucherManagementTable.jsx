@@ -16,6 +16,7 @@ export const VOUCHER_TABLE_COLUMNS = [
   { key: "voucher", label: "Voucher" },
   { key: "image", label: "Gambar" },
   { key: "discount", label: "Diskon" },
+  { key: "productScope", label: "Berlaku Untuk" },
   { key: "minSpend", label: "Min. Belanja", defaultVisible: false },
   { key: "minItems", label: "Min. Item", defaultVisible: false },
   { key: "terms", label: "Syarat & Ketentuan", defaultVisible: false },
@@ -25,7 +26,7 @@ export const VOUCHER_TABLE_COLUMNS = [
   { key: "active", label: "Status" },
 ];
 
-const widths = { voucher: 250, image: 110, discount: 180, minSpend: 150, minItems: 130, terms: 260, maxDiscount: 170, period: 190, usage: 150, active: 130 };
+const widths = { voucher: 250, image: 110, discount: 180, productScope: 160, minSpend: 150, minItems: 130, terms: 260, maxDiscount: 170, period: 190, usage: 150, active: 130 };
 
 function discountLabel(row) {
   const value = row.discountType === "percentage" ? `${row.discountValue}%` : formatPrice(row.discountValue);
@@ -53,6 +54,7 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
     if (key === "voucher") return row.name || "";
     if (key === "image") return row.imageUrl || row.image || "";
     if (key === "discount") return `${row.discountTarget || ""} ${row.discountType || ""} ${row.discountValue ?? ""}`;
+    if (key === "productScope") return (row.productIds || []).length ? "Produk tertentu" : "Semua produk";
     if (key === "minSpend") return row.minSpend;
     if (key === "minItems") return row.minItems;
     if (key === "terms") return row.terms || "";
@@ -63,7 +65,7 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
     return row[key] ?? row.raw?.[key];
   }, []);
 
-  const filterTypes = useMemo(() => ({ voucher: "text", discount: "text", minSpend: "range", minItems: "range", terms: "text", maxDiscount: "range", period: "text", usage: "range", active: "select" }), []);
+  const filterTypes = useMemo(() => ({ voucher: "text", discount: "text", productScope: "select", minSpend: "range", minItems: "range", terms: "text", maxDiscount: "range", period: "text", usage: "range", active: "select" }), []);
   const { rows: tableRows, columnFilters, changeFilter, sortBy, sortDirection, setSort, resetFilters, resetSort } = useColumnFilterState({ rows, getValue, filterTypes });
 
   const interactiveProps = (column) => ({
@@ -83,6 +85,7 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
     if (column.key === "voucher") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Voucher" sortKey="voucher" sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSort} filterType="text" filterValue={columnFilters.voucher || ""} onFilterChange={(value) => changeFilter("voucher", value)} placeholder="Cari voucher" />;
     if (column.key === "image") return <InteractiveTableHeader key={column.key} {...interactiveProps(column)}>Gambar</InteractiveTableHeader>;
     if (column.key === "discount") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Diskon" sortKey="discount" sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSort} filterType="text" filterValue={columnFilters.discount || ""} onFilterChange={(value) => changeFilter("discount", value)} placeholder="Cari diskon" />;
+    if (column.key === "productScope") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Berlaku Untuk" sortKey="productScope" sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSort} filterType="select" filterValue={columnFilters.productScope || ""} onFilterChange={(value) => changeFilter("productScope", value)} options={[{ value: "Produk tertentu", label: "Produk tertentu" }, { value: "Semua produk", label: "Semua produk" }]} />;
     if (column.key === "minSpend") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Min. Belanja" align="right" filterType="range" filterValue={columnFilters.minSpend || { min: "", max: "" }} onFilterChange={(value) => changeFilter("minSpend", value)} minPlaceholder="Min" maxPlaceholder="Max" />;
     if (column.key === "minItems") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Min. Item" align="right" filterType="range" filterValue={columnFilters.minItems || { min: "", max: "" }} onFilterChange={(value) => changeFilter("minItems", value)} minPlaceholder="Min" maxPlaceholder="Max" />;
     if (column.key === "terms") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Syarat & Ketentuan" filterType="text" filterValue={columnFilters.terms || ""} onFilterChange={(value) => changeFilter("terms", value)} placeholder="Cari syarat" />;
@@ -97,12 +100,21 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
     if (column.key === "voucher") return <td key={column.key} className="px-4 py-3"><p className="font-extrabold text-slate-900">{toTitleCase(row.name)}</p><p className="mt-1 text-xs font-bold uppercase text-emerald-700">{row.code}</p></td>;
     if (column.key === "image") return <td key={column.key} className="px-4 py-3">{row.imageUrl || row.image ? <img src={resolveMediaUrl(row.imageUrl || row.image)} alt={row.name} className="h-12 w-20 object-cover" loading="lazy" onError={(e) => { e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E"; }} /> : "-"}</td>;
     if (column.key === "discount") return <td key={column.key} className="px-4 py-3 font-bold text-slate-700">{discountLabel(row)}</td>;
+    if (column.key === "productScope") {
+      const productCount = (row.productIds || []).length;
+      return <td key={column.key} className="px-4 py-3 text-slate-600">{productCount ? `Produk tertentu (${productCount})` : "Semua produk"}</td>;
+    }
     if (column.key === "minSpend") return <td key={column.key} className="px-4 py-3 text-right text-slate-600">{formatPrice(row.minSpend)}</td>;
     if (column.key === "minItems") return <td key={column.key} className="px-4 py-3 text-right text-slate-600">{row.minItems ? `${Number(row.minItems).toLocaleString("id-ID")} item` : "-"}</td>;
     if (column.key === "terms") return <td key={column.key} className="max-w-64 truncate px-4 py-3 text-slate-600" title={row.terms || ""}>{row.terms || "-"}</td>;
     if (column.key === "maxDiscount") return <td key={column.key} className="px-4 py-3 text-right text-slate-600">{row.maxDiscount === "" || row.maxDiscount === null ? "-" : formatPrice(Number(row.maxDiscount))}</td>;
     if (column.key === "period") return <td key={column.key} className="px-4 py-3 text-xs text-slate-500"><p>{formatDateTime(row.startsAt)}</p><p>{formatDateTime(row.endsAt)}</p></td>;
-    if (column.key === "usage") return <td key={column.key} className="px-4 py-3 text-right text-slate-600">{row.usedCount.toLocaleString("id-ID")} / {row.usageLimit ? row.usageLimit.toLocaleString("id-ID") : "∞"}</td>;
+    if (column.key === "usage") return (
+      <td key={column.key} className="px-4 py-3 text-right text-slate-600">
+        <p>{row.usedCount.toLocaleString("id-ID")} / {row.usageLimit ? row.usageLimit.toLocaleString("id-ID") : "∞"}</p>
+        {Number(row.usageLimitPerUser) > 0 ? <p className="text-xs text-slate-400">{Number(row.usedByUser || 0).toLocaleString("id-ID")} / {Number(row.usageLimitPerUser).toLocaleString("id-ID")} per user</p> : null}
+      </td>
+    );
     return <td key={column.key} className="px-4 py-3" onClick={(event) => event.stopPropagation()}><InlineActiveSwitch checked={row.isActive} pending={pendingId === row.id} onChange={(checked) => onToggleActive?.(row, checked)} compact /></td>;
   };
 

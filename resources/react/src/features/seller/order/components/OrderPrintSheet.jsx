@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { parseShipping } from "@/shared/utils/shipping";
+import { orderTypeLabel } from "@/features/admin/order/services/orderManagementService";
 
 function money(value) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -40,6 +41,10 @@ export default function OrderPrintSheet({ row, onClose }) {
   const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
   const shippingCost = Number(raw.shipping_cost ?? row.shippingCost ?? 0);
   const total = Number(raw.grand_total ?? row.total ?? subtotal + shippingCost);
+  const pickupAt = row.pickupAt || raw.pickup_at || null;
+  const pickupNote = row.pickupNote || raw.pickup_note || "";
+  const isPreorder = Boolean(row.isPreorder ?? raw.is_preorder ?? false)
+    || String(row.orderType || raw.order_type || "").trim().toLowerCase() === "preorder";
 
   const onCloseRef = useRef(onClose);
   useEffect(() => {
@@ -84,13 +89,22 @@ export default function OrderPrintSheet({ row, onClose }) {
             <p className="mt-1 font-bold">{statusLabel(row.status)}</p>
             <p className="mt-1 text-slate-500">
               Pembayaran: {(row.paymentStatus || "pending").toUpperCase()} <br />
-              Tipe: {(row.orderType || "normal").toUpperCase()}
+              Tipe: {orderTypeLabel(row.orderType || raw.order_type)}{isPreorder ? " · Menunggu Produk" : ""}
             </p>
           </div>
           <div className="rounded-lg bg-slate-50 p-3">
             <p className="font-black uppercase tracking-wide text-slate-400">Pengiriman</p>
-            <p className="mt-1 font-bold">{[raw.courier, raw.service].filter(Boolean).join(" / ") || "-"}</p>
-            <p className="text-slate-500">Resi: {raw.tracking_number || row.trackingNumber || "-"}</p>
+            {pickupAt ? (
+              <>
+                <p className="mt-1 font-bold">Ambil di Toko · {formatDate(pickupAt)}</p>
+                <p className="text-slate-500">{pickupNote ? `Catatan: ${pickupNote}` : "Tanpa pengiriman kurir"}</p>
+              </>
+            ) : (
+              <>
+                <p className="mt-1 font-bold">{[raw.courier, raw.service].filter(Boolean).join(" / ") || "-"}</p>
+                <p className="text-slate-500">Resi: {raw.tracking_number || row.trackingNumber || "-"}</p>
+              </>
+            )}
           </div>
         </div>
 

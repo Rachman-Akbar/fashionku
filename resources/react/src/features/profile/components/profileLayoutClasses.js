@@ -26,13 +26,13 @@ export const profileLayout = {
     "mb-8 flex min-h-[104px] flex-col justify-end gap-4 sm:flex-row sm:items-end sm:justify-between",
   contentTitle: "text-3xl font-light leading-tight text-slate-950",
   contentEyebrow:
-    "text-xs font-semibold uppercase tracking-[0.18em] text-[#10B981]",
+    "text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]",
   contentDesc: "max-w-2xl text-sm leading-6 text-slate-500",
   divider: "border-[#e5e7eb]",
   searchBox:
-    "flex h-11 items-center rounded-lg bg-white px-3 text-slate-400 ring-1 ring-[#e5e7eb] focus-within:ring-[#10B981]",
+    "flex h-11 items-center rounded-lg bg-white px-3 text-slate-400 ring-1 ring-[#e5e7eb] focus-within:ring-[var(--color-primary)]",
   primaryButton:
-    "inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[#10B981] px-5 text-sm font-semibold text-white transition hover:bg-[#059669]",
+    "inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] px-5 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-hover)]",
   secondaryButton:
-    "inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#e5e7eb] px-5 text-sm font-semibold text-slate-600 transition hover:border-[#10B981] hover:text-[#10B981]",
+    "inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#e5e7eb] px-5 text-sm font-semibold text-slate-600 transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]",
 };

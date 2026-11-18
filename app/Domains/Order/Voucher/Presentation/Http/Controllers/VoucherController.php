@@ -24,6 +24,7 @@ final class VoucherController extends Controller
     public function __construct(
         private ManageVoucherUseCase $useCase,
         private UserVoucherUseCase $userVoucherUseCase,
+        private \App\Domains\Order\Voucher\Application\Services\VoucherCheckoutService $voucherCheckoutService,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -53,6 +54,7 @@ final class VoucherController extends Controller
             'mission_reward_ids' => $missionRewardIds,
             'owned_ids' => $ownedVoucherIds,
         ]);
+        $request->attributes->set('voucher_usage', $this->usageMap($userId));
 
         return response()->json([
             'success' => true,
@@ -99,19 +101,91 @@ final class VoucherController extends Controller
             $filters['is_active'] = $request->boolean('is_active');
         }
 
+        $request->attributes->set('voucher_usage', $this->usageMap((string) $request->user()->getAuthIdentifier()));
+
         return response()->json([
             'success' => true,
             'data' => VoucherResource::collection($this->useCase->listVouchers($filters)),
         ]);
     }
 
-    public function show(int $id): JsonResponse
+    public function show(int $id, Request $request): JsonResponse
     {
         try {
+            $request->attributes->set('voucher_usage', $this->usageMap((string) $request->user()->getAuthIdentifier()));
+
             return response()->json(['success' => true, 'data' => new VoucherResource($this->useCase->showVoucher($id, false))]);
         } catch (Throwable $exception) {
             return response()->json(['success' => false, 'message' => $exception->getMessage()], 404);
         }
+    }
+
+    /**
+     * Preview kelayakan voucher dihitung oleh backend (bukan frontend):
+     * tanggal berlaku, kuota global, kuota per user, scope produk, minimal
+     * belanja dan minimal item semuanya dibaca dari database.
+     */
+    public function preview(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'voucher_code' => ['required', 'string', 'max:100'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['nullable', 'integer', 'min:1'],
+            'items.*.price' => ['required', 'numeric', 'min:0'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'shipping_cost' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $itemsTotal = 0.0;
+        foreach ($validated['items'] as $item) {
+            $itemsTotal += (float) $item['price'] * (int) $item['quantity'];
+        }
+
+        $result = $this->voucherCheckoutService->preview(
+            (string) $request->user()->getAuthIdentifier(),
+            (string) $validated['voucher_code'],
+            $itemsTotal,
+            (float) ($validated['shipping_cost'] ?? 0),
+            $validated['items']
+        );
+
+        $voucher = $result['valid'] && (int) $result['voucher_id'] > 0
+            ? $this->useCase->showVoucher((int) $result['voucher_id'], true)
+            : null;
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'valid' => $result['valid'],
+                'reason' => $result['reason'],
+                'product_discount' => (int) round($result['product_discount']),
+                'shipping_discount' => (int) round($result['shipping_discount']),
+                'eligible_subtotal' => (int) round($result['eligible_subtotal']),
+                'voucher' => $voucher ? new VoucherResource($voucher) : null,
+            ],
+        ]);
+    }
+
+    /**
+     * Jumlah pemakaian voucher per user (dari order yang tidak dibatalkan).
+     *
+     * @return array<int, int>
+     */
+    private function usageMap(string $userId): array
+    {
+        if ($userId === '') {
+            return [];
+        }
+
+        return DB::table('orders')
+            ->where('user_id', $userId)
+            ->whereNotNull('voucher_id')
+            ->where('status', '!=', 'cancelled')
+            ->groupBy('voucher_id')
+            ->selectRaw('voucher_id, COUNT(*) as used_count')
+            ->pluck('used_count', 'voucher_id')
+            ->map(fn (mixed $count): int => (int) $count)
+            ->all();
     }
 
     public function store(StoreVoucherRequest $request): JsonResponse
@@ -192,8 +266,15 @@ final class VoucherController extends Controller
             'starts_at' => (string) $data['starts_at'],
             'ends_at' => (string) $data['ends_at'],
             'usage_limit' => (int) $data['usage_limit'],
+            'usage_limit_per_user' => isset($data['usage_limit_per_user']) && $data['usage_limit_per_user'] !== ''
+                ? (int) $data['usage_limit_per_user']
+                : 0,
             'is_active' => (bool) $data['is_active'],
             'image' => $data['image'],
+            'product_ids' => array_values(array_map(
+                'intval',
+                (array) ($data['product_ids'] ?? [])
+            )),
         ];
     }
 

@@ -22,8 +22,11 @@ final class VoucherDTO
         public ?int $min_distinct_products = null,
         public ?string $terms = null,
         public int $usage_limit = 0,
+        public int $usage_limit_per_user = 0,
         public bool $is_active = true,
         public ?string $image = null,
+        /** @var array<int, int> kosong = berlaku untuk semua produk */
+        public array $product_ids = [],
     ) {
         $this->code = Str::lower(trim($this->code));
         $this->name = trim((string) preg_replace('/\s+/u', ' ', $this->name));

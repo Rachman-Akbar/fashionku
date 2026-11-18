@@ -313,7 +313,7 @@ final class ConversationService
             ->exists();
 
         if (! $isCustomer) {
-            throw new InvalidArgumentException('Buyer belum pernah melakukan transaksi pada toko ini.');
+            throw new InvalidArgumentException('Buyer belum pernah melakukan transaksi.');
         }
     }
 

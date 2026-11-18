@@ -247,3 +247,243 @@ body,
 .panel-surface :is(button, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):not(.rounded-full) {
   border-radius: 10px;
 }
+
+/* ==========================================================================
+   Tema area akun buyer (ProfileLayout)
+   - Palet warna meng-override token primary Tailwind v4 pada subtree profil.
+   - Mode gelap memakai data-mode="dark" dan hanya berlaku di area profil.
+   ========================================================================== */
+
+[data-palette="emerald"] {
+  --color-primary: #10b981;
+  --color-primary-hover: #059669;
+  --color-primary-strong: #047857;
+  --color-primary-soft: #ecfdf5;
+  --color-primary-soft-strong: #d1fae5;
+  --color-primary-container: #22c55e;
+  --color-primary-fixed: #d1fae5;
+  --color-primary-fixed-dim: #a7f3d0;
+  --color-primary-ring: rgba(16, 185, 129, 0.28);
+}
+
+[data-palette="ocean"] {
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-strong: #1e40af;
+  --color-primary-soft: #eff6ff;
+  --color-primary-soft-strong: #dbeafe;
+  --color-primary-container: #3b82f6;
+  --color-primary-fixed: #dbeafe;
+  --color-primary-fixed-dim: #bfdbfe;
+  --color-primary-ring: rgba(37, 99, 235, 0.28);
+}
+
+[data-palette="violet"] {
+  --color-primary: #7c3aed;
+  --color-primary-hover: #6d28d9;
+  --color-primary-strong: #5b21b6;
+  --color-primary-soft: #f5f3ff;
+  --color-primary-soft-strong: #ede9fe;
+  --color-primary-container: #8b5cf6;
+  --color-primary-fixed: #ede9fe;
+  --color-primary-fixed-dim: #ddd6fe;
+  --color-primary-ring: rgba(124, 58, 237, 0.28);
+}
+
+[data-palette="amber"] {
+  --color-primary: #d97706;
+  --color-primary-hover: #b45309;
+  --color-primary-strong: #92400e;
+  --color-primary-soft: #fffbeb;
+  --color-primary-soft-strong: #fef3c7;
+  --color-primary-container: #f59e0b;
+  --color-primary-fixed: #fef3c7;
+  --color-primary-fixed-dim: #fde68a;
+  --color-primary-ring: rgba(217, 119, 6, 0.3);
+}
+
+[data-palette="rose"] {
+  --color-primary: #e11d48;
+  --color-primary-hover: #be123c;
+  --color-primary-strong: #9f1239;
+  --color-primary-soft: #fff1f2;
+  --color-primary-soft-strong: #ffe4e6;
+  --color-primary-container: #f43f5e;
+  --color-primary-fixed: #ffe4e6;
+  --color-primary-fixed-dim: #fecdd3;
+  --color-primary-ring: rgba(225, 29, 72, 0.28);
+}
+
+[data-palette="teal"] {
+  --color-primary: #0d9488;
+  --color-primary-hover: #0f766e;
+  --color-primary-strong: #115e59;
+  --color-primary-soft: #f0fdfa;
+  --color-primary-soft-strong: #ccfbf1;
+  --color-primary-container: #14b8a6;
+  --color-primary-fixed: #ccfbf1;
+  --color-primary-fixed-dim: #99f6e4;
+  --color-primary-ring: rgba(13, 148, 136, 0.28);
+}
+
+/* Aksen panel (admin & profil) mengikuti palet warna yang dipilih. */
+.profile-theme .bg-emerald-600 {
+  background-color: var(--color-primary);
+}
+.profile-theme .hover\:bg-emerald-700:hover {
+  background-color: var(--color-primary-hover);
+}
+.profile-theme .text-emerald-600 {
+  color: var(--color-primary);
+}
+.profile-theme .bg-emerald-50 {
+  background-color: var(--color-primary-soft);
+}
+
+.profile-theme {
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+.profile-theme[data-mode="dark"] {
+  color-scheme: dark;
+  --profile-bg: #0a1424;
+  --profile-surface: #101c2e;
+  --profile-surface-2: #17243a;
+  --profile-border: #24334d;
+  --profile-text: #e7edf7;
+  --profile-muted: #93a4bd;
+  background-color: var(--profile-bg);
+  color: var(--profile-text);
+}
+
+/* Permukaan */
+.profile-theme[data-mode="dark"] .bg-white {
+  background-color: var(--profile-surface);
+}
+.profile-theme[data-mode="dark"] .bg-white\/95 {
+  background-color: color-mix(in srgb, var(--profile-surface) 96%, transparent);
+}
+.profile-theme[data-mode="dark"] .bg-emerald-600 {
+  background-color: var(--color-primary);
+}
+.profile-theme[data-mode="dark"] :is(.bg-slate-50, .bg-slate-100) {
+  background-color: var(--profile-surface-2);
+}
+.profile-theme[data-mode="dark"] .bg-slate-200 {
+  background-color: #26364f;
+}
+.profile-theme[data-mode="dark"] :is(.bg-\[\#f7f8fa\], .bg-\[\#f0f2f5\]) {
+  background-color: var(--profile-surface-2);
+}
+.profile-theme[data-mode="dark"] .bg-\[\#efeae2\] {
+  background-color: #0a1220;
+}
+.profile-theme[data-mode="dark"] .bg-\[\#d9fdd3\] {
+  background-color: #14432f;
+}
+.profile-theme[data-mode="dark"] :is(.bg-emerald-50, .bg-emerald-50\/70, .bg-\[\#ECFDF5\]) {
+  background-color: color-mix(in srgb, var(--color-primary) 16%, var(--profile-bg));
+}
+.profile-theme[data-mode="dark"] :is(.bg-\[\#D1FAE5\], .bg-emerald-100) {
+  background-color: color-mix(in srgb, var(--color-primary) 24%, var(--profile-bg));
+}
+.profile-theme[data-mode="dark"] .bg-red-50 {
+  background-color: rgba(248, 113, 113, 0.12);
+}
+.profile-theme[data-mode="dark"] .bg-red-100 {
+  background-color: rgba(248, 113, 113, 0.2);
+}
+.profile-theme[data-mode="dark"] .bg-amber-50 {
+  background-color: rgba(251, 191, 36, 0.13);
+}
+.profile-theme[data-mode="dark"] .bg-blue-50 {
+  background-color: rgba(96, 165, 250, 0.13);
+}
+
+/* Garis & ring */
+.profile-theme[data-mode="dark"] :is(.border-slate-100, .border-slate-200, .border-\[\#e5e7eb\]) {
+  border-color: var(--profile-border);
+}
+.profile-theme[data-mode="dark"] .border-slate-300 {
+  border-color: #33445f;
+}
+.profile-theme[data-mode="dark"] :is(.ring-slate-200, .ring-\[\#e5e7eb\]) {
+  --tw-ring-color: var(--profile-border);
+}
+.profile-theme[data-mode="dark"] .ring-slate-300 {
+  --tw-ring-color: #33445f;
+}
+.profile-theme[data-mode="dark"] .divide-slate-100 > :not(:last-child) {
+  border-color: var(--profile-border);
+}
+
+/* Teks */
+.profile-theme[data-mode="dark"] :is(.text-slate-950, .text-slate-900, .text-gray-900) {
+  color: #f3f7fd;
+}
+.profile-theme[data-mode="dark"] .text-slate-800 {
+  color: #e2e8f0;
+}
+.profile-theme[data-mode="dark"] :is(.text-slate-700, .text-slate-600) {
+  color: #c9d6e8;
+}
+.profile-theme[data-mode="dark"] :is(.text-slate-500, .text-gray-500) {
+  color: var(--profile-muted);
+}
+.profile-theme[data-mode="dark"] .text-slate-400 {
+  color: #8595ad;
+}
+.profile-theme[data-mode="dark"] .text-slate-300 {
+  color: #64748b;
+}
+.profile-theme[data-mode="dark"] .text-emerald-700 {
+  color: #6ee7b7;
+}
+.profile-theme[data-mode="dark"] .text-amber-700 {
+  color: #fcd34d;
+}
+.profile-theme[data-mode="dark"] .text-blue-700 {
+  color: #93c5fd;
+}
+.profile-theme[data-mode="dark"] :is(.text-red-600, .text-red-700) {
+  color: #fca5a5;
+}
+
+/* State hover */
+.profile-theme[data-mode="dark"] :is(.hover\:bg-slate-50:hover, .hover\:bg-slate-100:hover) {
+  background-color: var(--profile-surface-2);
+}
+.profile-theme[data-mode="dark"] :is(.hover\:bg-\[\#ECFDF5\]:hover, .hover\:bg-emerald-50:hover, .hover\:bg-\[\#f7f8fa\]:hover) {
+  background-color: color-mix(in srgb, var(--color-primary) 16%, var(--profile-bg));
+}
+.profile-theme[data-mode="dark"] :is(.hover\:bg-red-50:hover) {
+  background-color: rgba(248, 113, 113, 0.14);
+}
+.profile-theme[data-mode="dark"] :is(.hover\:text-slate-900:hover, .hover\:text-slate-700:hover) {
+  color: #ffffff;
+}
+.profile-theme[data-mode="dark"] .hover\:ring-slate-300:hover {
+  --tw-ring-color: #33445f;
+}
+
+/* Form */
+.profile-theme[data-mode="dark"] :is(input, textarea, select) {
+  color: var(--profile-text);
+}
+.profile-theme[data-mode="dark"] :is(input, textarea)::placeholder {
+  color: #6b7c95;
+}
+
+/* Latar aksen berbasis token palet */
+.profile-theme[data-mode="dark"] .bg-\[var\(--color-primary-soft\)\] {
+  background-color: color-mix(in srgb, var(--color-primary) 16%, var(--profile-bg));
+}
+.profile-theme[data-mode="dark"] .bg-\[var\(--color-primary-soft-strong\)\] {
+  background-color: color-mix(in srgb, var(--color-primary) 26%, var(--profile-bg));
+}
+.profile-theme[data-mode="dark"] .hover\:bg-\[var\(--color-primary-soft\)\]:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 16%, var(--profile-bg));
+}
+.profile-theme[data-mode="dark"] .hover\:bg-\[var\(--color-primary-soft-strong\)\]:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 24%, var(--profile-bg));
+}

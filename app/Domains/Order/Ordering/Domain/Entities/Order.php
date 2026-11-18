@@ -24,6 +24,9 @@ final class Order
         public ?string $snapToken,
         public string $shippingAddress,
         public array $subOrders = [],
+        public bool $isPreorder = false,
+        public ?string $pickupAt = null,
+        public ?string $pickupNote = null,
         public ?string $createdAt = null,
         public ?string $updatedAt = null
     ) {}
@@ -31,5 +34,13 @@ final class Order
     public function getFinalPay(): float
     {
         return max(0.0, $this->totalAmount - $this->discountAmount - $this->shippingDiscountAmount);
+    }
+
+    /**
+     * Preorder = pesanan "menunggu produk" karena stok habis saat checkout.
+     */
+    public function isPreorder(): bool
+    {
+        return $this->isPreorder;
     }
 }

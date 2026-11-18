@@ -353,7 +353,21 @@ function OrderDetailPanel({ orderId, onBack, paymentNotice = "" }) {
         <div className="flex-1">
           <p className="text-xs font-bold text-slate-400">{order.orderNumber}</p>
           <h3 className="text-lg font-bold text-slate-800">{title}</h3>
-          <p className="text-xs text-slate-400">{order.createdAt ? new Date(order.createdAt).toLocaleString("id-ID") : "-"}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+              {order.orderType === "terjadwal"
+                ? "Pesanan Terjadwal"
+                : order.orderType === "manual"
+                  ? "Pesanan Manual"
+                  : "Pesanan Reguler"}
+            </span>
+            {order.isPreorder ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                Menunggu Produk
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-xs text-slate-400">{order.createdAt ? new Date(order.createdAt).toLocaleString("id-ID") : "-"}</p>
         </div>
       </div>
 
@@ -388,6 +402,31 @@ function OrderDetailPanel({ orderId, onBack, paymentNotice = "" }) {
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Alamat</p>
             <p className="mt-1 text-xs leading-5 text-slate-500">{parseShipping(order.shippingAddress).display || "-"}</p>
           </div>
+          {order.orderType === "terjadwal" && order.scheduledAt ? (
+            <div className="mt-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Jadwal Kirim</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                {new Date(String(order.scheduledAt).replace(" ", "T")).toLocaleString("id-ID")}
+              </p>
+            </div>
+          ) : null}
+          {order.pickupAt ? (
+            <div className="mt-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Jadwal Pengambilan</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                {new Date(String(order.pickupAt).replace(" ", "T")).toLocaleString("id-ID")}
+                {order.pickupNote ? ` — ${order.pickupNote}` : ""}
+              </p>
+            </div>
+          ) : null}
+          {order.isPreorder && order.preorderReleaseAt ? (
+            <div className="mt-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Perkiraan Rilis Produk</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                {new Date(String(order.preorderReleaseAt).replace(" ", "T")).toLocaleString("id-ID")}
+              </p>
+            </div>
+          ) : null}
           <p className="mt-3 text-[11px] text-slate-400">Bayar: {order.paymentMethod || "-"}</p>
           {String(order.status).toLowerCase() === "shipped" ? (
             <button type="button" disabled={confirmMutation.isPending} onClick={handleReceived} className="mt-3 w-full rounded-xl bg-[#10B981] px-4 py-2 text-xs font-bold text-white hover:bg-[#059669] disabled:opacity-60">

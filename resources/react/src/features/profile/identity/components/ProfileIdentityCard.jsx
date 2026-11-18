@@ -15,7 +15,7 @@ export function ProfileIdentityCard({ user = null }) {
             className="h-12 w-12 rounded-full object-cover"
           />
         ) : (
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#10B981] text-base font-bold text-white">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary)] text-base font-bold text-white">
             {name.charAt(0).toUpperCase()}
           </div>
         )}

@@ -21,7 +21,12 @@ final class StoreSettingsController extends Controller
 
     public function show(): JsonResponse
     {
-        return response()->json(['data' => $this->settings->storeProfile()]);
+        return response()->json([
+            'success' => true,
+            'data' => array_merge($this->settings->storeProfile(), [
+                'payment' => $this->settings->paymentProfile(),
+            ]),
+        ]);
     }
 
     public function update(Request $request): JsonResponse
@@ -39,6 +44,12 @@ final class StoreSettingsController extends Controller
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'banner' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'banner_url' => ['nullable', 'string', 'max:255'],
+            // QRIS: gambar diunggah admin, disimpan di `payment.qris.*`.
+            'qris_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'remove_qris_image' => ['nullable', 'boolean'],
+            'qris_enabled' => ['nullable', 'boolean'],
+            'qris_merchant_name' => ['nullable', 'string', 'max:120'],
+            'qris_notes' => ['nullable', 'string', 'max:500'],
             'is_active' => ['nullable', 'boolean'],
             'detail' => ['nullable', 'array'],
             'detail.owner_name' => ['nullable', 'string', 'max:120'],
@@ -67,9 +78,57 @@ final class StoreSettingsController extends Controller
 
         $profile = $this->settings->updateStoreProfile($validated);
 
+        $this->applyQrisSettings($request, $validated);
+        $profile = $this->settings->storeProfile();
+
         return response()->json([
-            'data' => $profile,
+            'success' => true,
+            'data' => array_merge($profile, ['payment' => $this->settings->paymentProfile()]),
             'message' => 'Pengaturan toko berhasil diperbarui.',
         ]);
+    }
+
+    /**
+     * Simpan / hapus gambar QRIS beserta meta pembayarannya di `app_settings`.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function applyQrisSettings(Request $request, array $validated): void
+    {
+        if (array_key_exists('qris_merchant_name', $validated)) {
+            $this->settings->put('payment.qris.merchant_name', (string) $validated['qris_merchant_name'], 'payment');
+        }
+
+        if (array_key_exists('qris_notes', $validated)) {
+            $this->settings->put('payment.qris.notes', (string) $validated['qris_notes'], 'payment');
+        }
+
+        if (array_key_exists('qris_enabled', $validated)) {
+            $this->settings->put('payment.qris.enabled', (bool) $validated['qris_enabled'], 'payment', 'boolean');
+        }
+
+        if ($request->boolean('remove_qris_image')) {
+            $current = (string) $this->settings->get('payment.qris.image', '');
+            if ($current !== '' && ! str_starts_with($current, 'http')) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($current);
+            }
+
+            $this->settings->put('payment.qris.image', null, 'payment');
+            $this->settings->put('payment.qris.enabled', false, 'payment', 'boolean');
+
+            return;
+        }
+
+        if ($request->hasFile('qris_image')) {
+            $current = (string) $this->settings->get('payment.qris.image', '');
+            $path = $request->file('qris_image')->store('payment/qris', 'public');
+
+            if ($current !== '' && ! str_starts_with($current, 'http')) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($current);
+            }
+
+            $this->settings->put('payment.qris.image', $path, 'payment');
+            $this->settings->put('payment.qris.enabled', true, 'payment', 'boolean');
+        }
     }
 }

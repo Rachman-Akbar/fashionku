@@ -35,11 +35,16 @@ final class StoreVoucherRequest extends FormRequest
             'min_spend' => ['required', 'numeric', 'min:0'],
             'min_items' => ['nullable', 'integer', 'min:0'],
             'min_distinct_products' => ['nullable', 'integer', 'min:1'],
+            // Kosong = voucher berlaku untuk semua produk. Diisi = syarat & dasar
+            // diskon hanya dihitung dari produk tersebut (tidak tercampur).
+            'product_ids' => ['nullable', 'array'],
+            'product_ids.*' => ['required', 'integer', 'distinct', Rule::exists('products', 'id')],
             'terms' => ['nullable', 'string', 'max:500'],
             'max_discount' => ['nullable', 'numeric', 'min:0'],
             'starts_at' => ['required', 'date_format:Y-m-d H:i:s'],
             'ends_at' => ['required', 'date_format:Y-m-d H:i:s', 'after:starts_at'],
             'usage_limit' => ['required', 'integer', 'min:0'],
+            'usage_limit_per_user' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
         ];
     }

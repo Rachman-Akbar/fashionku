@@ -88,8 +88,27 @@ function resolveOrderResponse(payload = {}) {
   return { order: order || {}, payment: payment || {} };
 }
 
+function normalizeOrderType(value) {
+  const raw = String(value || "")
+    .trim()
+    .toLowerCase();
+
+  // Legacy multistore: normal -> reguler, booking -> terjadwal,
+  // preorder -> reguler (ditandai lewat `is_preorder`).
+  if (raw === "booking" || raw === "terjadwal") return "terjadwal";
+  if (raw === "manual") return "manual";
+
+  return "reguler";
+}
+
 export function normalizeOrder(row = {}, payment = {}) {
   const items = Array.isArray(row.items) ? row.items.map(normalizeItem) : [];
+  const rawOrderType = String(row.order_type || row.orderType || "")
+    .trim()
+    .toLowerCase();
+  const isPreorder =
+    normalizeBoolean(row.is_preorder ?? row.isPreorder) ||
+    rawOrderType === "preorder";
   const subOrders = Array.isArray(row.sub_orders)
     ? row.sub_orders.map((subOrder) => ({
         id: subOrder.id ?? null,
@@ -120,7 +139,10 @@ export function normalizeOrder(row = {}, payment = {}) {
   return {
     id: rawId === undefined ? "" : String(rawId),
     orderNumber: row.order_number || row.orderNumber || String(rawId || ""),
-    orderType: row.order_type || row.orderType || "normal",
+    orderType: normalizeOrderType(row.order_type || row.orderType),
+    isPreorder,
+    pickupAt: row.pickup_at || row.pickupAt || null,
+    pickupNote: row.pickup_note || row.pickupNote || null,
     preorderReleaseAt: row.preorder_release_at || row.preorderReleaseAt || null,
     scheduledAt: row.scheduled_at || row.scheduledAt || null,
     receivedAt: row.received_at || row.receivedAt || null,
@@ -523,15 +545,29 @@ export async function getShippingOptions(payload) {
 
 function buildOrderPayload(payload, cartItemIds = payload.cartItemIds) {
   const items = getDirectOrderItems(payload.items);
+  const isPickup = normalizeCourierCode(payload.courier) === "ambil_sendiri";
+  // Tipe pesanan hanya `reguler` | `terjadwal` (preorder ditandai otomatis
+  // oleh backend saat stok habis, bukan lewat payload frontend).
+  const orderType = ["terjadwal", "booking"].includes(
+    String(payload.orderType || "").trim().toLowerCase(),
+  )
+    ? "terjadwal"
+    : String(payload.orderType || "").trim().toLowerCase() === "preorder"
+      ? "preorder"
+      : "reguler";
+
   const requestPayload = {
-    address_id: payload.courier === "ambil_sendiri" ? null : payload.addressId,
+    address_id: isPickup ? null : payload.addressId,
     courier: payload.courier,
     service: payload.service || null,
     payment_method: payload.paymentMethod,
     voucher_code: payload.voucherCode || null,
-    order_type: payload.orderType || "normal",
+    order_type: orderType,
     preorder_release_at: payload.preorderReleaseAt || null,
-    scheduled_at: payload.orderType === "booking" ? payload.scheduledAt || null : null,
+    scheduled_at: orderType === "terjadwal" ? payload.scheduledAt || null : null,
+    // Survey pengambilan pembeli: tanggal + jam (wajib bila ambil sendiri).
+    pickup_at: isPickup ? payload.pickupAt || null : null,
+    pickup_note: isPickup ? payload.pickupNote || null : null,
   };
 
   if (Array.isArray(cartItemIds) && cartItemIds.length) {
@@ -643,6 +679,36 @@ export function useShippingOptions(payload, enabled = true) {
     ),
     staleTime: 60000,
     retry: false,
+  });
+}
+
+const paymentConfigKey = ["order", "payment-config"];
+
+/**
+ * Konfigurasi pembayaran (QRIS) dari backend: gambar QR diunggah admin dan
+ * disimpan di `app_settings`, sehingga checkout tinggal menampilkannya.
+ */
+export async function getPaymentConfig() {
+  const response = await apiClient.get("/api/v1/order/payments/config");
+  const source = unwrapApiData(response.data) || {};
+  const qris = source.qris || {};
+
+  return {
+    qris: {
+      enabled: Boolean(qris.enabled),
+      imageUrl: resolveMediaUrl(qris.image_url || qris.image || ""),
+      merchantName: qris.merchant_name || "",
+      notes: qris.notes || "",
+    },
+  };
+}
+
+export function usePaymentConfig() {
+  return useQuery({
+    queryKey: paymentConfigKey,
+    queryFn: getPaymentConfig,
+    staleTime: 300000,
+    retry: 1,
   });
 }
 

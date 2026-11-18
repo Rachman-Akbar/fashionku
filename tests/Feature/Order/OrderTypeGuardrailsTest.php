@@ -104,6 +104,8 @@ class OrderTypeGuardrailsTest extends TestCase
             orderType: $orderType,
             preorderReleaseAt: $releaseAt,
             scheduledAt: $scheduledAt,
+            pickupAt: now()->addDays(2)->toDateTimeString(),
+            pickupNote: 'Survey pengambilan',
         );
 
         return (int) $order->id;
@@ -115,7 +117,7 @@ class OrderTypeGuardrailsTest extends TestCase
         $buyerId = $this->buyerWithCartItem(5);
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('pesanan booking tidak dapat diproses');
+        $this->expectExceptionMessage('pesanan terjadwal tidak dapat diproses');
 
         $this->placeOrder($buyerId, 'booking', now()->addDays(3)->toDateTimeString(), null);
     }
@@ -128,8 +130,10 @@ class OrderTypeGuardrailsTest extends TestCase
         $orderId = $this->placeOrder($buyerId, 'booking', $scheduledAt, null);
 
         $row = DB::table('orders')->where('id', $orderId)->first();
-        $this->assertSame('booking', (string) $row->order_type);
+        $this->assertSame('terjadwal', (string) $row->order_type);
+        $this->assertFalse((bool) $row->is_preorder);
         $this->assertNotNull($row->scheduled_at);
+        $this->assertNotNull($row->pickup_at);
     }
 
     public function test_auto_preorder_always_stores_a_release_date(): void
@@ -137,11 +141,12 @@ class OrderTypeGuardrailsTest extends TestCase
         $this->emptyStock();
         $buyerId = $this->buyerWithCartItem(5);
 
-        // Checkout normal yang otomatis menjadi preorder (stok habis).
+        // Checkout reguler yang otomatis menjadi preorder (stok habis).
         $orderId = $this->placeOrder($buyerId, 'normal', null, null);
 
         $row = DB::table('orders')->where('id', $orderId)->first();
-        $this->assertSame('preorder', (string) $row->order_type);
+        $this->assertSame('reguler', (string) $row->order_type);
+        $this->assertTrue((bool) $row->is_preorder);
         $this->assertNotNull($row->preorder_release_at);
     }
 
@@ -153,7 +158,29 @@ class OrderTypeGuardrailsTest extends TestCase
         $orderId = $this->placeOrder($buyerId, 'preorder', null, $releaseAt);
 
         $row = DB::table('orders')->where('id', $orderId)->first();
-        $this->assertSame('preorder', (string) $row->order_type);
+        $this->assertSame('reguler', (string) $row->order_type);
+        $this->assertTrue((bool) $row->is_preorder);
         $this->assertSame($releaseAt, (string) $row->preorder_release_at);
+    }
+
+    public function test_pickup_order_requires_a_pickup_schedule(): void
+    {
+        $buyerId = $this->buyerWithCartItem(5);
+        $cart = CartModel::query()->where('user_id', $buyerId)->firstOrFail();
+        $cartItemId = (int) $cart->items()->firstOrFail()->id;
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Jadwal pengambilan (tanggal & jam) wajib diisi');
+
+        $this->app->make(CreateOrderUseCase::class)->execute(
+            userId: $buyerId,
+            addressId: null,
+            cartItemIds: [$cartItemId],
+            courier: 'ambil_sendiri',
+            service: null,
+            paymentMethod: 'tunai_toko',
+            orderType: 'reguler',
+            pickupAt: null,
+        );
     }
 }

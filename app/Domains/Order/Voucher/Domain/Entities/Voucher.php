@@ -36,6 +36,7 @@ final class Voucher extends Model
         'ends_at',
         'is_active',
         'usage_limit',
+        'usage_limit_per_user',
         'used_count',
         'created_by',
         'updated_by',
@@ -50,6 +51,7 @@ final class Voucher extends Model
         'max_discount' => 'float',
         'is_active' => 'boolean',
         'usage_limit' => 'integer',
+        'usage_limit_per_user' => 'integer',
         'used_count' => 'integer',
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
@@ -89,5 +91,18 @@ final class Voucher extends Model
     protected function name(): Attribute
     {
         return Attribute::make(set: fn (mixed $value): string => trim((string) preg_replace('/\s+/u', ' ', (string) $value)));
+    }
+
+    /**
+     * Produk yang menjadi syarat voucher. Kosong = berlaku untuk semua produk.
+     */
+    public function voucherProducts(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(
+            \App\Domains\Catalog\Product\Infrastructure\Persistence\Models\ProductModel::class,
+            'voucher_products',
+            'voucher_id',
+            'product_id'
+        );
     }
 }

@@ -9,11 +9,39 @@ function normalizeDate(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export function getVoucherEligibleSubtotal(_voucher, items = []) {
-  return items.reduce(
-    (sum, item) => sum + toNumber(item.price) * Math.max(1, toNumber(item.quantity, 1)),
-    0,
-  );
+function normalizeProductId(item) {
+  return Number(item?.productId ?? item?.product_id ?? 0) || 0;
+}
+
+/**
+ * Scope produk: voucher bersyarat (ada `productIds`) hanya dihitung dari item
+ * yang masuk daftar produknya — item lain di keranjang yang sama tidak ikut
+ * menghitung subtotal/min item, sehingga voucher tidak "tercampur".
+ */
+export function getVoucherEligibleSubtotal(voucher, items = []) {
+  const scopedIds = Array.isArray(voucher?.productIds)
+    ? voucher.productIds.map(Number).filter((id) => id > 0)
+    : [];
+
+  return items.reduce((sum, item) => {
+    if (scopedIds.length && !scopedIds.includes(normalizeProductId(item))) {
+      return sum;
+    }
+
+    return (
+      sum + toNumber(item.price) * Math.max(1, toNumber(item.quantity, 1))
+    );
+  }, 0);
+}
+
+function getVoucherEligibleItems(voucher, items = []) {
+  const scopedIds = Array.isArray(voucher?.productIds)
+    ? voucher.productIds.map(Number).filter((id) => id > 0)
+    : [];
+
+  if (!scopedIds.length) return items;
+
+  return items.filter((item) => scopedIds.includes(normalizeProductId(item)));
 }
 
 export function calculateCheckoutVoucherDiscount({
@@ -25,7 +53,20 @@ export function calculateCheckoutVoucherDiscount({
     return { discount: 0, productDiscount: 0, shippingDiscount: 0, eligibleSubtotal: 0, eligible: false, message: "" };
   }
 
+  const eligibleItems = getVoucherEligibleItems(voucher, items);
   const eligibleSubtotal = getVoucherEligibleSubtotal(voucher, items);
+
+  if (!eligibleItems.length) {
+    return {
+      discount: 0,
+      productDiscount: 0,
+      shippingDiscount: 0,
+      eligibleSubtotal,
+      eligible: false,
+      message: "Voucher ini hanya berlaku untuk produk tertentu yang tidak ada di pesanan Anda.",
+    };
+  }
+
   const minimumSpend = Math.max(0, toNumber(voucher.minSpend));
 
   if (eligibleSubtotal < minimumSpend) {
@@ -35,7 +76,39 @@ export function calculateCheckoutVoucherDiscount({
       shippingDiscount: 0,
       eligibleSubtotal,
       eligible: false,
-      message: "Minimum belanja voucher belum terpenuhi.",
+      message: "Minimal belanja voucher belum terpenuhi.",
+    };
+  }
+
+  const itemCount = eligibleItems.reduce(
+    (sum, item) => sum + Math.max(1, toNumber(item.quantity, 1)),
+    0,
+  );
+  const distinctProducts = new Set(
+    eligibleItems.map(normalizeProductId).filter(Boolean),
+  ).size;
+  const minItems = Math.max(0, toNumber(voucher.minItems));
+  const minDistinct = Math.max(0, toNumber(voucher.minDistinctProducts));
+
+  if (minItems > 0 && itemCount < minItems) {
+    return {
+      discount: 0,
+      productDiscount: 0,
+      shippingDiscount: 0,
+      eligibleSubtotal,
+      eligible: false,
+      message: `Voucher membutuhkan minimal ${minItems} item dalam pesanan.`,
+    };
+  }
+
+  if (minDistinct > 0 && distinctProducts < minDistinct) {
+    return {
+      discount: 0,
+      productDiscount: 0,
+      shippingDiscount: 0,
+      eligibleSubtotal,
+      eligible: false,
+      message: `Voucher hanya berlaku untuk minimal ${minDistinct} item produk berbeda.`,
     };
   }
 
@@ -89,11 +162,51 @@ export function getCheckoutVoucherValidity(voucher, items = [], now = new Date()
 
   const usageLimit = Math.max(0, toNumber(voucher.usageLimit));
   const usedCount = Math.max(0, toNumber(voucher.usedCount));
-  if (usageLimit > 0 && usedCount >= usageLimit) return { valid: false, reason: "Kuota voucher sudah habis." };
+  if (usageLimit > 0 && usedCount >= usageLimit) return { valid: false, reason: "Kuota penggunaan voucher sudah habis." };
+
+  // Kuota per user (dikontrol backend/`vouchers.usage_limit_per_user`).
+  const usageLimitPerUser = Math.max(0, toNumber(voucher.usageLimitPerUser));
+  const usedByUser = Math.max(0, toNumber(voucher.usedByUser));
+  if (usageLimitPerUser > 0 && usedByUser >= usageLimitPerUser) {
+    return {
+      valid: false,
+      reason: `Voucher ini sudah digunakan maksimal ${usageLimitPerUser} kali oleh akun Anda.`,
+    };
+  }
+
+  const eligibleItems = getVoucherEligibleItems(voucher, items);
+
+  if (!eligibleItems.length) {
+    return {
+      valid: false,
+      reason: "Voucher ini hanya berlaku untuk produk tertentu yang tidak ada di pesanan Anda.",
+    };
+  }
 
   const eligibleSubtotal = getVoucherEligibleSubtotal(voucher, items);
   if (eligibleSubtotal < Math.max(0, toNumber(voucher.minSpend))) {
-    return { valid: false, reason: "Minimum belanja voucher belum terpenuhi." };
+    return { valid: false, reason: "Minimal belanja voucher belum terpenuhi." };
+  }
+
+  const itemCount = eligibleItems.reduce(
+    (sum, item) => sum + Math.max(1, toNumber(item.quantity, 1)),
+    0,
+  );
+  const distinctProducts = new Set(
+    eligibleItems.map(normalizeProductId).filter(Boolean),
+  ).size;
+  const minItems = Math.max(0, toNumber(voucher.minItems));
+  const minDistinct = Math.max(0, toNumber(voucher.minDistinctProducts));
+
+  if (minItems > 0 && itemCount < minItems) {
+    return { valid: false, reason: `Voucher membutuhkan minimal ${minItems} item dalam pesanan.` };
+  }
+
+  if (minDistinct > 0 && distinctProducts < minDistinct) {
+    return {
+      valid: false,
+      reason: `Voucher hanya berlaku untuk minimal ${minDistinct} item produk berbeda.`,
+    };
   }
 
   return { valid: true, reason: "" };

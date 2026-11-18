@@ -74,8 +74,7 @@ export const ColumnVisibilityMenu = memo(function ColumnVisibilityMenu({ columns
     <div ref={rootRef} className="shrink-0">
       <ActionIconButton
         icon="view_column"
-        title="Atur kolom tabel"
-        tooltip={false}
+        title="Pilih & atur kolom data"
         active={open}
         onClick={() => setOpen((current) => { const next = !current; if (next) setQuery(""); return next; })}
       />

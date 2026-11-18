@@ -11,6 +11,7 @@ export const voucherManagementKeys = {
 };
 
 export function normalizeVoucher(row = {}) {
+  const rawProductIds = row.productIds ?? row.product_ids ?? [];
   return {
     id: Number(row.id || 0),
     code: row.code || "",
@@ -28,7 +29,12 @@ export function normalizeVoucher(row = {}) {
     startsAt: row.startsAt || row.starts_at || "",
     endsAt: row.endsAt || row.ends_at || "",
     usageLimit: Number(row.usageLimit ?? row.usage_limit ?? 0),
+    usageLimitPerUser: Number(row.usageLimitPerUser ?? row.usage_limit_per_user ?? 0),
+    productIds: (Array.isArray(rawProductIds) ? rawProductIds : [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0),
     usedCount: Number(row.usedCount ?? row.used_count ?? 0),
+    usedByUser: Number(row.usedByUser ?? row.used_by_user ?? 0),
     isActive: toBoolean(row.isActive ?? row.is_active, true),
     createdAt: row.createdAt || row.created_at || null,
     raw: row,
@@ -51,10 +57,18 @@ function serialize(values) {
     starts_at: toSqlDateTime(values.startsAt),
     ends_at: toSqlDateTime(values.endsAt),
     usage_limit: Number(values.usageLimit || 0),
+    usage_limit_per_user: Number(values.usageLimitPerUser || 0),
     is_active: values.isActive ? 1 : 0,
   };
 
   Object.entries(entries).forEach(([key, value]) => formData.append(key, String(value)));
+  // Rule backend: `product_ids` => nullable array (`product_ids.*` integer),
+  // jadi kirim sebagai key berulang `product_ids[]`. Kosong = tidak dikirim
+  // (null) = voucher berlaku untuk semua produk.
+  (Array.isArray(values.productIds) ? values.productIds : [])
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id) && id > 0)
+    .forEach((id) => formData.append("product_ids[]", String(id)));
   if (values.imageFile) formData.append("image", values.imageFile);
   return formData;
 }

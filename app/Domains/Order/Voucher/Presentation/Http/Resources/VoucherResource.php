@@ -21,6 +21,7 @@ final class VoucherResource extends JsonResource
         }
 
         $ownership = (array) $request->attributes->get('voucher_ownership', []);
+        $usageMap = (array) $request->attributes->get('voucher_usage', []);
         $missionRewardIds = (array) ($ownership['mission_reward_ids'] ?? []);
         $ownedIds = (array) ($ownership['owned_ids'] ?? []);
 
@@ -39,11 +40,17 @@ final class VoucherResource extends JsonResource
             'minSpend' => $this->min_spend !== null ? (int) round((float) $this->min_spend) : null,
             'minItems' => $this->min_items,
             'minDistinctProducts' => $this->min_distinct_products,
+            // Kosong = voucher berlaku untuk semua produk.
+            'productIds' => $this->relationLoaded('voucherProducts')
+                ? $this->voucherProducts->pluck('id')->map(fn (mixed $id): int => (int) $id)->values()->all()
+                : [],
             'terms' => $this->terms,
             'maxDiscount' => $this->max_discount !== null ? (int) round((float) $this->max_discount) : null,
             'startsAt' => $this->starts_at?->toDateTimeString(),
             'endsAt' => $this->ends_at?->toDateTimeString(),
             'usageLimit' => $this->usage_limit,
+            'usageLimitPerUser' => (int) ($this->usage_limit_per_user ?? 0),
+            'usedByUser' => (int) ($usageMap[(int) $this->id] ?? 0),
             'usedCount' => $this->used_count,
             'isActive' => $this->is_active,
             'isMissionReward' => $isMissionReward,

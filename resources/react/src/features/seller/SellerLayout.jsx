@@ -38,7 +38,7 @@ export default function SellerLayout() {
       <NotificationFeedbackBridge />
       <div className="h-dvh bg-white text-slate-900">
         <PageTransitionLoader />
-        <div className="grid h-full grid-cols-1 lg:grid-cols-[72px_minmax(0,1fr)]">
+        <div className="grid h-full grid-cols-1 lg:grid-cols-[76px_minmax(0,1fr)]">
           <PanelSidebar
             items={SELLER_NAV_ITEMS}
             homeHref="/seller"
@@ -48,7 +48,7 @@ export default function SellerLayout() {
             showHomeLink={false}
             showMarketplaceLink={false}
           />
-          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
+          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden lg:pl-[1px]">
             <PanelHeader
               eyebrow="Panel Penjual"
               title={store?.name || "Toko"}
@@ -62,8 +62,8 @@ export default function SellerLayout() {
               mobileNavigation={<PanelMobileNavigation items={SELLER_NAV_ITEMS} activeClassName="bg-emerald-50 text-emerald-700" />}
             />
             <PanelTabBar />
-            <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-white px-4 pb-20 sm:px-6 lg:px-8 lg:pb-6">
-              <div className={cn("w-full py-6", isChatRoute ? "flex h-full min-h-0 flex-col" : "mx-auto max-w-6xl")}>
+            <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-white pb-20 lg:pb-6">
+              <div className={cn("w-full px-4 py-6 sm:px-6 lg:px-8", isChatRoute ? "flex h-full min-h-0 flex-col" : "mx-auto max-w-6xl")}>
                 <RouteOutletBoundary className={cn("h-full w-full min-w-0 max-w-full", isChatRoute && "min-h-0 flex-1")} />
               </div>
             </main>

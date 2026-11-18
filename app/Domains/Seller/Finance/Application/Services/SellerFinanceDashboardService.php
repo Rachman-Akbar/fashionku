@@ -16,18 +16,34 @@ class SellerFinanceDashboardService
         $granularity = $granularity ?? 'day';
         [$startDate, $endDate] = $this->resolveRange($period, $dateFrom, $dateTo);
 
-        $transactions = FinancialTransactionModel::query()
+        // Ringkasan dihitung lewat satu query agregat; hanya 10 transaksi terakhir
+        // yang dimuat ke memori.
+        $summaryRow = FinancialTransactionModel::query()
             ->where('occurred_at', '>=', $startDate)
             ->where('occurred_at', '<=', $endDate)
             ->where('is_active', true)
-            ->get();
+            ->selectRaw("SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income")
+            ->selectRaw("SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense")
+            ->selectRaw("SUM(CASE WHEN type = 'payable' THEN amount ELSE 0 END) as payable")
+            ->selectRaw("SUM(CASE WHEN type = 'receivable' THEN amount ELSE 0 END) as receivable")
+            ->selectRaw("SUM(CASE WHEN type = 'payable' THEN paid_amount ELSE 0 END) as payable_paid")
+            ->selectRaw("SUM(CASE WHEN type = 'receivable' THEN paid_amount ELSE 0 END) as receivable_paid")
+            ->first();
 
-        $income = $transactions->where('type', 'income')->sum('amount');
-        $expense = $transactions->where('type', 'expense')->sum('amount');
-        $payable = $transactions->where('type', 'payable')->sum('amount');
-        $receivable = $transactions->where('type', 'receivable')->sum('amount');
-        $payablePaid = $transactions->where('type', 'payable')->sum('paid_amount');
-        $receivablePaid = $transactions->where('type', 'receivable')->sum('paid_amount');
+        $income = (float) ($summaryRow->income ?? 0);
+        $expense = (float) ($summaryRow->expense ?? 0);
+        $payable = (float) ($summaryRow->payable ?? 0);
+        $receivable = (float) ($summaryRow->receivable ?? 0);
+        $payablePaid = (float) ($summaryRow->payable_paid ?? 0);
+        $receivablePaid = (float) ($summaryRow->receivable_paid ?? 0);
+
+        $recent = FinancialTransactionModel::query()
+            ->where('occurred_at', '>=', $startDate)
+            ->where('occurred_at', '<=', $endDate)
+            ->where('is_active', true)
+            ->orderByDesc('occurred_at')
+            ->limit(10)
+            ->get();
 
         return [
             'period' => $dateFrom ? 'custom' : $period,
@@ -45,7 +61,7 @@ class SellerFinanceDashboardService
                 'receivable_paid' => round($receivablePaid, 2),
                 'receivable_remaining' => round($receivable - $receivablePaid, 2),
             ],
-            'recent_transactions' => $transactions->sortByDesc('occurred_at')->take(10)->map(fn ($t) => [
+            'recent_transactions' => $recent->map(fn ($t) => [
                 'id' => $t->id,
                 'reference_number' => $t->reference_number,
                 'type' => $t->type,
@@ -106,12 +122,9 @@ class SellerFinanceDashboardService
         $from = Carbon::parse($fromDate)->startOfDay();
         $to = Carbon::parse($toDate)->endOfDay();
 
-        $transactions = FinancialTransactionModel::query()
-            ->where('occurred_at', '>=', $from)
-            ->where('occurred_at', '<=', $to)
-            ->where('is_active', true)
-            ->orderBy('occurred_at')
-            ->get();
+        // Satu query agregat (GROUP BY DATE) alih-alih memuat seluruh transaksi
+        // ke memori lalu dikelompokkan per hari.
+        $rows = $this->aggregateDaily($from, $to);
 
         $dailyData = [];
         $current = $from->copy();
@@ -119,14 +132,14 @@ class SellerFinanceDashboardService
 
         while ($current->lte($end)) {
             $dayStr = $current->toDateString();
-            $dayTransactions = $transactions->filter(fn ($t) => Carbon::parse($t->occurred_at)->toDateString() === $dayStr);
+            $row = $rows[$dayStr] ?? null;
 
             $dailyData[] = [
                 'date' => $dayStr,
-                'income' => round($dayTransactions->where('type', 'income')->sum('amount'), 2),
-                'expense' => round($dayTransactions->where('type', 'expense')->sum('amount'), 2),
-                'payable' => round($dayTransactions->where('type', 'payable')->sum('amount'), 2),
-                'receivable' => round($dayTransactions->where('type', 'receivable')->sum('amount'), 2),
+                'income' => round((float) ($row->income ?? 0), 2),
+                'expense' => round((float) ($row->expense ?? 0), 2),
+                'payable' => round((float) ($row->payable ?? 0), 2),
+                'receivable' => round((float) ($row->receivable ?? 0), 2),
             ];
 
             $current->addDay();
@@ -138,10 +151,10 @@ class SellerFinanceDashboardService
             'granularity' => $granularity,
             'daily' => $dailyData,
             'totals' => [
-                'income' => round($transactions->where('type', 'income')->sum('amount'), 2),
-                'expense' => round($transactions->where('type', 'expense')->sum('amount'), 2),
-                'payable' => round($transactions->where('type', 'payable')->sum('amount'), 2),
-                'receivable' => round($transactions->where('type', 'receivable')->sum('amount'), 2),
+                'income' => round($rows->sum('income'), 2),
+                'expense' => round($rows->sum('expense'), 2),
+                'payable' => round($rows->sum('payable'), 2),
+                'receivable' => round($rows->sum('receivable'), 2),
             ],
         ];
     }
@@ -172,20 +185,47 @@ class SellerFinanceDashboardService
         };
     }
 
+    /**
+     * Agregasi cashflow harian lewat satu query GROUP BY (tanpa N query per hari).
+     *
+     * @return \Illuminate\Support\Collection<string, object>
+     */
+    private function aggregateDaily(Carbon $from, Carbon $to)
+    {
+        return FinancialTransactionModel::query()
+            ->where('occurred_at', '>=', $from)
+            ->where('occurred_at', '<=', $to)
+            ->where('is_active', true)
+            ->selectRaw('DATE(occurred_at) as day')
+            ->selectRaw("SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income")
+            ->selectRaw("SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense")
+            ->selectRaw("SUM(CASE WHEN type = 'payable' THEN amount ELSE 0 END) as payable")
+            ->selectRaw("SUM(CASE WHEN type = 'receivable' THEN amount ELSE 0 END) as receivable")
+            ->groupBy('day')
+            ->get()
+            ->keyBy('day');
+    }
+
     private function getDailyCashflow(Carbon $startDate, Carbon $endDate): array
     {
-        $transactions = FinancialTransactionModel::query()
-            ->where('occurred_at', '>=', $startDate)
-            ->where('occurred_at', '<=', $endDate)
-            ->where('is_active', true)
-            ->get();
+        $rows = $this->aggregateDaily($startDate, $endDate);
 
-        $daily = $transactions->groupBy(fn ($t) => Carbon::parse($t->occurred_at)->toDateString());
+        $daily = [];
+        $current = $startDate->copy();
 
-        return collect($daily)->map(fn ($dayTransactions, $date) => [
-            'date' => $date,
-            'income' => round($dayTransactions->where('type', 'income')->sum('amount'), 2),
-            'expense' => round($dayTransactions->where('type', 'expense')->sum('amount'), 2),
-        ])->sortBy('date')->values()->all();
+        while ($current->lte($endDate)) {
+            $dayStr = $current->toDateString();
+            $row = $rows[$dayStr] ?? null;
+
+            $daily[] = [
+                'date' => $dayStr,
+                'income' => round((float) ($row->income ?? 0), 2),
+                'expense' => round((float) ($row->expense ?? 0), 2),
+            ];
+
+            $current->addDay();
+        }
+
+        return $daily;
     }
 }

@@ -15,7 +15,7 @@ const FILTERS = [
 
 const STATUS_META = {
   available: { label: "Belum diklaim", classes: "bg-amber-50 text-amber-700" },
-  claimed: { label: "Diklaim", classes: "bg-[#D1FAE5] text-[#10B981]" },
+  claimed: { label: "Diklaim", classes: "bg-[var(--color-primary-soft-strong)] text-[var(--color-primary)]" },
   used: { label: "Terpakai", classes: "bg-slate-100 text-slate-500" },
 };
 
@@ -108,8 +108,8 @@ export default function VouchersPage() {
                 onClick={() => setFilter(item.key)}
                 className={`h-9 shrink-0 rounded-full px-4 text-xs font-semibold transition ${
                   filter === item.key
-                    ? "bg-[#10B981] text-white"
-                    : "bg-white text-slate-500 ring-1 ring-[#e5e7eb] hover:text-[#10B981]"
+                    ? "bg-[var(--color-primary)] text-white"
+                    : "bg-white text-slate-500 ring-1 ring-[#e5e7eb] hover:text-[var(--color-primary)]"
                 }`}
               >
                 {item.label}
@@ -142,7 +142,7 @@ export default function VouchersPage() {
               }}
               className={`grid min-h-[128px] w-full gap-4 py-6 text-left md:grid-cols-[120px_minmax(0,1fr)_auto] md:items-center ${consumable ? "cursor-pointer" : "cursor-default"}`}
             >
-              <div className="relative h-24 w-full overflow-hidden rounded-xl text-[#10B981] ring-1 ring-[#e5e7eb] md:h-[104px]">
+              <div className="relative h-24 w-full overflow-hidden rounded-xl text-[var(--color-primary)] ring-1 ring-[#e5e7eb] md:h-[104px]">
                 {voucher.imageUrl ? (
                   <img
                     src={voucher.imageUrl}
@@ -187,7 +187,7 @@ export default function VouchersPage() {
                     event.stopPropagation();
                     applyVoucher(voucher);
                   }}
-                  className="inline-flex h-10 items-center justify-center rounded-full bg-[#10B981] px-5 text-sm font-semibold text-white transition hover:bg-[#059669]"
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-[var(--color-primary)] px-5 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-hover)]"
                 >
                   Pakai
                 </button>
@@ -201,7 +201,7 @@ export default function VouchersPage() {
 
         {!vouchersQuery.isLoading && !filteredVouchers.length ? (
           <div className="py-16 text-center">
-            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-[#D1FAE5] text-[#10B981]">
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-[var(--color-primary-soft-strong)] text-[var(--color-primary)]">
               <TicketPercent size={34} />
             </div>
             <h3 className="text-xl font-light text-slate-950">

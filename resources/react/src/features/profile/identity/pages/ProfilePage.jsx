@@ -400,7 +400,7 @@ function AddressForm({ initialValue, onClose }) {
               className={`h-11 w-full rounded-xl border px-3 text-sm outline-none ${
                 fieldErrors[field.key]
                   ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10"
-                  : "border-slate-200 focus:border-[#10B981]"
+                  : "border-slate-200 focus:border-[var(--color-primary)]"
               }`}
             />
             {fieldErrors[field.key] ? (
@@ -424,7 +424,7 @@ function AddressForm({ initialValue, onClose }) {
           className={`min-h-24 w-full rounded-xl border px-3 py-3 text-sm outline-none ${
             fieldErrors.fullAddress
               ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10"
-              : "border-slate-200 focus:border-[#10B981]"
+              : "border-slate-200 focus:border-[var(--color-primary)]"
           }`}
         />
         {fieldErrors.fullAddress ? (
@@ -441,7 +441,7 @@ function AddressForm({ initialValue, onClose }) {
         <input
           value={form.notes}
           onChange={(event) => update("notes", event.target.value)}
-          className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-[#10B981]"
+          className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-[var(--color-primary)]"
         />
       </label>
 
@@ -493,7 +493,7 @@ function AddressForm({ initialValue, onClose }) {
           type="checkbox"
           checked={form.isPrimary}
           onChange={(event) => update("isPrimary", event.target.checked)}
-          className="accent-[#10B981]"
+          className="accent-[var(--color-primary)]"
         />
         Jadikan alamat utama
       </label>
@@ -553,7 +553,7 @@ function AlamatTab() {
         <button
           type="button"
           onClick={() => setShowForm(true)}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-[#10B981] hover:underline"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-primary)] hover:underline"
         >
           <Plus size={16} />
           Tambah Alamat
@@ -574,7 +574,7 @@ function AlamatTab() {
                   {address.label}
                 </span>
                 {address.isPrimary ? (
-                  <span className="rounded-full border border-[#10B981]/25 bg-[#D1FAE5] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#10B981]">
+                  <span className="rounded-full border border-[var(--color-primary)]/25 bg-[var(--color-primary-soft-strong)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-primary)]">
                     Utama
                   </span>
                 ) : null}
@@ -586,7 +586,7 @@ function AlamatTab() {
                     setEditing(address);
                     setShowForm(true);
                   }}
-                  className="text-sm font-semibold text-slate-400 hover:text-[#10B981]"
+                  className="text-sm font-semibold text-slate-400 hover:text-[var(--color-primary)]"
                 >
                   Ubah
                 </button>
@@ -622,7 +622,7 @@ function AlamatTab() {
               </p>
             ) : null}
             {address.latitude && address.longitude ? (
-              <p className="mt-3 flex items-center gap-1.5 text-[13px] font-semibold text-[#10B981]">
+              <p className="mt-3 flex items-center gap-1.5 text-[13px] font-semibold text-[var(--color-primary)]">
                 <MapPinCheck size={15} />
                 Pinpoint akurat
               </p>
@@ -695,7 +695,7 @@ function PasswordModal({ open, userId, onClose, onSuccess }) {
         <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
           <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#10B981]">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-primary)]">
                 Keamanan akun
               </p>
               <h2 className="mt-1 text-xl font-black text-slate-950">
@@ -714,8 +714,8 @@ function PasswordModal({ open, userId, onClose, onSuccess }) {
 
           {success ? (
             <div className="flex flex-col items-center px-6 py-10 text-center">
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#ECFDF5]">
-                <CheckCircle2 size={34} className="text-[#10B981]" />
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-primary-soft)]">
+                <CheckCircle2 size={34} className="text-[var(--color-primary)]" />
               </span>
               <h3 className="mt-4 text-lg font-black text-slate-950">
                 Kata Sandi Berhasil Ditambahkan
@@ -745,7 +745,7 @@ function PasswordModal({ open, userId, onClose, onSuccess }) {
                     password: event.target.value,
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/10"
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/10"
                 autoComplete="new-password"
               />
             </label>
@@ -763,7 +763,7 @@ function PasswordModal({ open, userId, onClose, onSuccess }) {
                     confirmation: event.target.value,
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/10"
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/10"
                 autoComplete="new-password"
               />
             </label>
@@ -863,8 +863,8 @@ function KeamananTab({ onLogout, onAddPassword }) {
 
   return (
     <div className="max-w-[760px]">
-      <div className="mb-8 flex min-h-[64px] gap-3 border-l-2 border-[#10B981] bg-[#ECFDF5] px-4 py-3 text-sm leading-6 text-slate-600">
-        <Info className="mt-0.5 shrink-0 text-[#10B981]" size={18} />
+      <div className="mb-8 flex min-h-[64px] gap-3 border-l-2 border-[var(--color-primary)] bg-[var(--color-primary-soft)] px-4 py-3 text-sm leading-6 text-slate-600">
+        <Info className="mt-0.5 shrink-0 text-[var(--color-primary)]" size={18} />
         <p>
           Bila terdapat aktivitas tidak dikenal, segera keluar dari perangkat
           dan perbarui kata sandi melalui pengaturan keamanan.
@@ -906,7 +906,7 @@ function KeamananTab({ onLogout, onAddPassword }) {
                 type="password"
                 value={form.current_password}
                 onChange={(e) => setForm((p) => ({ ...p, current_password: e.target.value }))}
-                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/10"
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/10"
                 autoComplete="current-password"
               />
             </label>
@@ -916,7 +916,7 @@ function KeamananTab({ onLogout, onAddPassword }) {
                 type="password"
                 value={form.new_password}
                 onChange={(e) => setForm((p) => ({ ...p, new_password: e.target.value }))}
-                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/10"
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/10"
                 autoComplete="new-password"
               />
             </label>
@@ -926,7 +926,7 @@ function KeamananTab({ onLogout, onAddPassword }) {
                 type="password"
                 value={form.new_password_confirmation}
                 onChange={(e) => setForm((p) => ({ ...p, new_password_confirmation: e.target.value }))}
-                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/10"
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/10"
                 autoComplete="new-password"
               />
             </label>
@@ -938,7 +938,7 @@ function KeamananTab({ onLogout, onAddPassword }) {
             <button
               type="button"
               onClick={handleChangePassword}
-              className="h-11 rounded-xl bg-[#10B981] px-6 text-sm font-black text-white shadow-[0_14px_30px_rgba(3,172,14,0.24)] hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-70"
+              className="h-11 rounded-xl bg-[var(--color-primary)] px-6 text-sm font-black text-white shadow-[0_14px_30px_rgba(3,172,14,0.24)] hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-70"
             >
               Ubah Password
             </button>
@@ -950,14 +950,14 @@ function KeamananTab({ onLogout, onAddPassword }) {
         Perangkat Aktif
       </h3>
       <div className="group flex min-h-[72px] items-center gap-5 py-4">
-        <Monitor className="text-[#10B981]" size={24} />
+        <Monitor className="text-[var(--color-primary)]" size={24} />
         <div>
           <b className="block text-[15px] font-medium text-slate-950">
             Browser saat ini
           </b>
           <span className="text-xs text-slate-400">
             {currentDevice} •{" "}
-            <span className="text-[#10B981]">Sedang aktif</span>
+            <span className="text-[var(--color-primary)]">Sedang aktif</span>
           </span>
         </div>
       </div>
@@ -1063,7 +1063,7 @@ export default function ProfilePage({ defaultTab = "biodata" }) {
         aria-label="Profil pengguna"
       >
         <div className="flex min-h-[300px] flex-col items-center border-b border-[#e5e7eb] px-8 py-8 text-center">
-          <div className="mb-4 flex h-32 w-32 items-center justify-center overflow-hidden rounded-full bg-[#10B981] text-5xl font-bold text-white shadow-inner">
+          <div className="mb-4 flex h-32 w-32 items-center justify-center overflow-hidden rounded-full bg-[var(--color-primary)] text-5xl font-bold text-white shadow-inner">
             {avatarUrl ? (
               <img
                 src={avatarUrl}
@@ -1077,7 +1077,7 @@ export default function ProfilePage({ defaultTab = "biodata" }) {
           <h2 className="mt-2 text-xl font-semibold text-slate-950">
             {user.name}
           </h2>
-          <span className="mb-6 text-sm font-medium text-[#10B981]">
+          <span className="mb-6 text-sm font-medium text-[var(--color-primary)]">
             @{user.username}
           </span>
           <button
@@ -1128,7 +1128,7 @@ export default function ProfilePage({ defaultTab = "biodata" }) {
               <button
                 type="button"
                 onClick={() => setShowPasswordModal(true)}
-                className="flex h-14 w-full items-center justify-between px-8 text-left text-sm font-medium text-slate-800 transition hover:bg-[#ECFDF5] hover:text-[#10B981]"
+                className="flex h-14 w-full items-center justify-between px-8 text-left text-sm font-medium text-slate-800 transition hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)]"
               >
                 <span className="flex items-center gap-3">
                   <KeyRound size={16} className="text-slate-400" />
@@ -1147,7 +1147,7 @@ export default function ProfilePage({ defaultTab = "biodata" }) {
             <div key={label}>
               <button
                 type="button"
-                className="flex h-14 w-full items-center justify-between px-8 text-left text-sm font-medium text-slate-800 transition hover:bg-[#ECFDF5] hover:text-[#10B981]"
+                className="flex h-14 w-full items-center justify-between px-8 text-left text-sm font-medium text-slate-800 transition hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)]"
               >
                 <span className="flex items-center gap-3">
                   <Icon size={16} className="text-slate-400" />
@@ -1161,7 +1161,7 @@ export default function ProfilePage({ defaultTab = "biodata" }) {
 
           <Link
             to="/profile/notifications"
-            className="flex h-14 w-full items-center justify-between px-8 text-left text-sm font-medium text-slate-800 transition hover:bg-[#ECFDF5] hover:text-[#10B981]"
+            className="flex h-14 w-full items-center justify-between px-8 text-left text-sm font-medium text-slate-800 transition hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)]"
           >
             <span className="flex items-center gap-3">
               <ShieldCheck size={16} className="text-slate-400" />
@@ -1208,7 +1208,7 @@ export default function ProfilePage({ defaultTab = "biodata" }) {
                 className={cn(
                   "shrink-0 border-b-2 pb-3 text-sm font-semibold transition",
                   activeTab === tab.key
-                    ? "border-[#10B981] text-[#10B981]"
+                    ? "border-[var(--color-primary)] text-[var(--color-primary)]"
                     : "border-transparent text-slate-400 hover:text-slate-900",
                 )}
               >

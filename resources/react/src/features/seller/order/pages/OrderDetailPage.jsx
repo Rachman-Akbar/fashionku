@@ -7,7 +7,7 @@ import { Input } from "@/shared/components/ui/Input";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { parseShipping } from "@/shared/utils/shipping";
 import { formatPrice } from "@/shared/utils/utils";
-import { getOrderManagementError, useDeleteOrder, useUpdateOrder } from "@/features/admin/order/services/orderManagementService";
+import { getOrderManagementError, orderTypeLabel, useDeleteOrder, useUpdateOrder } from "@/features/admin/order/services/orderManagementService";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { isOperatorRole } from "@/shared/utils/roles";
 import { FormActionDock, FormEditorLayout } from "@/shared/components/crud";
@@ -100,6 +100,10 @@ function OrderDetailForm({ row, onDeleted, onSaved }) {
     || raw.order_type === "manual"
     || raw.is_manual === true
     || String(row?.orderNumber || raw.order_number || row?.subOrderNumber || raw.sub_order_number || "").startsWith("MAN-");
+  const isPreorder = Boolean(row?.isPreorder ?? raw.is_preorder ?? false)
+    || String(raw.order_type || row?.orderType || "").trim().toLowerCase() === "preorder";
+  const pickupAt = raw.pickup_at || row?.pickupAt || null;
+  const pickupNote = raw.pickup_note || row?.pickupNote || "";
 
   const [status, setStatus] = useState(row?.status || "pending");
   const [tracking, setTracking] = useState((raw.tracking_number || row?.trackingNumber || "").trim());
@@ -185,6 +189,8 @@ function OrderDetailForm({ row, onDeleted, onSaved }) {
           lead={
             <div className="flex items-center gap-[5px]">
               <StatusBadge status={orderStatus} label={STATUS_OPTIONS.find((option) => option.value === orderStatus)?.label || orderStatus} />
+              <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-extrabold uppercase text-slate-700">{orderTypeLabel(raw.order_type || row?.orderType)}</span>
+              {isPreorder ? <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-extrabold uppercase text-amber-700">Menunggu Produk</span> : null}
               {savedStatus ? <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-extrabold uppercase text-amber-700">Baru saja diubah</span> : null}
             </div>
           }
@@ -300,6 +306,12 @@ function OrderDetailForm({ row, onDeleted, onSaved }) {
                 <span>Kurir</span>
                 <SearchableSelect value={courier} onChange={setCourier} options={isManual ? MANUAL_COURIER_OPTIONS : COURIER_OPTIONS} clearable={false} buttonClassName="h-10" />
               </label>
+              {pickupAt ? (
+                <div className="flex items-center gap-[5px] rounded-[10px] border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-sm font-bold text-emerald-700 sm:col-span-2">
+                  <span className="material-symbols-outlined text-[18px]">storefront</span>
+                  Ambil di Toko · {formatDate(pickupAt)}{pickupNote ? ` — ${pickupNote}` : ""}
+                </div>
+              ) : null}
               <label className="grid gap-1.5 text-sm font-bold text-slate-700">
                 <span>Ongkir</span>
                 <Input type="number" min="0" value={shippingCost} onChange={(event) => setShippingCost(event.target.value)} placeholder="0" disabled={customerLocked} readOnly={customerLocked} />

@@ -4,40 +4,36 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Seller;
 
-use App\Domains\Identity\User\Domain\Entities\User;
 use App\Domains\Order\Ordering\Application\UseCases\GetOrdersUseCase;
 use App\Domains\Order\Ordering\Infrastructure\Persistence\Models\OrderModel;
 use App\Domains\Order\Ordering\Infrastructure\Persistence\Models\SubOrderModel;
 use App\Domains\Seller\Finance\Application\Services\SellerFinanceDashboardService;
 use App\Domains\Seller\Finance\Infrastructure\Persistence\Models\FinancialTransactionModel;
-use App\Domains\Seller\Stores\Infrastructure\Persistence\Models\StoreModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\Support\InteractsAsUser;
 use Tests\TestCase;
 
+/**
+ * Filter tanggal pada dashboard keuangan & riwayat pesanan.
+ *
+ * Marketplace kini internal/single-store: tidak ada lagi `stores` maupun
+ * kolom `store_id`, sehingga seluruh data dibuat langsung tanpa relasi toko.
+ */
 class DateFilterTest extends TestCase
 {
     use InteractsAsUser;
     use RefreshDatabase;
 
-    private function makeStoreFor(User $seller): StoreModel
-    {
-        $store = $this->makeStore($seller);
-        $seller->unsetRelation('store');
-
-        return $store;
-    }
-
-    private function makeOrder(User $buyer, string $orderCode, string $createdAt): OrderModel
+    private function makeOrder($buyer, string $orderCode, string $createdAt, string $status = 'pending'): OrderModel
     {
         return OrderModel::query()->create([
             'user_id' => $buyer->id,
             'order_number' => 'ORD-DATE-'.$orderCode,
-            'order_type' => 'normal',
+            'order_type' => 'reguler',
             'payment_method' => 'cod',
             'payment_status' => 'unpaid',
-            'status' => 'pending',
+            'status' => $status,
             'total_amount' => 10000,
             'shipping_address' => json_encode(['address' => 'Jl. Test No. 1']),
             'created_at' => $createdAt,
@@ -76,11 +72,7 @@ class DateFilterTest extends TestCase
 
     public function test_dashboard_custom_date_range_in_income(): void
     {
-        $seller = $this->makeUser([], ['seller']);
-        $store = $this->makeStoreFor($seller);
-
         FinancialTransactionModel::query()->create([
-            'store_id' => $store->id,
             'reference_number' => 'TRX-DATE-'.Str::upper(Str::random(6)),
             'type' => 'income',
             'title' => 'Januari',
@@ -91,7 +83,6 @@ class DateFilterTest extends TestCase
         ]);
 
         FinancialTransactionModel::query()->create([
-            'store_id' => $store->id,
             'reference_number' => 'TRX-DATE-'.Str::upper(Str::random(6)),
             'type' => 'income',
             'title' => 'September',
@@ -102,7 +93,6 @@ class DateFilterTest extends TestCase
         ]);
 
         $dashboard = app(SellerFinanceDashboardService::class)->getDashboard(
-            (int) $store->id,
             'monthly',
             '2026-01-01',
             '2026-01-31'
@@ -118,14 +108,11 @@ class DateFilterTest extends TestCase
 
     public function test_order_trend_respects_custom_date_range(): void
     {
-        $seller = $this->makeUser([], ['seller']);
-        $store = $this->makeStoreFor($seller);
-
         $buyer = $this->makeUser();
         $order = OrderModel::query()->create([
             'user_id' => $buyer->id,
             'order_number' => 'ORD-TREND-'.Str::upper(Str::random(4)),
-            'order_type' => 'normal',
+            'order_type' => 'reguler',
             'payment_method' => 'cod',
             'payment_status' => 'unpaid',
             'status' => 'completed',
@@ -136,7 +123,6 @@ class DateFilterTest extends TestCase
 
         SubOrderModel::query()->create([
             'order_id' => $order->id,
-            'store_id' => $store->id,
             'sub_order_number' => 'SUB-TREND-'.Str::upper(Str::random(4)),
             'destination_id' => 'test-city',
             'total_items_price' => 50000,
@@ -146,7 +132,6 @@ class DateFilterTest extends TestCase
         ]);
 
         $trend = app(SellerFinanceDashboardService::class)->getOrderTrend(
-            (int) $store->id,
             'monthly',
             '2026-02-01',
             '2026-02-28'

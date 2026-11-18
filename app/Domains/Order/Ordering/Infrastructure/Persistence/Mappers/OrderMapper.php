@@ -46,7 +46,7 @@ final class OrderMapper
         return new DomainOrder(
             id: (int) $model->id,
             orderNumber: (string) $model->order_number,
-            orderType: (string) ($model->order_type ?? 'normal'),
+            orderType: (string) ($model->order_type ?? 'reguler'),
             preorderReleaseAt: $model->preorder_release_at?->toIso8601String(),
             scheduledAt: $model->scheduled_at?->toIso8601String(),
             receivedAt: $model->received_at?->toIso8601String(),
@@ -61,6 +61,9 @@ final class OrderMapper
             snapToken: $model->midtrans_snap_token ? (string) $model->midtrans_snap_token : null,
             shippingAddress: (string) $model->shipping_address,
             subOrders: $subOrders,
+            isPreorder: (bool) ($model->is_preorder ?? false),
+            pickupAt: $model->pickup_at?->toIso8601String(),
+            pickupNote: $model->pickup_note ? (string) $model->pickup_note : null,
             createdAt: $model->created_at?->toIso8601String(),
             updatedAt: $model->updated_at?->toIso8601String()
         );
@@ -71,8 +74,11 @@ final class OrderMapper
         return [
             'order_number' => $entity->orderNumber,
             'order_type' => $entity->orderType,
+            'is_preorder' => $entity->isPreorder,
             'preorder_release_at' => $entity->preorderReleaseAt,
             'scheduled_at' => $entity->scheduledAt,
+            'pickup_at' => $entity->pickupAt,
+            'pickup_note' => $entity->pickupNote,
             'received_at' => $entity->receivedAt,
             'user_id' => $entity->userId,
             'voucher_id' => $entity->voucherId,

@@ -38,9 +38,9 @@ export default function NotificationsPage() {
               key={item.id}
               type="button"
               onClick={() => setActiveId(item.id)}
-              className={`${profileLayout.listItem} ${activeNotification?.id === item.id ? "bg-[#ECFDF5]" : "hover:bg-[#f7f8fa]"}`}
+              className={`${profileLayout.listItem} ${activeNotification?.id === item.id ? "bg-[var(--color-primary-soft)]" : "hover:bg-[#f7f8fa]"}`}
             >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#D1FAE5] text-[#10B981]">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-soft-strong)] text-[var(--color-primary)]">
                 <PackageCheck size={20} />
               </div>
               <div className="min-w-0">

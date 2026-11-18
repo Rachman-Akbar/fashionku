@@ -21,14 +21,36 @@ export function normalizeOrderItem(item = {}, index = 0) {
   };
 }
 
+// Legacy multistore values -> single-store values:
+// normal -> reguler, booking -> terjadwal, preorder -> reguler
+// (preorder ditandai lewat flag `is_preorder`, bukan order_type).
+export function normalizeOrderTypeValue(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "booking" || raw === "terjadwal") return "terjadwal";
+  if (raw === "manual") return "manual";
+  if (raw === "normal" || raw === "preorder" || raw === "reguler") return "reguler";
+  return raw || "reguler";
+}
+
+export function orderTypeLabel(value) {
+  const normalized = normalizeOrderTypeValue(value);
+  if (normalized === "terjadwal") return "Pesanan Terjadwal";
+  if (normalized === "manual") return "Manual";
+  return "Reguler";
+}
+
 export function normalizeOrder(row = {}) {
   return {
     id: Number(row.id || 0),
     orderId: Number(row.order_id || row.orderId || row.id || 0),
     orderNumber: row.order_number || row.orderNumber || "",
-    orderType: row.order_type || row.orderType || "normal",
+    orderType: normalizeOrderTypeValue(row.order_type || row.orderType),
+    isPreorder: Boolean(row.is_preorder ?? row.isPreorder ?? false)
+      || String(row.order_type || row.orderType || "").trim().toLowerCase() === "preorder",
     preorderReleaseAt: row.preorder_release_at || row.preorderReleaseAt || null,
     scheduledAt: row.scheduled_at || row.scheduledAt || null,
+    pickupAt: row.pickup_at || row.pickupAt || null,
+    pickupNote: row.pickup_note || row.pickupNote || null,
     receivedAt: row.received_at || row.receivedAt || null,
     customerName: row.user?.name || row.customer_name || row.customerName || "",
     total: Number(row.grand_total ?? row.total ?? row.total_items_price ?? 0) + Number(row.shipping_cost || 0),

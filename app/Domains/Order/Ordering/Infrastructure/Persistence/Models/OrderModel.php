@@ -21,7 +21,9 @@ class OrderModel extends Model
         'shipping_discount_amount' => 'decimal:2',
         'preorder_release_at' => 'datetime',
         'scheduled_at' => 'datetime',
+        'pickup_at' => 'datetime',
         'received_at' => 'datetime',
+        'is_preorder' => 'boolean',
     ];
 
     public function subOrders(): HasMany

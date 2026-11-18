@@ -18,6 +18,7 @@ final class EloquentVoucherRepository implements VoucherRepositoryInterface
         $limit = max(1, min(100, (int) ($filters['limit'] ?? 100)));
 
         return Voucher::query()
+            ->with('voucherProducts:id')
             ->when(! $includeInactive && ! array_key_exists('is_active', $filters), fn (Builder $query) => $query->active())
             ->when(array_key_exists('is_active', $filters), fn (Builder $query) => $query->where('is_active', (bool) $filters['is_active']))
             ->when((bool) ($filters['active_now'] ?? false), function (Builder $query): void {
@@ -36,6 +37,7 @@ final class EloquentVoucherRepository implements VoucherRepositoryInterface
     public function findById(int $id, bool $includeInactive = true): ?Voucher
     {
         return Voucher::query()
+            ->with('voucherProducts:id')
             ->when(! $includeInactive, fn (Builder $query) => $query->active())
             ->find($id);
     }
@@ -43,6 +45,7 @@ final class EloquentVoucherRepository implements VoucherRepositoryInterface
     public function findByCode(string $code, bool $includeInactive = false): ?Voucher
     {
         return Voucher::query()
+            ->with('voucherProducts:id')
             ->when(! $includeInactive, fn (Builder $query) => $query->active())
             ->where('code', Str::lower(trim($code)))
             ->first();

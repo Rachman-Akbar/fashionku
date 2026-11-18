@@ -35,7 +35,7 @@ final class ManageVoucherUseCase
     {
         $this->assertUnique($dto);
 
-        return $this->voucherRepository->save(new Voucher([
+        $voucher = $this->voucherRepository->save(new Voucher([
             'code' => $dto->code,
             'name' => $dto->name,
             'image' => $dto->image,
@@ -50,9 +50,14 @@ final class ManageVoucherUseCase
             'starts_at' => $dto->starts_at,
             'ends_at' => $dto->ends_at,
             'usage_limit' => $dto->usage_limit,
+            'usage_limit_per_user' => $dto->usage_limit_per_user,
             'used_count' => 0,
             'is_active' => $dto->is_active,
         ]));
+
+        $this->syncProducts($voucher, $dto->product_ids);
+
+        return $voucher->fresh('voucherProducts');
     }
 
     public function updateVoucher(int $id, VoucherDTO $dto): Voucher
@@ -74,10 +79,39 @@ final class ManageVoucherUseCase
             'starts_at' => $dto->starts_at,
             'ends_at' => $dto->ends_at,
             'usage_limit' => $dto->usage_limit,
+            'usage_limit_per_user' => $dto->usage_limit_per_user,
             'is_active' => $dto->is_active,
         ]);
 
-        return $this->voucherRepository->save($voucher);
+        $this->voucherRepository->save($voucher);
+        $this->syncProducts($voucher, $dto->product_ids);
+
+        return $voucher->fresh('voucherProducts');
+    }
+
+    /**
+     * Sinkronkan produk yang menjadi syarat voucher. Array kosong berarti
+     * voucher berlaku untuk semua produk (tidak ada batasan).
+     *
+     * @param  array<int, int>  $productIds
+     */
+    private function syncProducts(Voucher $voucher, array $productIds): void
+    {
+        $ids = collect($productIds)
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values();
+
+        $exists = $ids->isEmpty()
+            ? []
+            : \Illuminate\Support\Facades\DB::table('products')
+                ->whereIn('id', $ids)
+                ->pluck('id')
+                ->map(fn (mixed $id): int => (int) $id)
+                ->all();
+
+        $voucher->voucherProducts()->sync($exists);
     }
 
     public function deleteVoucher(int $id): bool

@@ -137,9 +137,9 @@ export default function SellerOrdersPage() {
                   value={type}
                   onChange={setType}
                   options={[
-                    { value: "normal", label: "Normal" },
-                    { value: "preorder", label: "Preorder" },
-                    { value: "booking", label: "Booking" },
+                    { value: "reguler", label: "Reguler" },
+                    { value: "terjadwal", label: "Pesanan Terjadwal" },
+                    { value: "manual", label: "Manual" },
                   ]}
                   placeholder="Semua tipe"
                   className="w-40"

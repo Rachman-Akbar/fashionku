@@ -93,7 +93,7 @@ export default function GroupChatPage() {
                 className="h-10 w-full rounded-lg border-0 bg-[#f0f2f5] px-4 text-sm text-slate-800 outline-none"
               />
             </form>
-            <Send size={20} className="text-[#10B981]" />
+            <Send size={20} className="text-[var(--color-primary)]" />
           </footer>
         </>
       ) : (

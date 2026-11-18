@@ -51,6 +51,9 @@ class ShippingSettingsController extends Controller
             DB::table('shipping_settings')->insert($payload);
         }
 
+        // Buang cache opsi pengiriman agar perubahan tarif langsung terpakai.
+        \Illuminate\Support\Facades\Cache::forget('shipping.settings');
+
         return response()->json([
             'success' => true,
             'message' => 'Pengaturan ongkir berhasil disimpan.',

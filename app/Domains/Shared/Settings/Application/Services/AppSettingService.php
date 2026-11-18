@@ -5,15 +5,24 @@ declare(strict_types=1);
 namespace App\Domains\Shared\Settings\Application\Services;
 
 use App\Domains\Shared\Settings\Infrastructure\Persistence\Models\AppSettingModel;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Penyimpanan konfigurasi aplikasi single-store (key-value).
  *
  * Profil toko (nama, logo, deskripsi, alamat, kebijakan, dsb.) disimpan di
  * sini karena Fashionku tidak lagi memiliki tabel `stores`.
+ *
+ * Pembacaan di-cache dua lapis: per-request (`self::$cache`) dan lintas-request
+ * (`Cache::remember`), sehingga satu request hanya sekali membaca database.
+ * Setiap `put()` / `putMany()` menghapus cache tersebut.
  */
 final class AppSettingService
 {
+    private const CACHE_KEY = 'app.settings.all';
+
+    private const CACHE_TTL = 3600;
+
     /** @var array<string, mixed>|null */
     private static ?array $cache = null;
 
@@ -33,14 +42,22 @@ final class AppSettingService
             return self::$cache;
         }
 
-        $rows = AppSettingModel::query()->get(['key', 'value', 'type']);
+        self::$cache = Cache::remember(
+            self::CACHE_KEY,
+            self::CACHE_TTL,
+            function (): array {
+                $rows = AppSettingModel::query()->get(['key', 'value', 'type']);
 
-        $settings = [];
-        foreach ($rows as $row) {
-            $settings[(string) $row->key] = $this->cast($row->value, (string) $row->type);
-        }
+                $settings = [];
+                foreach ($rows as $row) {
+                    $settings[(string) $row->key] = $this->cast($row->value, (string) $row->type);
+                }
 
-        return self::$cache = $settings;
+                return $settings;
+            }
+        );
+
+        return self::$cache;
     }
 
     public function put(string $key, mixed $value, string $group = 'general', string $type = 'string'): void
@@ -54,7 +71,7 @@ final class AppSettingService
             ]
         );
 
-        self::$cache = null;
+        $this->flush();
     }
 
     /**
@@ -75,6 +92,47 @@ final class AppSettingService
         }
     }
 
+    /** Lupakan cache settings (dipanggil setiap kali ada tulis). */
+    public function flush(): void
+    {
+        self::$cache = null;
+        Cache::forget(self::CACHE_KEY);
+    }
+
+    /**
+     * Konfigurasi pembayaran yang dibutuhkan pembeli saat checkout
+     * (QRIS ditampilkan sebagai gambar, bukan Snap — lihat config/midtrans.php).
+     *
+     * @return array<string, mixed>
+     */
+    public function paymentProfile(): array
+    {
+        $image = $this->get('payment.qris.image');
+
+        return [
+            'qris' => [
+                'enabled' => (bool) $this->get('payment.qris.enabled', $image !== null),
+                'image' => $image,
+                'image_url' => $this->publicUrl($image),
+                'merchant_name' => (string) $this->get('payment.qris.merchant_name', ''),
+                'notes' => $this->get('payment.qris.notes'),
+            ],
+        ];
+    }
+
+    private function publicUrl(mixed $path): ?string
+    {
+        if (! is_string($path) || $path === '') {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http')) {
+            return $path;
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+    }
+
     /**
      * Profil toko tunggal dalam bentuk yang kompatibel dengan resource lama.
      *
@@ -86,6 +144,8 @@ final class AppSettingService
             'id' => 1,
             'user_id' => null,
             'name' => (string) $this->get('store.name', config('app.name', 'Fashionku')),
+            // Alias untuk kontrak lama (frontend memakai `store_name`).
+            'store_name' => (string) $this->get('store.name', config('app.name', 'Fashionku')),
             'slug' => (string) $this->get('store.slug', 'fashionku'),
             'description' => $this->get('store.description'),
             'short_description' => $this->get('store.short_description'),

@@ -10,9 +10,14 @@ const GROUP_ICONS = {
   Finance: "account_balance_wallet",
   Toko: "store",
   Operasional: "event_note",
+  Marketing: "campaign",
   "Master Data": "database",
   Bantuan: "support_agent",
   Manajemen: "admin_panel_settings",
+  "Manajemen User": "manage_accounts",
+  Chat: "chat",
+  Jadwal: "calendar_month",
+  "Pengaturan Toko": "settings",
 };
 
 const GROUP_THEMES = {
@@ -21,9 +26,14 @@ const GROUP_THEMES = {
   Finance: { color: "#eab308" },
   Toko: { color: "#10b981" },
   Operasional: { color: "#06b6d4" },
+  Marketing: { color: "#f59e0b" },
   "Master Data": { color: "#3b82f6" },
   Manajemen: { color: "#8b5cf6" },
+  "Manajemen User": { color: "#8b5cf6" },
   Bantuan: { color: "#ec4899" },
+  Chat: { color: "#22c55e" },
+  Jadwal: { color: "#14b8a6" },
+  "Pengaturan Toko": { color: "#6366f1" },
 };
 
 const DEFAULT_THEME = { color: "#94a3b8" };
@@ -65,7 +75,7 @@ export const PanelSidebar = memo(function PanelSidebar({
     const grouped = new Map();
 
     items
-      .filter((item) => !item.hiddenInSidebar && !item.bottom)
+      .filter((item) => !item.hiddenInSidebar && !item.bottom && !item.pinTop)
       .forEach((item) => {
         const groupName = item.group || "Menu";
         if (!grouped.has(groupName)) grouped.set(groupName, []);
@@ -165,8 +175,8 @@ export const PanelSidebar = memo(function PanelSidebar({
   })();
 
   return (
-    <aside ref={railRef} className={cn("relative hidden text-white lg:block", sidebarClassName)} aria-label={title}>
-      <div className="sticky top-0 relative flex h-screen w-[76px] flex-col overflow-hidden border-r border-white/10">
+    <aside ref={railRef} className={cn("relative hidden h-full min-h-0 w-[76px] shrink-0 self-stretch text-white lg:block", sidebarClassName)} aria-label={title}>
+      <div className="sticky top-0 flex h-dvh w-[76px] flex-col overflow-hidden bg-[#0b1f3b]">
         <span
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-60"
@@ -235,7 +245,12 @@ export const PanelSidebar = memo(function PanelSidebar({
                 aria-label={group.name}
                 aria-expanded={openGroup === group.name}
               >
-                <span className="material-symbols-outlined text-[22px]">{icon}</span>
+                <span
+                  className="material-symbols-outlined text-[22px]"
+                  style={!active ? { color: group.items[0]?.iconColor || theme.color } : undefined}
+                >
+                  {icon}
+                </span>
                 {badge > 0 ? <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">{Math.min(99, badge)}</span> : null}
               </button>
             );
@@ -248,11 +263,11 @@ export const PanelSidebar = memo(function PanelSidebar({
               {pinnedItems.map((item) => (
                 <Fragment key={item.href}>
                   {item.dividerBefore ? <div className="mx-2 my-2 h-px bg-white/10" /> : null}
-                  <button
-                    type="button"
+                  <Link
+                    to={item.href}
                     onMouseEnter={(event) => showTip(event, item.label, item.iconColor)}
                     onMouseLeave={clearTip}
-                    onClick={(event) => openMenu(event, item)}
+                    onClick={() => setOpenGroup(null)}
                     className={cn(
                       "relative flex h-11 w-11 items-center justify-center rounded-[10px] transition-all",
                       activeParentId === item.href
@@ -271,7 +286,7 @@ export const PanelSidebar = memo(function PanelSidebar({
                   >
                     <span className="material-symbols-outlined text-[22px]">{item.icon}</span>
                     {groupBadge([item]) > 0 ? <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">{Math.min(99, groupBadge([item]))}</span> : null}
-                  </button>
+                  </Link>
                 </Fragment>
               ))}
             </div>
@@ -352,7 +367,7 @@ export const PanelSidebar = memo(function PanelSidebar({
                         >
                           <span
                             className="material-symbols-outlined text-[18px]"
-                            style={{ color: active ? "#ffffff" : theme.color }}
+                            style={{ color: active ? "#ffffff" : (item.iconColor || theme.color) }}
                           >
                             {item.icon}
                           </span>

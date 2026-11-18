@@ -58,7 +58,7 @@ const inputClass = (hasError) =>
   `h-11 w-full rounded-xl border bg-slate-50 px-3 text-sm outline-none transition focus:bg-white ${
     hasError
       ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10"
-      : "border-slate-200 focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/10"
+      : "border-slate-200 focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/10"
   }`;
 
 function Field({ label, required, error, children }) {
@@ -276,7 +276,7 @@ export default function InstantAddressModal({
       <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#10B981]">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-primary)]">
               Alamat instan
             </p>
             <h2 className="mt-1 text-xl font-black text-slate-950">
@@ -341,7 +341,7 @@ export default function InstantAddressModal({
                 className={`w-full resize-none rounded-xl border bg-slate-50 px-3 py-3 text-sm outline-none transition focus:bg-white ${
                   fieldErrors.fullAddress
                     ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10"
-                    : "border-slate-200 focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/10"
+                    : "border-slate-200 focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/10"
                 }`}
               />
             </Field>
@@ -349,7 +349,7 @@ export default function InstantAddressModal({
               <input
                 value={form.notes}
                 onChange={(event) => update("notes", event.target.value)}
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-[#10B981] focus:bg-white focus:ring-2 focus:ring-[#10B981]/10"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary)]/10"
                 placeholder="Contoh: Pagar hitam dekat minimarket"
               />
             </Field>
@@ -383,7 +383,7 @@ export default function InstantAddressModal({
               type="checkbox"
               checked={form.isPrimary}
               onChange={(event) => update("isPrimary", event.target.checked)}
-              className="accent-[#10B981]"
+              className="accent-[var(--color-primary)]"
             />
             Jadikan alamat utama
           </label>
@@ -399,7 +399,7 @@ export default function InstantAddressModal({
           <button
             type="button"
             onClick={onClose}
-            className="h-11 rounded-xl border border-slate-200 px-5 text-sm font-bold text-slate-600 transition hover:border-[#10B981] hover:text-[#10B981]"
+            className="h-11 rounded-xl border border-slate-200 px-5 text-sm font-bold text-slate-600 transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
           >
             Batal
           </button>
@@ -407,7 +407,7 @@ export default function InstantAddressModal({
             type="button"
             onClick={submit}
             disabled={createMutation.isPending}
-            className="h-11 rounded-xl bg-[#10B981] px-5 text-sm font-black text-white transition hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-11 rounded-xl bg-[var(--color-primary)] px-5 text-sm font-black text-white transition hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {createMutation.isPending
               ? "Simpan"

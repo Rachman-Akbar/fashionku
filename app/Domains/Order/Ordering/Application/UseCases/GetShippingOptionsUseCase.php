@@ -9,6 +9,7 @@ use App\Domains\Order\Addresses\Domain\Repositories\AddressRepositoryInterface;
 use App\Domains\Order\Cart\Application\Readers\ProductForCartReaderInterface;
 use App\Domains\Order\Cart\Infrastructure\Persistence\Models\CartModel;
 use App\Domains\Order\Ordering\Domain\Services\ShippingCostCalculator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
@@ -158,15 +159,19 @@ final class GetShippingOptionsUseCase
 
     private function shippingSetting(): ?object
     {
-        try {
-            if (! Schema::hasTable('shipping_settings')) {
+        // Tarif/koordinat ongkir jarang berubah: cache lintas-request agar
+        // endpoint opsi pengiriman tidak membaca database pada setiap hit.
+        return Cache::remember('shipping.settings', 3600, function (): ?object {
+            try {
+                if (! Schema::hasTable('shipping_settings')) {
+                    return null;
+                }
+
+                return DB::table('shipping_settings')->orderBy('id')->first();
+            } catch (Throwable) {
                 return null;
             }
-
-            return DB::table('shipping_settings')->orderBy('id')->first();
-        } catch (Throwable) {
-            return null;
-        }
+        });
     }
 
     private function firstCoordinate(mixed ...$values): ?float

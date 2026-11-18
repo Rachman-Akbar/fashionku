@@ -34,8 +34,7 @@ const SellerStorePage = lazyWithRetry(() => import("@/features/seller/store/page
 const SellerOrdersPage = lazyWithRetry(() => import("@/features/seller/order/pages/SellerOrdersPage"));
 const AdminDashboardPage = lazyWithRetry(() => import("@/features/admin/pages/AdminDashboardPage"));
 const AdminOrdersPage = lazyWithRetry(() => import("@/features/admin/order/pages/AdminOrdersPage"));
-const AdminShippingSettingsPage = lazyWithRetry(() => import("@/features/admin/shipping/pages/AdminShippingSettingsPage"));
-const AdminStoreAddressPage = lazyWithRetry(() => import("@/features/admin/store/pages/AdminStoreAddressPage"));
+const AdminStoreSettingsPage = lazyWithRetry(() => import("@/features/admin/store/pages/AdminStoreSettingsPage"));
 const AdminShell = lazyWithRetry(() => import("@/features/admin/layout/AdminShell"));
 const AdminUsersPage = lazyWithRetry(() => import("@/features/admin/users/pages/AdminUsersPage"));
 const AdminCategoryPage = lazyWithRetry(() => import("@/features/admin/category/pages/AdminCategoryPage"));
@@ -44,6 +43,7 @@ const AddressesPage = lazyWithRetry(() => import("@/features/profile/address/pag
 const GroupChatPage = lazyWithRetry(() => import("@/features/profile/chat/pages/GroupChatPage"));
 const NotificationsPage = lazyWithRetry(() => import("@/features/profile/notifications/pages/NotificationsPage"));
 const PaymentsPage = lazyWithRetry(() => import("@/features/profile/payments/pages/PaymentsPage"));
+const AppearancePage = lazyWithRetry(() => import("@/features/profile/appearance/pages/AppearancePage"));
 const FinancePage = lazyWithRetry(() => import("@/features/advanced/pages/FinancePage"));
 const StockPage = lazyWithRetry(() => import("@/features/advanced/pages/StockPage"));
 const SchedulePage = lazyWithRetry(() => import("@/features/advanced/pages/SchedulePage"));
@@ -143,6 +143,7 @@ function renderAccountRoutes() {
         <Route path="/profile/wishlist" element={<Navigate to="/cart?tab=wishlist" replace />} />
         <Route path="/profile/notifications" element={<NotificationsPage />} />
         <Route path="/profile/payments" element={<PaymentsPage />} />
+        <Route path="/profile/appearance" element={<AppearancePage />} />
         <Route path="/profile/help" element={<BuyerHelpPage />} />
         <Route path="/chat" element={<RealtimeChatPage />} />
         <Route path="/chat/groups" element={<GroupChatPage />} />
@@ -182,7 +183,7 @@ function renderAdminRoutes() {
   return (
     <Route element={<ProtectedRoute roles={["admin"]} loginPath="/admin/login" />}>
       <Route element={<AdminShell />}>
-        <Route index element={<AdminDashboardPage />} />
+        <Route path="/admin" element={<AdminDashboardPage />} />
         <Route path="/admin/orders" element={<AdminOrdersPage />} />
         <Route path="/admin/products" element={<SellerProductsPage />} />
         <Route path="/admin/stock" element={<StockPage />} />
@@ -198,9 +199,9 @@ function renderAdminRoutes() {
         <Route path="/admin/planner" element={<SchedulePage />} />
         <Route path="/admin/chat" element={<RealtimeChatPage />} />
         <Route path="/admin/help" element={<HelpPage />} />
-        <Route path="/admin/store" element={<AdminStoreAddressPage />} />
-        <Route path="/admin/shipping" element={<AdminShippingSettingsPage />} />
-        <Route path="/admin/code-settings" element={<CodePatternSettingsPage />} />
+        <Route path="/admin/store" element={<AdminStoreSettingsPage />} />
+        <Route path="/admin/shipping" element={<Navigate to="/admin/store" replace />} />
+        <Route path="/admin/code-settings" element={<Navigate to="/admin/store" replace />} />
       </Route>
     </Route>
   );

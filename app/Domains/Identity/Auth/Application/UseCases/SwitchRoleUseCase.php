@@ -33,7 +33,7 @@ final class SwitchRoleUseCase
         }
 
         if ($targetRole === 'seller' && ! $this->userRepository->hasSellerAccess($user)) {
-            throw new AccessDeniedHttpException('Akses seller belum aktif atau toko belum tersedia.');
+            throw new AccessDeniedHttpException('Akses seller belum aktif.');
         }
 
         // Kebijakan sesi tunggal: beralih role menerbitkan token baru dan

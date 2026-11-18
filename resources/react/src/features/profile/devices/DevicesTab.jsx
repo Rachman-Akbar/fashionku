@@ -18,7 +18,7 @@ const DEVICE_ICONS = {
 
 function DeviceIcon({ deviceType, className }) {
   const Icon = DEVICE_ICONS[deviceType] || Globe;
-  return <Icon className={cn("text-[#10B981]", className)} size={24} />;
+  return <Icon className={cn("text-[var(--color-primary)]", className)} size={24} />;
 }
 
 function formatDate(dateString) {
@@ -68,17 +68,17 @@ function DeviceCard({ device, isCurrent, onRemove, onLogout }) {
   }, [device.id, requestRemovalOtp]);
 
   return (
-    <div className={cn("group min-h-[120px] py-4 border-b border-slate-100 last:border-0", isCurrent && "bg-[#ECFDF5]")}>
+    <div className={cn("group min-h-[120px] py-4 border-b border-slate-100 last:border-0", isCurrent && "bg-[var(--color-primary-soft)]")}>
       <div className="mb-3 flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#ECFDF5]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-primary-soft)]">
             <DeviceIcon deviceType={device.device_type} size={24} />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-slate-950">{device.device_name || "Perangkat Tidak Dikenal"}</span>
               {isCurrent && (
-                <span className="rounded-full border border-[#10B981]/25 bg-[#D1FAE5] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#10B981]">
+                <span className="rounded-full border border-[var(--color-primary)]/25 bg-[var(--color-primary-soft-strong)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-primary)]">
                   Perangkat Ini
                 </span>
               )}
@@ -101,7 +101,7 @@ function DeviceCard({ device, isCurrent, onRemove, onLogout }) {
             <button
               type="button"
               onClick={() => onLogout?.(device.id)}
-              className="text-sm font-semibold text-slate-400 hover:text-[#10B981]"
+              className="text-sm font-semibold text-slate-400 hover:text-[var(--color-primary)]"
             >
               Logout
             </button>
@@ -120,7 +120,7 @@ function DeviceCard({ device, isCurrent, onRemove, onLogout }) {
         </div>
         <div>
           <p className="font-semibold text-slate-700">Status</p>
-          <p className={cn(device.status === "active" ? "text-[#10B981]" : "text-red-500")}>
+          <p className={cn(device.status === "active" ? "text-[var(--color-primary)]" : "text-red-500")}>
             {device.status}
           </p>
         </div>
@@ -188,7 +188,7 @@ export default function DevicesTab() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-[#10B981]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--color-primary)]" />
       </div>
     );
   }
@@ -197,8 +197,8 @@ export default function DevicesTab() {
 
   return (
     <div className="max-w-[760px]">
-      <div className="mb-8 flex min-h-[64px] gap-3 border-l-2 border-[#10B981] bg-[#ECFDF5] px-4 py-3 text-sm leading-6 text-slate-600">
-        <Monitor className="mt-0.5 shrink-0 text-[#10B981]" size={18} />
+      <div className="mb-8 flex min-h-[64px] gap-3 border-l-2 border-[var(--color-primary)] bg-[var(--color-primary-soft)] px-4 py-3 text-sm leading-6 text-slate-600">
+        <Monitor className="mt-0.5 shrink-0 text-[var(--color-primary)]" size={18} />
         <p>
           Kelola perangkat yang terhubung ke akun Anda. Hapus perangkat yang tidak
           dikenal untuk keamanan akun.

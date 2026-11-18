@@ -69,21 +69,21 @@ export function ProfileChatWindow({ thread }) {
         <div className="flex items-center gap-5 text-slate-500">
           <button
             type="button"
-            className="transition hover:text-[#10B981]"
+            className="transition hover:text-[var(--color-primary)]"
             aria-label="Video"
           >
             <Video size={20} />
           </button>
           <button
             type="button"
-            className="transition hover:text-[#10B981]"
+            className="transition hover:text-[var(--color-primary)]"
             aria-label="Cari"
           >
             <Search size={20} />
           </button>
           <button
             type="button"
-            className="transition hover:text-[#10B981]"
+            className="transition hover:text-[var(--color-primary)]"
             aria-label="Menu"
           >
             <MoreVertical size={20} />
@@ -130,14 +130,14 @@ export function ProfileChatWindow({ thread }) {
         <div className="flex items-center gap-3 text-slate-500">
           <button
             type="button"
-            className="transition hover:text-[#10B981]"
+            className="transition hover:text-[var(--color-primary)]"
             aria-label="Tambah"
           >
             <Plus size={20} />
           </button>
           <button
             type="button"
-            className="transition hover:text-[#10B981]"
+            className="transition hover:text-[var(--color-primary)]"
             aria-label="Emoji"
           >
             <Smile size={20} />
@@ -153,14 +153,14 @@ export function ProfileChatWindow({ thread }) {
         </form>
         <button
           type="button"
-          className="text-slate-500 transition hover:text-[#10B981]"
+          className="text-slate-500 transition hover:text-[var(--color-primary)]"
           aria-label="Rekam"
         >
           <Mic size={20} />
         </button>
         <button
           type="button"
-          className="text-[#10B981] transition hover:text-[#059669]"
+          className="text-[var(--color-primary)] transition hover:text-[var(--color-primary-hover)]"
           aria-label="Kirim"
         >
           <Send size={20} />

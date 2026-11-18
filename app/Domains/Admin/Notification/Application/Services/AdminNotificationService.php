@@ -9,6 +9,7 @@ use App\Domains\Admin\Notification\Infrastructure\Persistence\Models\AdminNotifi
 use App\Domains\Admin\Notification\Presentation\Events\AdminNotificationCreated;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -31,17 +32,23 @@ final class AdminNotificationService
 
     public function notifyAdmins(array $data, ?string $actorId = null): Collection
     {
-        $adminIds = DB::table('users')
-            ->join('user_roles', 'user_roles.user_id', '=', 'users.id')
-            ->join('roles', 'roles.id', '=', 'user_roles.role_id')
-            ->whereIn('roles.name', ['admin', 'super_admin'])
-            ->where('roles.is_active', true)
-            ->where('users.is_active', true)
-            ->whereNull('users.banned_at')
-            ->whereNull('users.deleted_at')
-            ->distinct()
-            ->pluck('users.id')
-            ->map(fn ($id): string => (string) $id);
+        // Daftar penerima admin relatif statis; cache singkat agar setiap
+        // notifikasi tidak menjalankan query join 3 tabel.
+        $adminIds = Cache::remember(
+            'admin.notification.recipients',
+            60,
+            fn (): Collection => DB::table('users')
+                ->join('user_roles', 'user_roles.user_id', '=', 'users.id')
+                ->join('roles', 'roles.id', '=', 'user_roles.role_id')
+                ->whereIn('roles.name', ['admin', 'super_admin'])
+                ->where('roles.is_active', true)
+                ->where('users.is_active', true)
+                ->whereNull('users.banned_at')
+                ->whereNull('users.deleted_at')
+                ->distinct()
+                ->pluck('users.id')
+                ->map(fn ($id): string => (string) $id)
+        );
 
         return $this->notifyAdminUsers($adminIds, $data, $actorId);
     }
@@ -55,29 +62,63 @@ final class AdminNotificationService
             }
         }
 
-        $rows = collect($userIds)
+        $recipients = collect($userIds)
             ->map(fn ($id): string => (string) $id)
             ->filter()
             ->unique()
-            ->map(function (string $userId) use ($data, $actorId): AdminNotificationModel {
-                return $this->repository->save(new AdminNotificationModel([
-                    'user_id' => $userId,
-                    'actor_id' => $actorId,
-                    'module' => trim((string) $data['module']),
-                    'type' => trim((string) $data['type']),
-                    'title' => trim((string) $data['title']),
-                    'message' => isset($data['message']) ? trim((string) $data['message']) : null,
-                    'reference_type' => $data['reference_type'] ?? null,
-                    'reference_id' => isset($data['reference_id']) ? (string) $data['reference_id'] : null,
-                    'url' => $data['url'] ?? null,
-                    'meta' => $data['meta'] ?? null,
-                    'is_active' => true,
-                ]));
-            })
             ->values();
 
-        $broadcast = function () use ($rows): void {
-            $rows->each(fn (AdminNotificationModel $row) => AdminNotificationCreated::dispatch($row));
+        if ($recipients->isEmpty()) {
+            return collect();
+        }
+
+        $now = now();
+        $module = trim((string) $data['module']);
+        $type = trim((string) $data['type']);
+        $title = trim((string) $data['title']);
+        $message = isset($data['message']) ? trim((string) $data['message']) : null;
+        $referenceType = $data['reference_type'] ?? null;
+        $referenceId = isset($data['reference_id']) ? (string) $data['reference_id'] : null;
+        $url = $data['url'] ?? null;
+        $meta = $data['meta'] ?? null;
+        $meta = is_array($meta) || is_object($meta)
+            ? json_encode($meta, JSON_UNESCAPED_UNICODE)
+            : $meta;
+
+        $rows = $recipients->map(fn (string $userId): array => [
+            'user_id' => $userId,
+            'actor_id' => $actorId,
+            'module' => $module,
+            'type' => $type,
+            'title' => $title,
+            'message' => $message,
+            'reference_type' => $referenceType,
+            'reference_id' => $referenceId,
+            'url' => $url,
+            'meta' => $meta,
+            'is_active' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ])->values()->all();
+
+        // Satu INSERT massal (bukan satu query per penerima), lalu satu SELECT
+        // untuk mengambil kembali model yang dibutuhkan event broadcast.
+        $lastIdBefore = (int) DB::table('admin_notifications')->max('id');
+        AdminNotificationModel::query()->insert($rows);
+
+        $models = AdminNotificationModel::query()
+            ->with(['actor:id,name,avatar'])
+            ->whereIn('user_id', $recipients->all())
+            ->where('module', $module)
+            ->where('type', $type)
+            ->where('title', $title)
+            ->where('created_at', $now->toDateTimeString())
+            ->where('id', '>', $lastIdBefore)
+            ->orderBy('id')
+            ->get();
+
+        $broadcast = function () use ($models): void {
+            $models->each(fn (AdminNotificationModel $row) => AdminNotificationCreated::dispatch($row));
         };
 
         if (DB::transactionLevel() > 0) {
@@ -86,7 +127,7 @@ final class AdminNotificationService
             $broadcast();
         }
 
-        return $rows;
+        return $models;
     }
 
     public function markRead(int $id, string $userId): AdminNotificationModel

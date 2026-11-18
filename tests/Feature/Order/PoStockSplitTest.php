@@ -82,7 +82,9 @@ class PoStockSplitTest extends TestCase
             voucherCode: null,
             orderType: $orderType,
             preorderReleaseAt: $orderType === 'preorder' ? now()->addDays(7)->toDateTimeString() : null,
-            scheduledAt: null
+            scheduledAt: null,
+            pickupAt: now()->addDays(2)->toDateTimeString(),
+            pickupNote: null,
         );
 
         return (int) $order->id;
@@ -113,6 +115,10 @@ class PoStockSplitTest extends TestCase
         $this->assertSame(5, (int) $row->stock_reserved);
         $this->assertSame(30, (int) $row->po_stock);
         $this->assertGreaterThan(0, $orderId);
+
+        $order = DB::table('orders')->where('id', $orderId)->first();
+        $this->assertSame('reguler', (string) $order->order_type);
+        $this->assertFalse((bool) $order->is_preorder);
     }
 
     public function test_processing_order_commits_regular_stock(): void
@@ -173,8 +179,9 @@ class PoStockSplitTest extends TestCase
         $this->assertSame(25, (int) $row->stock_preorder); // 20 awal + 5 reservasi
         $this->assertSame(30, (int) $row->po_stock);
 
-        $orderType = DB::table('orders')->where('id', $orderId)->value('order_type');
-        $this->assertSame('preorder', (string) $orderType);
+        $orderType = DB::table('orders')->where('id', $orderId)->first();
+        $this->assertSame('reguler', (string) $orderType->order_type);
+        $this->assertTrue((bool) $orderType->is_preorder);
     }
 
     public function test_cancelling_pending_order_releases_the_reservation(): void
