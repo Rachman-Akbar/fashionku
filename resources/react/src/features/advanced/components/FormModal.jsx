@@ -1,15 +1,16 @@
 import { CrudDialog, FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 
-export function FormModal({ open, title, subtitle, children, onClose, onSubmit, busy, submitLabel = "Simpan", onDelete, deleteLabel = "Hapus", tone = "emerald", saveIcon = "save", extraActions = [] }) {
+export function FormModal({ open, title, subtitle, children, onClose, onSubmit, busy, dirty = true, submitLabel = "Simpan", onDelete, deleteLabel = "Hapus", tone = "emerald", saveIcon = "save", extraActions = [] }) {
+  const disabled = Boolean(busy) || dirty === false;
   return (
     <CrudDialog presentation="page" open={open} title={title} subtitle={subtitle} onClose={onClose}>
       <form onSubmit={onSubmit}>
         <FormEditorLayout
-          actions={<FormActionDock tone={tone} save={{ icon: saveIcon, label: submitLabel }} disabled={busy} onDelete={onDelete} deleteLabel={deleteLabel} extraActions={extraActions} />}
+          actions={<FormActionDock tone={tone} save={{ icon: saveIcon, label: submitLabel }} disabled={disabled} onDelete={onDelete} deleteLabel={deleteLabel} extraActions={extraActions} />}
         >
           <div className="grid gap-4">{children}</div>
         </FormEditorLayout>
-        <FormEditorFooter onCancel={onClose} submitLabel={submitLabel} submitIcon={saveIcon} disabled={busy} tone={tone} onDelete={onDelete} deleteLabel={deleteLabel} />
+        <FormEditorFooter onCancel={onClose} submitLabel={submitLabel} submitIcon={saveIcon} disabled={disabled} tone={tone} onDelete={onDelete} deleteLabel={deleteLabel} />
       </form>
     </CrudDialog>
   );

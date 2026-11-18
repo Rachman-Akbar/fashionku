@@ -104,8 +104,8 @@ export default function AppearancePage() {
             <h2 className={profileLayout.contentTitle}>Atur tema akun</h2>
             <p className={`mt-2 ${profileLayout.contentDesc}`}>
               Pilih mode terang atau gelap dan tentukan warna aksen yang dipakai
-              di seluruh halaman akun pembeli. Pengaturan tersimpan otomatis di
-              perangkat ini.
+              di seluruh halaman marketplace, akun, dan panel admin. Pengaturan
+              tersimpan otomatis di perangkat ini.
             </p>
           </div>
           <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#e5e7eb] bg-white px-3 py-1.5 text-xs font-semibold text-slate-500">

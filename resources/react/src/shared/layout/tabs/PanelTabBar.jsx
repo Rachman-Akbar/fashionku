@@ -99,8 +99,7 @@ function ScrollableTabs({ tabs, activeId, onActivate, onClose, variant, dirtyTab
         {tabs.map((tab) => {
           const active = tab.id === activeId;
           const parent = variant === "parent";
-          const list = !parent && tab.type === "list";
-          const dirty = !parent && !list && Boolean(dirtyTabIds?.[tab.id]);
+          const dirty = !parent && tab.type !== "list" && Boolean(dirtyTabIds?.[tab.id]);
           return (
             <button
               key={tab.id}
@@ -109,21 +108,19 @@ function ScrollableTabs({ tabs, activeId, onActivate, onClose, variant, dirtyTab
               onClick={() => onActivate(tab.id)}
               className={cn(
                 "group flex h-9 max-w-[220px] items-center gap-[5px] overflow-hidden px-3 text-xs font-extrabold transition-colors",
-                list ? "mb-0.5 min-w-11 flex-none justify-center px-2" : "min-w-[100px] flex-[1_1_160px]",
+                "min-w-[100px] flex-[1_1_160px]",
                 parent && "rounded-t-md",
                 parent && active && "bg-rose-500 text-white",
                 parent && !active && "bg-slate-300 text-slate-700 hover:bg-slate-400/70",
                 !parent && "rounded-sm",
-                list && active && "bg-emerald-600 text-white",
-                list && !active && "bg-emerald-100 text-emerald-800 hover:bg-emerald-200",
-                !parent && !list && active && "bg-slate-700 text-white",
-                !parent && !list && !active && "bg-slate-200 text-slate-700 hover:bg-slate-300",
+                !parent && active && "bg-slate-700 text-white",
+                !parent && !active && "bg-slate-200 text-slate-700 hover:bg-slate-300",
               )}
               title={dirty ? `${tab.label} (perubahan belum disimpan)` : tab.label}
             >
-              {parent || list ? <span className="material-symbols-outlined shrink-0 text-[16px]">{parent ? tab.icon : "list_alt"}</span> : null}
+              {parent ? <span className="material-symbols-outlined shrink-0 text-[16px]">{tab.icon}</span> : null}
               {dirty ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" /> : null}
-              {list ? null : <span className="min-w-0 flex-1 truncate text-left">{tab.label}</span>}
+              <span className="min-w-0 flex-1 truncate text-left">{tab.label}</span>
               {tab.closable ? (
                 <span
                   role="button"
@@ -150,16 +147,51 @@ export const PanelTabBar = memo(function PanelTabBar() {
   const context = usePanelTabs();
   if (!context) return null;
 
+  const listTab = context.tabs.find((tab) => tab.type === "list");
+  const childTabs = context.tabs.filter((tab) => tab.type !== "list");
+  const showChildRow = context.tabs.length > 0;
+
   return (
-    <div className="sticky top-16 z-30 bg-slate-100">
-      <div className="flex min-w-0 items-end gap-1 bg-slate-200 px-1 pt-1.5">
+    <div className="sticky top-16 z-30">
+      <div className="flex min-w-0 items-end gap-1 bg-slate-200 pl-0 pr-1 pt-1.5">
         <ScrollableTabs tabs={context.parentTabs} activeId={context.activeParentId} onActivate={context.activateParent} onClose={context.closeParent} variant="parent" dirtyTabIds={context.dirtyTabIds} />
         <TabDropdown tabs={context.parentTabs} activeId={context.activeParentId} onActivate={context.activateParent} onClose={context.closeParent} onCloseAll={context.closeAllParents} dirtyTabIds={context.dirtyTabIds} closeAllLabel="Tutup Semua Menu" label="Semua menu terbuka" accent="parent" />
       </div>
-      {context.tabs.length ? (
-        <div className="flex min-w-0 items-center gap-1 bg-slate-50 px-1 pt-0.5">
-          <ScrollableTabs tabs={context.tabs} activeId={context.activeTabId} onActivate={context.activateTab} onClose={context.closeTab} variant="child" dirtyTabIds={context.dirtyTabIds} />
+      {showChildRow ? (
+        <div className="flex min-w-0 items-center gap-1 bg-slate-50 pl-0 pr-1 pt-0.5">
+          {listTab ? (
+            <button
+              type="button"
+              onClick={() => context.activateTab(listTab.id)}
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-sm transition-colors",
+                context.activeTabId === listTab.id ? "bg-emerald-600 text-white" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200",
+              )}
+              title="Buka daftar data"
+              aria-label="Buka daftar data"
+              aria-current={context.activeTabId === listTab.id ? "page" : undefined}
+            >
+              <span className="material-symbols-outlined text-[18px]">list_alt</span>
+            </button>
+          ) : null}
+          {childTabs.length ? (
+            <ScrollableTabs tabs={childTabs} activeId={context.activeTabId} onActivate={context.activateTab} onClose={context.closeTab} variant="child" dirtyTabIds={context.dirtyTabIds} />
+          ) : (
+            <div className="min-w-0 flex-1" />
+          )}
           <TabDropdown tabs={context.tabs} activeId={context.activeTabId} onActivate={context.activateTab} onClose={context.closeTab} onCloseAll={context.closeAllChildren} dirtyTabIds={context.dirtyTabIds} closeAllLabel="Tutup Semua Halaman" label="Semua halaman data" accent="child" />
+          <button
+            type="button"
+            onClick={() => {
+              const helpHref = context.activeParentId?.startsWith("/admin") ? "/admin/help" : "/seller/help";
+              context.navigate(helpHref);
+            }}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-800"
+            title="Buka halaman bantuan"
+            aria-label="Buka halaman bantuan"
+          >
+            <span className="material-symbols-outlined text-[18px]">help</span>
+          </button>
         </div>
       ) : null}
     </div>

@@ -1,5 +1,5 @@
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
-import { ORDER_TABLE_COLUMNS, OrderManagementTable } from "@/features/admin/order/components/OrderManagementTable";
+import { ORDER_TABLE_COLUMNS, OrderManagementTable, orderCardDefinition } from "@/features/admin/order/components/OrderManagementTable";
 import { getOrderManagementError, useAdminOrders, useUpdateOrderStatus } from "@/features/admin/order/services/orderManagementService";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
@@ -7,7 +7,8 @@ import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { InfiniteScrollSentinel } from "@/shared/components/ui/InfiniteScrollSentinel";
-import { useColumnVisibility, useTableSelection } from "@/shared/hooks";
+import { useColumnVisibility, useTableSelection, useViewMode } from "@/shared/hooks";
+import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
 import { buildRawColumns, mergeColumns } from "@/shared/utils/tableData";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
@@ -18,6 +19,7 @@ import OrderDetailForm from "@/features/seller/order/pages/OrderDetailPage";
 import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 
 export default function AdminOrdersPage() {
+  const [viewMode, setViewMode] = useViewMode("admin-orders");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [type, setType] = useState("");
@@ -33,6 +35,7 @@ export default function AdminOrdersPage() {
   const columns = useMemo(() => mergeColumns(ORDER_TABLE_COLUMNS, buildRawColumns(rows, ["id", "order_id", "order_number", "sub_order_number", "store_name", "grand_total", "total", "total_items_price", "shipping_cost", "status", "payment_status", "tracking_number"])), [rows]);
   const selection = useTableSelection(rows);
   const columnVisibility = useColumnVisibility(columns, "admin-orders");
+  const orderCard = useMemo(() => orderCardDefinition({ onPrint: setPrintRow }), []);
   const spreadsheetRowId = useCallback((row) => row?.orderId || row?.order_id || row?.id, []);
   const spreadsheet = useSpreadsheetWorkspace({
     module: "order",
@@ -98,6 +101,8 @@ export default function AdminOrdersPage() {
             onShowAllColumns={columnVisibility.showAll}
             onResetColumns={columnVisibility.reset}
             onApplyDefaultColumns={columnVisibility.applyAsDefault}
+            viewMode={viewMode}
+            onChangeViewMode={setViewMode}
             filters={(
               <>
                 <SearchableSelect
@@ -133,7 +138,19 @@ export default function AdminOrdersPage() {
           )}
         >
           <AsyncState loading={ordersQuery.isLoading} error={ordersQuery.error ? getOrderManagementError(ordersQuery.error) : ""} empty={!ordersQuery.isLoading && !rows.length} emptyText="Pesanan belum tersedia." />
-          {rows.length ? (
+          {rows.length && viewMode === "grid" ? (
+            <RecordCardGrid
+              rows={rows}
+              columns={columns}
+              card={orderCard}
+              onRowClick={editor.edit}
+              selectionEnabled={selection.enabled}
+              selectedIds={selection.selectedIds}
+              onToggleRow={selection.toggleRow}
+              rowKey={(row) => row.id}
+            />
+          ) : null}
+          {rows.length && viewMode !== "grid" ? (
             <OrderManagementTable
               rows={rows}
               onFilterStateChange={total.onFilterStateChange}

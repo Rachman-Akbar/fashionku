@@ -107,6 +107,40 @@ function columnValue(column, row) {
   return resolveTableValue(row, column.key);
 }
 
+export function orderCardDefinition({ onPrint } = {}) {
+  return {
+    title: (row) => row.subOrderNumber || row.orderNumber || `#${row.id}`,
+    subtitle: (row) => [
+      row.customerName ? toTitleCase(row.customerName) : null,
+      row.createdAt ? new Date(row.createdAt).toLocaleString("id-ID") : null,
+    ].filter(Boolean).join(" · ") || "-",
+    badges: [
+      (row) => <StatusBadge status={row.status} />,
+      (row) => <StatusBadge status={row.paymentStatus} />,
+    ],
+    fields: [
+      { label: "Toko", render: (row) => toTitleCase(row.storeName) || "-" },
+      { label: "Total", render: (row) => formatPrice(row.total) },
+      { label: "Produk", render: (row) => `${(row.items || []).length} item` },
+      { label: "Resi", render: (row) => row.trackingNumber || "-" },
+    ],
+    footer: (row) => (
+      <>
+        <span className="text-[11px] font-bold text-emerald-700">Buka detail</span>
+        {onPrint ? (
+          <button
+            type="button"
+            onClick={() => onPrint(row)}
+            className="inline-flex h-7 items-center gap-1 rounded-md bg-slate-100 px-2 text-[11px] font-extrabold text-slate-700 transition hover:bg-teal-50 hover:text-teal-700"
+          >
+            <span className="material-symbols-outlined text-[15px]">receipt_long</span>Nota
+          </button>
+        ) : null}
+      </>
+    ),
+  };
+}
+
 export const OrderManagementTable = memo(function OrderManagementTable({ rows, portal, pendingId, onStatusChange, onPrint, onEdit, columns = ORDER_TABLE_COLUMNS, visibleSet, selectionEnabled = false, selectedIds = new Set(), allSelected = false, onToggleRow, onToggleAll, onFilterStateChange }) {
   const [sortBy, setSortBy] = useState("");
   const [sortDirection, setSortDirection] = useState("asc");

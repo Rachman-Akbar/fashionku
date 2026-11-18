@@ -13,18 +13,17 @@ import { cn } from "@/shared/utils/utils";
 
 export const SELLER_NAV_ITEMS = [
   { href: "/seller", label: "Ringkasan", icon: "dashboard", exact: true, hiddenInSidebar: true },
-  { href: "/seller/products", label: "Produk", icon: "inventory_2", group: "Katalog" },
-  { href: "/seller/stock", label: "Stok", icon: "warehouse", group: "Katalog" },
-  { href: "/seller/orders", label: "Pesanan", icon: "receipt_long", group: "Penjualan" },
-  { href: "/seller/customers", label: "Pelanggan", icon: "group", group: "Penjualan" },
-  { href: "/seller/vouchers", label: "Voucher", icon: "confirmation_number", group: "Promo" },
-  { href: "/seller/promotions", label: "Promosi", icon: "campaign", group: "Promo" },
-  { href: "/seller/reviews", label: "Ulasan", icon: "reviews", group: "Penjualan" },
-  { href: "/seller/cashflow", label: "Keuangan", icon: "account_balance_wallet", group: "Keuangan" },
-  { href: "/seller/receivables-payables", label: "Hutang/Piutang", icon: "payments", group: "Keuangan" },
-  { href: "/seller/code-settings", label: "Kode", icon: "tune", group: "Lainnya", noChildTabs: true, hiddenInSidebar: true, pinTop: true },
-  { href: "/seller/chat", label: "Chat", icon: "forum", bottom: true, noChildTabs: true },
-  { href: "/seller/help", label: "Bantuan", icon: "help_outline", bottom: true, dividerBefore: true },
+  { href: "/seller/products", label: "Produk", icon: "inventory_2", group: "Katalog", iconColor: "#60a5fa" },
+  { href: "/seller/stock", label: "Stok", icon: "warehouse", group: "Katalog", iconColor: "#22d3ee" },
+  { href: "/seller/orders", label: "Pesanan", icon: "receipt_long", group: "Penjualan", iconColor: "#fb923c" },
+  { href: "/seller/customers", label: "Pelanggan", icon: "group", group: "Penjualan", iconColor: "#fbbf24" },
+  { href: "/seller/vouchers", label: "Voucher", icon: "confirmation_number", group: "Promo", iconColor: "#f59e0b" },
+  { href: "/seller/promotions", label: "Promosi", icon: "campaign", group: "Promo", iconColor: "#f43f5e" },
+  { href: "/seller/reviews", label: "Ulasan", icon: "reviews", group: "Penjualan", iconColor: "#a78bfa" },
+  { href: "/seller/cashflow", label: "Keuangan", icon: "account_balance_wallet", group: "Keuangan", iconColor: "#a3e635" },
+  { href: "/seller/receivables-payables", label: "Hutang/Piutang", icon: "payments", group: "Keuangan", iconColor: "#34d399" },
+  { href: "/seller/code-settings", label: "Kode", icon: "tune", group: "Lainnya", noChildTabs: true, hiddenInSidebar: true, pinTop: true, iconColor: "#6366f1" },
+  { href: "/seller/chat", label: "Chat", icon: "forum", bottom: true, noChildTabs: true, iconColor: "#22c55e" },
 ];
 
 export default function SellerLayout() {
@@ -63,7 +62,7 @@ export default function SellerLayout() {
             />
             <PanelTabBar />
             <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-white pb-20 lg:pb-6">
-              <div className={cn("w-full px-4 py-6 sm:px-6 lg:px-8", isChatRoute ? "flex h-full min-h-0 flex-col" : "mx-auto max-w-6xl")}>
+              <div id="panel-editor-root" className={cn("relative w-full px-4 py-6 sm:px-6 lg:px-8", isChatRoute ? "flex h-full min-h-0 flex-col" : "mx-auto max-w-6xl")}>
                 <RouteOutletBoundary className={cn("h-full w-full min-w-0 max-w-full", isChatRoute && "min-h-0 flex-1")} />
               </div>
             </main>

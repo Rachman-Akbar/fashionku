@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { SellerPanelShell } from "@/features/seller/dashboard/components/SellerPanelShell";
 import { PRODUCT_TABLE_COLUMNS, SellerProductTable } from "@/features/seller/product/components/SellerProductTable";
 import { SellerProductGrid } from "@/features/seller/product/components/SellerProductGrid";
-import { ViewModeToggle } from "@/shared/components/ui/ViewModeToggle";
+import { useViewMode } from "@/shared/hooks/useViewMode";
 import { SellerProductEditor } from "@/features/seller/product/components/SellerProductEditor";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
@@ -21,16 +21,7 @@ import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWork
 import { getSellerProductError, useDeleteSellerProduct, useSellerProducts, useUpdateSellerProduct } from "@/features/seller/product/services/sellerProductService";
 
 const PER_PAGE = 20;
-const VIEW_MODE_STORAGE_KEY = "panel.products.viewMode";
 const EMPTY_COLUMN_FILTERS = { product: "", mode: "", price: { min: "", max: "" }, stock: { min: "", max: "", status: "" }, active: "" };
-
-function readViewMode() {
-  try {
-    return window.localStorage.getItem(VIEW_MODE_STORAGE_KEY) === "grid" ? "grid" : "list";
-  } catch {
-    return "list";
-  }
-}
 
 export default function SellerProductsPage() {
   const [columnFilters, setColumnFilters] = useState(EMPTY_COLUMN_FILTERS);
@@ -38,7 +29,7 @@ export default function SellerProductsPage() {
   const [sort, setSort] = useState({ by: "created_at", direction: "desc" });
   const [query, setQuery] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [viewMode, setViewMode] = useState(readViewMode);
+  const [viewMode, setViewMode] = useViewMode("products");
   const [initialSection, setInitialSection] = useState("general");
   const deferredQuery = useDeferredValue(query.trim());
   const editor = useEntityEditor();
@@ -81,15 +72,6 @@ export default function SellerProductsPage() {
   const hppSpreadsheet = useSpreadsheetWorkspace({ module: "product-costing", label: "HPP & Harga Jual", allowBulkDelete: false, onCompleted: () => productsQuery.refetch() });
   const spreadsheetActions = [...spreadsheet.actions, ...hppSpreadsheet.actions];
   const activeSpreadsheet = spreadsheet.activeOperation?.payload?.module === "product-costing" ? hppSpreadsheet : spreadsheet;
-
-  const changeViewMode = (next) => {
-    setViewMode(next);
-    try {
-      window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, next);
-    } catch {
-      // localStorage bisa diblokir (mode privat / kebijakan browser).
-    }
-  };
 
   const toggleActive = (product, isActive) => {
     const task = notifications.startTask({ title: "Ubah Status Product", message: `Memproses product "${product.name}"...` });
@@ -135,7 +117,6 @@ export default function SellerProductsPage() {
       {editor.isListActive ? (
         <ListPageFrame
           toolbar={(
-          <div className="space-y-[2px]">
           <EntityToolbar
             query={query}
             onQueryChange={setQuery}
@@ -157,11 +138,9 @@ export default function SellerProductsPage() {
             onResetColumns={columnVisibility.reset}
             onApplyDefaultColumns={columnVisibility.applyAsDefault}
             onMoveColumn={columnVisibility.moveColumn}
+            viewMode={viewMode}
+            onChangeViewMode={setViewMode}
           />
-          <div className="flex justify-end px-2">
-            <ViewModeToggle value={viewMode} onChange={changeViewMode} />
-          </div>
-          </div>
           )}
         >
           <AsyncState loading={isInitialLoading} error={productsQuery.error ? getSellerProductError(productsQuery.error) : ""} />
@@ -199,7 +178,6 @@ export default function SellerProductsPage() {
                 onColumnFilterChange={(key, value) => setColumnFilters((current) => ({ ...current, [key]: value }))}
                 onClearAllFilters={() => setColumnFilters(EMPTY_COLUMN_FILTERS)}
                 onResetSort={() => setSort({ by: "created_at", direction: "desc" })}
-                columnFilters={columnFilters}
               />
               )}
               <InfiniteScrollSentinel hasNextPage={productsQuery.hasNextPage} isFetchingNextPage={productsQuery.isFetchingNextPage} onLoadMore={() => productsQuery.fetchNextPage()} />

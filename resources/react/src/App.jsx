@@ -46,6 +46,7 @@ const PaymentsPage = lazyWithRetry(() => import("@/features/profile/payments/pag
 const AppearancePage = lazyWithRetry(() => import("@/features/profile/appearance/pages/AppearancePage"));
 const FinancePage = lazyWithRetry(() => import("@/features/advanced/pages/FinancePage"));
 const StockPage = lazyWithRetry(() => import("@/features/advanced/pages/StockPage"));
+const BahanBakuPage = lazyWithRetry(() => import("@/features/advanced/pages/BahanBakuPage"));
 const SchedulePage = lazyWithRetry(() => import("@/features/advanced/pages/SchedulePage"));
 const CodePatternSettingsPage = lazyWithRetry(() => import("@/features/advanced/pages/CodePatternSettingsPage"));
 const CustomersPage = lazyWithRetry(() => import("@/features/advanced/pages/CustomersPage"));
@@ -187,7 +188,7 @@ function renderAdminRoutes() {
         <Route path="/admin/orders" element={<AdminOrdersPage />} />
         <Route path="/admin/products" element={<SellerProductsPage />} />
         <Route path="/admin/stock" element={<StockPage />} />
-        <Route path="/admin/bahan-baku" element={<StockPage />} />
+        <Route path="/admin/bahan-baku" element={<BahanBakuPage />} />
         <Route path="/admin/vouchers" element={<SellerVoucherPage />} />
         <Route path="/admin/promotions" element={<SellerPromotionPage />} />
         <Route path="/admin/reviews" element={<ReviewsPage />} />
@@ -207,10 +208,15 @@ function renderAdminRoutes() {
   );
 }
 
+function RouteErrorBoundary({ children }) {
+  const { pathname } = useLocation();
+  return <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>;
+}
+
 export default function App() {
   return (
     <AppLayout>
-      <ErrorBoundary>
+      <RouteErrorBoundary>
         <Suspense fallback={<LoadingScreen />}>
           {/* Harus di luar <Routes>: React Router v7 hanya menerima <Route>/<React.Fragment> sebagai anak <Routes>. */}
           <ScrollToTop />
@@ -223,7 +229,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
-      </ErrorBoundary>
+      </RouteErrorBoundary>
     </AppLayout>
   );
 }

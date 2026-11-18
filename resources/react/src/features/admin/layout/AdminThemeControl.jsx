@@ -50,7 +50,9 @@ export function AdminThemeControl() {
                 aria-pressed={active}
                 className={cn(
                   "flex h-8 items-center justify-center gap-1.5 rounded-[8px] text-xs font-extrabold transition-colors",
-                  active ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700",
+                  active
+                    ? "bg-[var(--color-primary)] text-white shadow-sm"
+                    : "text-slate-600 hover:text-slate-900",
                 )}
               >
                 <span className="material-symbols-outlined text-[16px]">{option.icon}</span>
@@ -76,11 +78,13 @@ export function AdminThemeControl() {
                 title={option.label}
                 className={cn(
                   "flex h-9 items-center justify-center gap-1.5 rounded-[8px] border transition-colors",
-                  active ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:bg-slate-50",
+                  active
+                    ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)]"
+                    : "border-slate-200 hover:bg-slate-50",
                 )}
               >
                 <span className="h-4 w-4 rounded-full" style={{ backgroundColor: option.color }} />
-                <span className="text-[11px] font-bold text-slate-600">{option.label}</span>
+                <span className="text-[11px] font-bold text-slate-700">{option.label}</span>
               </button>
             );
           })}

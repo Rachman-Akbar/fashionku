@@ -339,6 +339,21 @@ body,
 .profile-theme .bg-emerald-50 {
   background-color: var(--color-primary-soft);
 }
+.profile-theme :is(.bg-emerald-100, .bg-emerald-50\/70) {
+  background-color: var(--color-primary-soft-strong);
+}
+.profile-theme :is(.bg-\[\#ECFDF5\], .bg-\[\#ecfdf5\]) {
+  background-color: var(--color-primary-soft);
+}
+.profile-theme :is(.hover\:bg-emerald-50:hover, .hover\:bg-emerald-100:hover) {
+  background-color: var(--color-primary-soft-strong);
+}
+.profile-theme :is(.border-emerald-100, .border-emerald-200) {
+  border-color: color-mix(in srgb, var(--color-primary) 32%, #e2e8f0);
+}
+.profile-theme .ring-emerald-100 {
+  --tw-ring-color: var(--color-primary-ring);
+}
 
 .profile-theme {
   transition: background-color 200ms ease, color 200ms ease;
@@ -486,4 +501,283 @@ body,
 }
 .profile-theme[data-mode="dark"] .hover\:bg-\[var\(--color-primary-soft-strong\)\]:hover {
   background-color: color-mix(in srgb, var(--color-primary) 24%, var(--profile-bg));
+}
+
+/* ==========================================================================
+   Tema global: admin panel + marketplace
+   - Aksen warna (hijau bawaan) dipetakan ke token palet aktif.
+   - Kontras teks mode terang dinaikkan untuk label sekunder.
+   - Mode gelap melengkapi semua warna teks/latar yang masih hardcoded.
+   ========================================================================== */
+
+/* ---------- Aksen palet (mode terang) ---------- */
+.profile-theme :is(.text-\[\#10B981\], .text-\[\#10b981\]) {
+  color: var(--color-primary-strong);
+}
+.profile-theme :is(.hover\:text-\[\#10B981\]:hover, .hover\:text-\[\#10b981\]:hover) {
+  color: var(--color-primary-strong);
+}
+.profile-theme :is(.text-\[\#047857\], .text-\[\#059669\], .text-\[\#065F46\]) {
+  color: var(--color-primary-strong);
+}
+.profile-theme :is(.text-emerald-700, .text-emerald-800, .text-emerald-900) {
+  color: var(--color-primary-strong);
+}
+.profile-theme :is(.bg-\[\#10B981\], .bg-\[\#10b981\]) {
+  background-color: var(--color-primary);
+}
+.profile-theme :is(.bg-\[\#059669\], .bg-\[\#047857\]) {
+  background-color: var(--color-primary-hover);
+}
+.profile-theme :is(.hover\:bg-\[\#059669\]:hover, .hover\:bg-\[\#047857\]:hover) {
+  background-color: var(--color-primary-hover);
+}
+.profile-theme :is(.border-\[\#10B981\], .border-\[\#10b981\]) {
+  border-color: var(--color-primary);
+}
+.profile-theme :is(.border-\[\#047857\], .border-\[\#bccbb4\], .border-\[\#d9e1db\]) {
+  border-color: color-mix(in srgb, var(--color-primary) 45%, #cbd5e1);
+}
+.profile-theme :is(.focus\:border-\[\#10B981\]:focus, .focus-within\:border-\[\#10B981\]:focus-within) {
+  border-color: var(--color-primary);
+}
+.profile-theme .focus-within\:ring-emerald-100:focus-within {
+  --tw-ring-color: var(--color-primary-ring);
+}
+.profile-theme :is(.hover\:text-\[\#047857\]:hover) {
+  color: var(--color-primary-strong);
+}
+.profile-theme .group:hover .group-hover\:text-\[\#047857\] {
+  color: var(--color-primary-strong);
+}
+
+/* ---------- Mode gelap: token tambahan ---------- */
+.profile-theme[data-mode="dark"] {
+  --profile-accent-text: color-mix(in srgb, var(--color-primary) 52%, #ffffff);
+}
+
+/* Aksen pada latar gelap harus lebih terang agar terbaca. */
+.profile-theme[data-mode="dark"] :is(
+  .text-\[\#10B981\],
+  .text-\[\#10b981\],
+  .text-\[\#059669\],
+  .text-emerald-600,
+  .text-emerald-700,
+  .text-emerald-800,
+  .text-emerald-900
+) {
+  color: var(--profile-accent-text);
+}
+.profile-theme[data-mode="dark"] :is(.text-\[\#047857\], .text-\[\#065F46\]) {
+  color: var(--profile-accent-text);
+}
+.profile-theme[data-mode="dark"] :is(
+  .hover\:text-\[\#10B981\]:hover,
+  .hover\:text-\[\#047857\]:hover,
+  .group:hover .group-hover\:text-\[\#047857\]
+) {
+  color: var(--profile-accent-text);
+}
+
+/* Teks netral & berwarna yang belum tercakup aturan sebelumnya. */
+.profile-theme[data-mode="dark"] :is(.text-slate-200, .text-slate-100, .text-black) {
+  color: var(--profile-text);
+}
+.profile-theme[data-mode="dark"] :is(.text-gray-300) {
+  color: #8b9ab2;
+}
+.profile-theme[data-mode="dark"] :is(.text-gray-400) {
+  color: #98a7bf;
+}
+.profile-theme[data-mode="dark"] :is(.text-gray-500) {
+  color: var(--profile-muted);
+}
+.profile-theme[data-mode="dark"] :is(.text-gray-600, .text-gray-700, .text-gray-800) {
+  color: #c9d6e8;
+}
+.profile-theme[data-mode="dark"] :is(.text-gray-900) {
+  color: #f3f7fd;
+}
+.profile-theme[data-mode="dark"] :is(
+  .text-\[\#111111\],
+  .text-\[\#1b1c1c\],
+  .text-\[\#181c1f\],
+  .text-\[\#222222\]
+) {
+  color: var(--profile-text);
+}
+.profile-theme[data-mode="dark"] :is(.text-\[\#3e4a39\], .text-\[\#5f5e5e\]) {
+  color: #c9d6e8;
+}
+.profile-theme[data-mode="dark"] :is(.text-\[\#5f6f8f\]) {
+  color: #b7c6dc;
+}
+.profile-theme[data-mode="dark"] :is(
+  .text-\[\#999999\],
+  .text-\[\#8b9490\],
+  .text-\[\#94a3b8\],
+  .text-\[\#b7b7b7\]
+) {
+  color: #8595ad;
+}
+.profile-theme[data-mode="dark"] :is(.text-\[\#ba1a1a\], .text-\[\#f87171\]) {
+  color: #fca5a5;
+}
+.profile-theme[data-mode="dark"] :is(.text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900) {
+  color: #fcd34d;
+}
+.profile-theme[data-mode="dark"] :is(.text-teal-700) {
+  color: #5eead4;
+}
+.profile-theme[data-mode="dark"] :is(.text-sky-600, .text-sky-700, .text-sky-800, .text-sky-950) {
+  color: #93c5fd;
+}
+.profile-theme[data-mode="dark"] :is(.text-indigo-700) {
+  color: #a5b4fc;
+}
+.profile-theme[data-mode="dark"] :is(.text-violet-700, .text-violet-800) {
+  color: #c4b5fd;
+}
+.profile-theme[data-mode="dark"] :is(.text-rose-600, .text-rose-700, .text-rose-800) {
+  color: #fda4af;
+}
+.profile-theme[data-mode="dark"] :is(.text-red-500, .text-red-600, .text-red-700, .text-red-800, .text-red-900) {
+  color: #fca5a5;
+}
+.profile-theme[data-mode="dark"] :is(.text-orange-500, .text-orange-700) {
+  color: #fdba74;
+}
+.profile-theme[data-mode="dark"] :is(.text-green-700, .text-blue-700) {
+  color: #93c5fd;
+}
+.profile-theme[data-mode="dark"] .text-green-700 {
+  color: #86efac;
+}
+
+/* ---------- Mode gelap: permukaan ---------- */
+.profile-theme[data-mode="dark"] :is(.bg-white\/60, .bg-white\/70, .bg-white\/80, .bg-white\/90) {
+  background-color: color-mix(in srgb, var(--profile-surface) 92%, transparent);
+}
+.profile-theme[data-mode="dark"] :is(.bg-gray-50, .bg-gray-100, .bg-slate-50\/60, .bg-slate-50\/70) {
+  background-color: var(--profile-surface-2);
+}
+.profile-theme[data-mode="dark"] :is(.bg-gray-200, .bg-slate-300) {
+  background-color: #26364f;
+}
+.profile-theme[data-mode="dark"] :is(
+  .bg-\[\#f5f5f5\],
+  .bg-\[\#f6f3f2\],
+  .bg-\[\#f1f4f8\],
+  .bg-\[\#f0eded\],
+  .bg-\[\#eae7e7\]
+) {
+  background-color: var(--profile-surface-2);
+}
+.profile-theme[data-mode="dark"] :is(.bg-\[\#ecfdf5\], .bg-\[\#e5f9e7\]) {
+  background-color: color-mix(in srgb, var(--color-primary) 18%, var(--profile-bg));
+}
+.profile-theme[data-mode="dark"] .bg-\[\#ffdad6\] {
+  background-color: rgba(248, 113, 113, 0.18);
+}
+.profile-theme[data-mode="dark"] :is(.bg-emerald-200) {
+  background-color: color-mix(in srgb, var(--color-primary) 32%, var(--profile-bg));
+}
+.profile-theme[data-mode="dark"] :is(.bg-red-200) {
+  background-color: rgba(248, 113, 113, 0.28);
+}
+.profile-theme[data-mode="dark"] :is(.bg-amber-100, .bg-amber-200) {
+  background-color: rgba(251, 191, 36, 0.2);
+}
+.profile-theme[data-mode="dark"] :is(.bg-blue-100, .bg-sky-50, .bg-sky-100) {
+  background-color: rgba(96, 165, 250, 0.16);
+}
+.profile-theme[data-mode="dark"] :is(.bg-indigo-50, .bg-indigo-100) {
+  background-color: rgba(129, 140, 248, 0.16);
+}
+.profile-theme[data-mode="dark"] :is(.bg-violet-50, .bg-violet-100) {
+  background-color: rgba(167, 139, 250, 0.16);
+}
+.profile-theme[data-mode="dark"] :is(.bg-rose-50, .bg-rose-100, .bg-pink-50, .bg-pink-100) {
+  background-color: rgba(251, 113, 133, 0.16);
+}
+.profile-theme[data-mode="dark"] :is(.bg-orange-50, .bg-orange-100) {
+  background-color: rgba(251, 146, 60, 0.16);
+}
+.profile-theme[data-mode="dark"] :is(.bg-teal-50, .bg-teal-100, .bg-cyan-50, .bg-cyan-100) {
+  background-color: rgba(45, 212, 191, 0.16);
+}
+.profile-theme[data-mode="dark"] :is(.bg-green-50, .bg-green-100) {
+  background-color: rgba(74, 222, 128, 0.16);
+}
+.profile-theme[data-mode="dark"] :is(.bg-yellow-50, .bg-yellow-100) {
+  background-color: rgba(250, 204, 21, 0.16);
+}
+
+/* ---------- Mode gelap: garis ---------- */
+.profile-theme[data-mode="dark"] :is(.border-gray-100, .border-gray-200, .border-\[\#d9e1db\], .border-\[\#e0e3e7\]) {
+  border-color: var(--profile-border);
+}
+.profile-theme[data-mode="dark"] :is(.border-gray-300, .border-\[\#bccbb4\], .border-\[\#6d7b67\], .border-\[\#6d7b6e\]) {
+  border-color: #33445f;
+}
+.profile-theme[data-mode="dark"] :is(.border-emerald-100, .border-emerald-200, .border-\[\#a7f3d0\]) {
+  border-color: color-mix(in srgb, var(--color-primary) 32%, var(--profile-border));
+}
+.profile-theme[data-mode="dark"] :is(.border-amber-200) {
+  border-color: rgba(251, 191, 36, 0.35);
+}
+.profile-theme[data-mode="dark"] :is(.border-red-200) {
+  border-color: rgba(248, 113, 113, 0.35);
+}
+.profile-theme[data-mode="dark"] :is(.border-blue-200) {
+  border-color: rgba(96, 165, 250, 0.35);
+}
+.profile-theme[data-mode="dark"] .divide-slate-200 > :not(:last-child) {
+  border-color: var(--profile-border);
+}
+
+/* ---------- Mode gelap: state hover ---------- */
+.profile-theme[data-mode="dark"] :is(
+  .hover\:bg-white:hover,
+  .hover\:bg-gray-50:hover,
+  .hover\:bg-gray-100:hover,
+  .hover\:bg-slate-200:hover
+) {
+  background-color: var(--profile-surface-2);
+}
+.profile-theme[data-mode="dark"] :is(.hover\:text-emerald-700:hover, .hover\:text-\[\#047857\]:hover) {
+  color: var(--profile-accent-text);
+}
+.profile-theme[data-mode="dark"] .hover\:border-\[\#a7f3d0\]:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--profile-border));
+}
+
+/* ---------- Mode gelap: form & detail kecil ---------- */
+.profile-theme[data-mode="dark"] select option {
+  background-color: var(--profile-surface);
+  color: var(--profile-text);
+}
+.profile-theme[data-mode="dark"] input[type="checkbox"],
+.profile-theme[data-mode="dark"] input[type="radio"] {
+  accent-color: var(--color-primary);
+}
+.profile-theme[data-mode="dark"] ::selection {
+  background-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
+  color: #ffffff;
+}
+.profile-theme[data-mode="dark"] :is(hr) {
+  border-color: var(--profile-border);
+}
+.profile-theme[data-mode="dark"] body {
+  background-color: var(--profile-bg);
+  color: var(--profile-text);
+}
+.profile-theme[data-mode="dark"] :is(input, textarea)::placeholder {
+  color: #8b9ab2;
+}
+.profile-theme[data-mode="dark"] .text-\[\#128c7e\] {
+  color: #86efac;
+}
+.profile-theme[data-mode="dark"] .text-slate-300 {
+  color: #8595ad;
 }

@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
@@ -63,6 +64,15 @@ export function ThemeProvider({ children }) {
   }, []);
 
   const resolvedMode = mode === "system" ? (systemDark ? "dark" : "light") : mode;
+
+  // Tema ditempel di <html> agar seluruh halaman (admin, marketplace, profil)
+  // dan elemen portal (dialog, dropdown) ikut memakai mode & palet yang sama.
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("profile-theme");
+    root.setAttribute("data-mode", resolvedMode);
+    root.setAttribute("data-palette", palette);
+  }, [resolvedMode, palette]);
 
   const setMode = useCallback((value) => {
     if (!THEME_MODE_VALUES.includes(value)) return;

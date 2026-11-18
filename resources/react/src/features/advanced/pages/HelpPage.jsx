@@ -16,7 +16,7 @@ import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
 import { inputClassName } from "@/shared/components/form/FormField";
 import { toolbarControlClassName } from "@/shared/components/crud/toolbarControlClassName";
-import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
+import { useEntityEditor, useRefreshOnListActivation, useViewMode } from "@/shared/hooks";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { usePanelTabs } from "@/shared/layout/tabs";
 import { isOperatorRole } from "@/shared/utils/roles";
@@ -36,6 +36,7 @@ function optionLabel(order) {
 }
 
 export default function HelpPage() {
+  const [viewMode, setViewMode] = useViewMode("help");
   const { activeRole, user } = useAuth();
   // Halaman ini hanya untuk panel operator toko tunggal (admin).
   const admin = isOperatorRole(activeRole);
@@ -128,6 +129,18 @@ export default function HelpPage() {
     }
   }
 
+  const helpCard = {
+    title: (row) => row.subject || row.ticket_number || `Help #${row.id}`,
+    subtitle: (row) => [row.ticket_number, row.user_name].filter(Boolean).join(" · ") || "-",
+    fields: [
+      { label: "Kategori", render: (row) => row.category || "-" },
+      { label: "Prioritas", render: (row) => row.priority || "-" },
+      { label: "Status", render: (row) => row.status || "-" },
+      { label: "Balasan", render: (row) => row.messages_count ?? 0 },
+      { label: "Dibuat", render: (row) => (row.created_at ? new Date(row.created_at).toLocaleString("id-ID") : "-") },
+    ],
+  };
+
   return (
     <>
       {editor.isListActive ? (
@@ -143,9 +156,13 @@ export default function HelpPage() {
           totalCount={total.totalCount}
           totalLabel={total.totalLabel}
           totalTitle={total.totalTitle}
+          viewMode={viewMode}
+          onChangeViewMode={setViewMode}
           filters={<select value={status} onChange={(event) => setStatus(event.target.value)} className={toolbarControlClassName}><option value="">Semua status</option>{["open", "in_progress", "resolved", "closed"].map((item) => <option key={item}>{item}</option>)}</select>}
         >
           <DataGrid
+            viewMode={viewMode}
+            card={helpCard}
             onFilterStateChange={total.onFilterStateChange}
             columns={columns}
             rows={rows}

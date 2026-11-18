@@ -1,4 +1,5 @@
 import { memo, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 function DialogHeader({ title, subtitle, onClose, closeLabel = "Tutup" }) {
   return (
@@ -43,12 +44,19 @@ export const CrudDialog = memo(function CrudDialog({
   if (!open) return null;
 
   if (!modal) {
-    return (
-      <section className="w-full min-w-0 animate-ziip-fade-in bg-white" aria-label={title}>
+    const target = typeof document !== "undefined" ? document.getElementById("panel-editor-root") : null;
+    const section = (
+      <section
+        className={target
+          ? "absolute inset-0 z-30 min-w-0 overflow-y-auto bg-white animate-ziip-fade-in"
+          : "w-full min-w-0 animate-ziip-fade-in bg-white"}
+        aria-label={title}
+      >
         {title ? <DialogHeader title={title} subtitle={subtitle} onClose={onClose} closeLabel="Tutup halaman data" /> : null}
         {children}
       </section>
     );
+    return target ? createPortal(section, target) : section;
   }
 
   return (

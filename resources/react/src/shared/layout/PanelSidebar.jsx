@@ -188,21 +188,24 @@ export const PanelSidebar = memo(function PanelSidebar({
 
         {topItems.length ? (
           <div className="relative flex h-[77px] shrink-0 items-center justify-center border-b border-white/10">
-            {topItems.map((item) => (
-              <button
-                key={item.href}
-                type="button"
-                onMouseEnter={(event) => showTip(event, item.label, item.iconColor)}
-                onMouseLeave={clearTip}
-                onClick={(event) => openMenu(event, item)}
-                className={cn(railButtonClassName(activeParentId === item.href), "text-base")}
-                style={activeParentId === item.href ? { backgroundColor: "rgba(255,255,255,0.14)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.22)" } : undefined}
-                aria-label={item.label}
-                aria-current={activeParentId === item.href ? "page" : undefined}
-              >
-                <span className="material-symbols-outlined text-[22px]">{item.icon || "settings"}</span>
-              </button>
-            ))}
+            {topItems.map((item) => {
+              const active = activeParentId === item.href;
+              return (
+                <button
+                  key={item.href}
+                  type="button"
+                  onMouseEnter={(event) => showTip(event, item.label, item.iconColor)}
+                  onMouseLeave={clearTip}
+                  onClick={(event) => openMenu(event, item)}
+                  className={cn(railButtonClassName(active), "text-base")}
+                  style={active ? { backgroundColor: item.iconColor ? rgba(item.iconColor, 0.22) : "rgba(255,255,255,0.14)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.22)" } : undefined}
+                  aria-label={item.label}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <span className="material-symbols-outlined text-[22px]" style={{ color: item.iconColor || (active ? "#fff" : undefined) }}>{item.icon || "settings"}</span>
+                </button>
+              );
+            })}
           </div>
         ) : (
           <div aria-hidden className="h-[77px] shrink-0 border-b border-white/10" />
@@ -241,13 +244,13 @@ export const PanelSidebar = memo(function PanelSidebar({
                 onMouseLeave={clearTip}
                 onClick={() => setOpenGroup((current) => (current === group.name ? null : group.name))}
                 className={railButtonClassName(active)}
-                style={active ? { backgroundColor: theme.color, boxShadow: `0 8px 20px -4px ${rgba(theme.color, 0.6)}, inset 0 1px 0 rgba(255,255,255,0.3)` } : undefined}
+                style={active ? { backgroundColor: rgba(theme.color, 0.22), boxShadow: `0 8px 20px -4px ${rgba(theme.color, 0.35)}, inset 0 1px 0 rgba(255,255,255,0.18)` } : undefined}
                 aria-label={group.name}
                 aria-expanded={openGroup === group.name}
               >
                 <span
                   className="material-symbols-outlined text-[22px]"
-                  style={!active ? { color: group.items[0]?.iconColor || theme.color } : undefined}
+                  style={{ color: group.items[0]?.iconColor || theme.color }}
                 >
                   {icon}
                 </span>
@@ -260,35 +263,38 @@ export const PanelSidebar = memo(function PanelSidebar({
         {pinnedItems.length ? (
           <div className="relative border-t border-white/10 px-3 py-3">
             <div className="space-y-1.5">
-              {pinnedItems.map((item) => (
-                <Fragment key={item.href}>
-                  {item.dividerBefore ? <div className="mx-2 my-2 h-px bg-white/10" /> : null}
-                  <Link
-                    to={item.href}
-                    onMouseEnter={(event) => showTip(event, item.label, item.iconColor)}
-                    onMouseLeave={clearTip}
-                    onClick={() => setOpenGroup(null)}
-                    className={cn(
-                      "relative flex h-11 w-11 items-center justify-center rounded-[10px] transition-all",
-                      activeParentId === item.href
-                        ? item.iconColor
-                          ? "text-white"
-                          : activeClassName
-                        : "text-slate-400 hover:bg-white/10 hover:text-white",
-                    )}
-                    style={
-                      activeParentId === item.href && item.iconColor
-                        ? { backgroundColor: item.iconColor, boxShadow: `0 8px 20px -4px ${rgba(item.iconColor, 0.6)}, inset 0 1px 0 rgba(255,255,255,0.3)` }
-                        : undefined
-                    }
-                    aria-label={item.label}
-                    aria-current={activeParentId === item.href ? "page" : undefined}
-                  >
-                    <span className="material-symbols-outlined text-[22px]">{item.icon}</span>
-                    {groupBadge([item]) > 0 ? <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">{Math.min(99, groupBadge([item]))}</span> : null}
-                  </Link>
-                </Fragment>
-              ))}
+              {pinnedItems.map((item) => {
+                const active = activeParentId === item.href;
+                return (
+                  <Fragment key={item.href}>
+                    {item.dividerBefore ? <div className="mx-2 my-2 h-px bg-white/10" /> : null}
+                    <button
+                      type="button"
+                      onMouseEnter={(event) => showTip(event, item.label, item.iconColor)}
+                      onMouseLeave={clearTip}
+                      onClick={(event) => openMenu(event, item)}
+                      className={cn(
+                        "relative flex h-11 w-11 items-center justify-center rounded-[10px] transition-all",
+                        active
+                          ? item.iconColor
+                            ? "text-white"
+                            : activeClassName
+                          : "text-slate-400 hover:bg-white/10 hover:text-white",
+                      )}
+                      style={
+                        active && item.iconColor
+                          ? { backgroundColor: rgba(item.iconColor, 0.22), boxShadow: `0 8px 20px -4px ${rgba(item.iconColor, 0.35)}, inset 0 1px 0 rgba(255,255,255,0.18)` }
+                          : undefined
+                      }
+                      aria-label={item.label}
+                      aria-current={active ? "page" : undefined}
+                    >
+                      <span className="material-symbols-outlined text-[22px]" style={{ color: item.iconColor || undefined }}>{item.icon}</span>
+                      {groupBadge([item]) > 0 ? <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">{Math.min(99, groupBadge([item]))}</span> : null}
+                    </button>
+                  </Fragment>
+                );
+              })}
             </div>
           </div>
         ) : null}

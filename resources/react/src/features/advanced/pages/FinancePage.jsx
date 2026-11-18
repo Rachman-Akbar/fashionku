@@ -7,7 +7,6 @@ import FinanceChartPanel from "@/features/advanced/components/FinanceChartPanel"
 import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { Input } from "@/shared/components/ui/Input";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
-import { ActionIconButton } from "@/shared/components/crud/ActionIconButton";
 import { useEntityEditor, useRefreshOnListActivation, useTableSelection, useColumnVisibility } from "@/shared/hooks";
 import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
 import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
@@ -66,6 +65,29 @@ export default function FinancePage({ mode = "cashflow" }) {
   const allowedTypes = useMemo(() => (mode === "cashflow" ? ["income", "expense"] : ["receivable", "payable"]), [mode]);
   const isDebtMode = mode !== "cashflow";
   const [viewMode, setViewMode] = useState("list");
+  const financeViewOptions = [
+    { key: "list", icon: "view_list", label: "Tampilan list" },
+    { key: "grid", icon: "grid_view", label: "Tampilan kartu" },
+    { key: "chart", icon: "bar_chart", label: "Tampilan grafik" },
+  ];
+  const financeCard = {
+    title: (row) => row.title || row.reference_number || "Data Keuangan",
+    subtitle: (row) => [row.reference_number, row.occurred_at ? new Date(row.occurred_at).toLocaleDateString("id-ID") : null].filter(Boolean).join(" · ") || "-",
+    badges: [
+      (row) => (
+        <span className={`inline-flex items-center rounded-[10px] px-2 py-0.5 text-[10px] font-extrabold uppercase ring-1 ring-inset ${TYPE_BADGE[row.type] || "bg-slate-50 text-slate-600 ring-slate-200"}`}>
+          {typeLabel(row.type)}
+        </span>
+      ),
+      (row) => <span className="text-[10px] font-extrabold uppercase text-slate-600">{row.status}</span>,
+    ],
+    fields: [
+      { label: "Nominal", render: (row) => money(row.amount) },
+      { label: "Terbayar", render: (row) => money(row.paid_amount) },
+      { label: "Sisa", render: (row) => money(row.outstanding_amount) },
+      { label: "Pesanan", render: (row) => row.order_number || "-" },
+    ],
+  };
   const [query, setQuery] = useState("");
   const [form, setForm] = useState(() => initialForm(allowedTypes[0], mode));
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -194,6 +216,14 @@ export default function FinancePage({ mode = "cashflow" }) {
   }, [columns, mode]);
 
   const columnVisibility = useColumnVisibility(tableColumns, `advanced.finance.${mode}`);
+  const cardView = {
+    ...financeCard,
+    footer: (row) => {
+      const payColumn = tableColumns.find((column) => column.key === "bayar");
+      if (payColumn?.render) return payColumn.render(row);
+      return <span className="text-[11px] font-bold text-slate-500">Klik untuk edit</span>;
+    },
+  };
 
   function applyOrder(orderId) {
     const nextId = String(orderId || "");
@@ -302,14 +332,9 @@ export default function FinancePage({ mode = "cashflow" }) {
           onCreate={editor.create}
           createLabel="Tambah Data Keuangan"
           placeholder={isDebtMode ? "Cari hutang/piutang, referensi, pesanan, atau toko" : "Cari pemasukan/pengeluaran, referensi, pesanan, atau toko"}
-          extraActions={(
-            <ActionIconButton
-              icon={viewMode === "list" ? "bar_chart" : "view_list"}
-              title={viewMode === "list" ? "Tampilkan grafik" : "Tampilkan daftar datar"}
-              onClick={() => setViewMode((current) => (current === "list" ? "chart" : "list"))}
-              active={viewMode === "chart"}
-            />
-          )}
+          viewMode={viewMode}
+          onChangeViewMode={setViewMode}
+          viewModeOptions={financeViewOptions}
           selectionEnabled={selection.enabled}
           selectedCount={selection.selectedCount}
           onToggleSelection={selection.toggleEnabled}
@@ -323,6 +348,8 @@ export default function FinancePage({ mode = "cashflow" }) {
         >
           {viewMode === "chart" ? <FinanceChartPanel mode={mode} /> : (
             <DataGrid
+              viewMode={viewMode}
+              card={cardView}
               onFilterStateChange={total.onFilterStateChange}
               columns={tableColumns}
               rows={rows}

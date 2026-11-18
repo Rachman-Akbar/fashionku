@@ -6,10 +6,11 @@ import { ReviewDetailForm } from "@/features/advanced/pages/ReviewDetailPage";
 import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
 import { toolbarControlClassName } from "@/shared/components/crud/toolbarControlClassName";
 import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
-import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
+import { useEntityEditor, useRefreshOnListActivation, useViewMode } from "@/shared/hooks";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 
 export default function ReviewsPage() {
+  const [viewMode, setViewMode] = useViewMode("reviews");
   const [query, setQuery] = useState("");
   const [rating, setRating] = useState("");
   const listQuery = useReviews({ per_page: 20, ...(query.trim() ? { search: query.trim() } : {}), ...(rating ? { rating } : {}) });
@@ -27,6 +28,16 @@ export default function ReviewsPage() {
     { key: "created_at", label: "Tanggal", render: (row) => row.created_at ? new Date(row.created_at).toLocaleString("id-ID") : "-" },
   ], []);
 
+  const reviewCard = {
+    title: (row) => row.product_name || `Review #${row.id}`,
+    subtitle: (row) => [row.user_name, row.order_number].filter(Boolean).join(" · ") || "-",
+    fields: [
+      { label: "Rating", render: (row) => `${"★".repeat(Number(row.rating || 0))}${"☆".repeat(Math.max(0, 5 - Number(row.rating || 0)))}` },
+      { label: "Tanggal", render: (row) => (row.created_at ? new Date(row.created_at).toLocaleDateString("id-ID") : "-") },
+      { label: "Review", render: (row) => row.review || "-" },
+    ],
+  };
+
   return (
     <>
       {editor.open && editor.entity ? (
@@ -41,8 +52,10 @@ export default function ReviewsPage() {
         />
       ) : null}
       {editor.isListActive ? (
-        <ModuleFrame title="Review dan Rating Produk" subtitle="Review berasal dari Buyer setelah transaksi selesai. Seller dapat mengekspor review untuk analisis, tetapi import review dinonaktifkan agar rating tetap berasal dari transaksi nyata." query={query} onQueryChange={setQuery} onRefresh={() => listQuery.refetch()} bulkActions={spreadsheet.actions} totalCount={total.totalCount} totalLabel={total.totalLabel} totalTitle={total.totalTitle} filters={<select value={rating} onChange={(event) => setRating(event.target.value)} className={toolbarControlClassName}><option value="">Semua rating</option>{[5, 4, 3, 2, 1].map((item) => <option key={item} value={item}>{item} bintang</option>)}</select>}>
+        <ModuleFrame title="Review dan Rating Produk" subtitle="Review berasal dari Buyer setelah transaksi selesai. Seller dapat mengekspor review untuk analisis, tetapi import review dinonaktifkan agar rating tetap berasal dari transaksi nyata." query={query} onQueryChange={setQuery} onRefresh={() => listQuery.refetch()} bulkActions={spreadsheet.actions} totalCount={total.totalCount} totalLabel={total.totalLabel} totalTitle={total.totalTitle} filters={<select value={rating} onChange={(event) => setRating(event.target.value)} className={toolbarControlClassName}><option value="">Semua rating</option>{[5, 4, 3, 2, 1].map((item) => <option key={item} value={item}>{item} bintang</option>)}</select>} viewMode={viewMode} onChangeViewMode={setViewMode}>
           <DataGrid
+            viewMode={viewMode}
+            card={reviewCard}
             onFilterStateChange={total.onFilterStateChange}
             columns={columns}
             rows={rows}

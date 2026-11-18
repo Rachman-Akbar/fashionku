@@ -6,7 +6,11 @@ import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { useEntityEditor } from "@/shared/hooks/useEntityEditor";
-import { useColumnVisibility, useTableSelection } from "@/shared/hooks";
+import { useColumnVisibility, useTableSelection, useViewMode } from "@/shared/hooks";
+import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
+import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
+import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
+import { toTitleCase } from "@/shared/utils/textFormatter";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { useRefreshOnListActivation } from "@/shared/hooks/useRefreshOnListActivation";
 import { PromotionFormDialog } from "@/features/catalog/promotion/components/PromotionFormDialog";
@@ -19,6 +23,7 @@ import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWork
 import { getPromotionError, useDeleteSellerPromotion, useSellerPromotions, useUpdateSellerPromotion } from "@/features/catalog/promotion/services/promotionManagementService";
 
 export default function SellerPromotionPage() {
+  const [viewMode, setViewMode] = useViewMode("promotions");
   const [approvalStatus, setApprovalStatus] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const editor = useEntityEditor();
@@ -46,6 +51,36 @@ export default function SellerPromotionPage() {
     } catch (error) {
       task.fail(getPromotionError(error));
     }
+  };
+
+  const promotionCard = {
+    title: (row) => toTitleCase(row.name),
+    subtitle: (row) => row.badge || row.targetUrl || "-",
+    image: (row) => row.imageUrl || null,
+    badges: [(row) => <StatusBadge status={row.approvalStatus} />],
+    fields: [
+      { label: "Toko", render: (row) => toTitleCase(row.storeName) || "Platform" },
+      {
+        label: "Target",
+        render: (row) => `${row.clickAction || "-"}${row.targetId ? ` #${row.targetId}` : ""}`,
+      },
+      { label: "Urutan", render: (row) => row.sortOrder ?? "-" },
+      {
+        label: "Diajukan",
+        render: (row) => (row.submittedAt ? new Date(row.submittedAt).toLocaleString("id-ID") : "-"),
+      },
+    ],
+    footer: (row) => (
+      <>
+        <span className="text-[11px] font-bold text-slate-500">Klik untuk edit</span>
+        <InlineActiveSwitch
+          checked={row.isActive}
+          pending={quickUpdateMutation.variables?.id === row.id}
+          onChange={(checked) => toggleActive(row, checked)}
+          compact
+        />
+      </>
+    ),
   };
 
   const toggleActive = (row, isActive) => {
@@ -85,12 +120,26 @@ export default function SellerPromotionPage() {
             onShowAllColumns={columnVisibility.showAll}
             onResetColumns={columnVisibility.reset}
             onApplyDefaultColumns={columnVisibility.applyAsDefault}
+            viewMode={viewMode}
+            onChangeViewMode={setViewMode}
             filters={<SearchableSelect value={approvalStatus} onChange={setApprovalStatus} options={[{ value: "pending", label: "Pending" }, { value: "approved", label: "Approved" }, { value: "rejected", label: "Rejected" }]} placeholder="Semua approval" className="w-44" buttonClassName="h-9" />}
           />
           )}
         >
           <AsyncState loading={promotionsQuery.isLoading} error={promotionsQuery.error ? getPromotionError(promotionsQuery.error) : ""} empty={!promotionsQuery.isLoading && !filteredRows.length} emptyText="Belum ada pengajuan promosi." />
-          {filteredRows.length ? (
+          {filteredRows.length && viewMode === "grid" ? (
+            <RecordCardGrid
+              rows={filteredRows}
+              columns={columns}
+              card={promotionCard}
+              onRowClick={editor.edit}
+              selectionEnabled={selection.enabled}
+              selectedIds={selection.selectedIds}
+              onToggleRow={selection.toggleRow}
+              rowKey={(row) => row.id}
+            />
+          ) : null}
+          {filteredRows.length && viewMode !== "grid" ? (
             <PromotionManagementTable
               rows={filteredRows}
               columns={columns}

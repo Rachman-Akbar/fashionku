@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from "react";
 import { ActionIconButton } from "@/shared/components/crud/ActionIconButton";
 import { BulkActionsMenu } from "@/shared/components/crud/BulkActionsMenu";
 import { ColumnVisibilityMenu } from "@/shared/components/crud/ColumnVisibilityMenu";
+import { ViewModeToggle } from "@/shared/components/ui/ViewModeToggle";
 import { cn } from "@/shared/utils/utils";
 
 function getTotalCountSizeClass(value, hasLabel) {
@@ -40,6 +41,10 @@ export const EntityToolbar = memo(function EntityToolbar({
   onApplyDefaultColumns,
   onMoveColumn,
   extraActions,
+  viewMode,
+  onChangeViewMode,
+  viewModeOptions,
+  viewModeLabel = "Mode tampilan data",
 }) {
   const [draft, setDraft] = useState(query || "");
   const [spinning, setSpinning] = useState(false);
@@ -94,6 +99,15 @@ export const EntityToolbar = memo(function EntityToolbar({
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-[5px] xl:ml-auto">
         {filters}
         {extraActions}
+        {onChangeViewMode ? (
+          <ViewModeToggle
+            value={viewMode}
+            onChange={onChangeViewMode}
+            options={viewModeOptions}
+            className="h-9"
+            label={viewModeLabel}
+          />
+        ) : null}
         <ColumnVisibilityMenu
           columns={columns}
           visibleKeys={visibleColumns}

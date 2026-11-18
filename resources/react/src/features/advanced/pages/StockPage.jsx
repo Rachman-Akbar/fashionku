@@ -11,9 +11,9 @@ import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { Input } from "@/shared/components/ui/Input";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
-import { inputClassName } from "@/shared/components/form/FormField";
 import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
 import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
+import { useViewMode } from "@/shared/hooks/useViewMode";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 
 const MATERIAL_EMPTY = { code: "", name: "", unit: "pcs", minimum_stock: 0, average_cost: 0, is_active: true };
@@ -29,6 +29,7 @@ function money(value) {
 }
 
 export default function StockPage() {
+  const [viewMode, setViewMode] = useViewMode("inventory");
   const { activeRole } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState("product");
@@ -260,6 +261,22 @@ export default function StockPage() {
     }
   }
 
+  const materialCard = {
+    title: (row) => row.name || row.code || "Bahan Baku",
+    subtitle: (row) => row.code || "-",
+    badges: [(row) => (
+      <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${row.is_active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+        {row.is_active ? "Aktif" : "Non-Aktif"}
+      </span>
+    )],
+    fields: [
+      { label: "Satuan", render: (row) => row.unit || "-" },
+      { label: "Stok", render: (row) => number(row.stock) },
+      { label: "Minimum", render: (row) => number(row.minimum_stock) },
+      { label: "Biaya Rata-rata", render: (row) => money(row.average_cost) },
+    ],
+  };
+
   const tabs = [["product", "Stok Produk"], ["materials", "Bahan Baku"], ["grafik", "Grafik"], ["product-history", "Riwayat Produk"], ["material-history", "Riwayat Bahan Baku"], ["cost-impact", "Kenaikan Bahan & HPP"]];
 
   return <>
@@ -279,14 +296,16 @@ export default function StockPage() {
       selectedCount={materialSelected.size}
       onToggleSelection={tab === "materials" ? () => (materialSelected.size ? setMaterialSelected(new Set()) : setMaterialSelected(new Set(materialRows.map((row) => row.id)))) : undefined}
       bulkActions={spreadsheetActions}
+      viewMode={viewMode}
+      onChangeViewMode={setViewMode}
     >
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">{tabs.map(([id, label]) => <button key={id} type="button" onClick={() => setTab(id)} className={`h-9 px-4 text-sm font-bold ${tab === id ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}>{label}</button>)}</div>
-      {tab === "product" ? <DataGrid storageKey="inventory.product-stock" onFilterStateChange={totalProduct.onFilterStateChange} columns={productColumns} rows={variants} emptyText="Produk belum tersedia." onRowClick={openProductDetail} /> : null}
-      {tab === "materials" ? <DataGrid storageKey="inventory.raw-materials" onFilterStateChange={totalMaterials.onFilterStateChange} columns={materialColumns} rows={materialRows} emptyText="Bahan baku belum tersedia." onRowClick={(row) => (row.id ? setMaterialForm({ ...row }) : undefined)} selectionEnabled selectedIds={materialSelected} allSelected={materialAllSelected} onToggleRow={toggleMaterialRow} onToggleAll={toggleMaterialAll} /> : null}
+      {tab === "product" ? <DataGrid viewMode={viewMode} storageKey="inventory.product-stock" onFilterStateChange={totalProduct.onFilterStateChange} columns={productColumns} rows={variants} emptyText="Produk belum tersedia." onRowClick={openProductDetail} /> : null}
+      {tab === "materials" ? <DataGrid viewMode={viewMode} card={materialCard} storageKey="inventory.raw-materials" onFilterStateChange={totalMaterials.onFilterStateChange} columns={materialColumns} rows={materialRows} emptyText="Bahan baku belum tersedia." onRowClick={(row) => (row.id ? setMaterialForm({ ...row }) : undefined)} selectionEnabled selectedIds={materialSelected} allSelected={materialAllSelected} onToggleRow={toggleMaterialRow} onToggleAll={toggleMaterialAll} /> : null}
       {tab === "grafik" ? <StockChartTab variants={variants} /> : null}
-      {tab === "product-history" ? <DataGrid storageKey="inventory.product-history" onFilterStateChange={totalProductHistory.onFilterStateChange} columns={productHistoryColumns} rows={productMovements.data?.rows || []} emptyText="Riwayat stok produk belum tersedia." /> : null}
-      {tab === "material-history" ? <DataGrid storageKey="inventory.material-history" onFilterStateChange={totalMaterialHistory.onFilterStateChange} columns={materialHistoryColumns} rows={materialMovements.data?.rows || []} emptyText="Riwayat stok bahan baku belum tersedia." /> : null}
-      {tab === "cost-impact" ? <><div className="border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">Laporan ini muncul otomatis saat average cost bahan baku naik dan perubahan tersebut menaikkan HPP produk. Harga jual aktif tidak diubah otomatis; Seller dapat memakai kolom Saran Harga Baru sebagai dasar keputusan.</div><DataGrid storageKey="inventory.cost-impact" onFilterStateChange={totalCostImpact.onFilterStateChange} columns={impactColumns} rows={costImpacts.data?.rows || []} emptyText="Belum ada kenaikan biaya bahan baku yang memengaruhi HPP." /></> : null}
+      {tab === "product-history" ? <DataGrid viewMode={viewMode} storageKey="inventory.product-history" onFilterStateChange={totalProductHistory.onFilterStateChange} columns={productHistoryColumns} rows={productMovements.data?.rows || []} emptyText="Riwayat stok produk belum tersedia." /> : null}
+      {tab === "material-history" ? <DataGrid viewMode={viewMode} storageKey="inventory.material-history" onFilterStateChange={totalMaterialHistory.onFilterStateChange} columns={materialHistoryColumns} rows={materialMovements.data?.rows || []} emptyText="Riwayat stok bahan baku belum tersedia." /> : null}
+      {tab === "cost-impact" ? <><div className="border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">Laporan ini muncul otomatis saat average cost bahan baku naik dan perubahan tersebut menaikkan HPP produk. Harga jual aktif tidak diubah otomatis; Seller dapat memakai kolom Saran Harga Baru sebagai dasar keputusan.</div><DataGrid viewMode={viewMode} storageKey="inventory.cost-impact" onFilterStateChange={totalCostImpact.onFilterStateChange} columns={impactColumns} rows={costImpacts.data?.rows || []} emptyText="Belum ada kenaikan biaya bahan baku yang memengaruhi HPP." /></> : null}
     </ModuleFrame>
 
     <SpreadsheetOperationPanel workspace={activeWorkspace} />

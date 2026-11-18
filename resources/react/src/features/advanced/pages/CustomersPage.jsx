@@ -6,7 +6,7 @@ import { DataGrid } from "@/features/advanced/components/DataGrid";
 import { CustomerDetailForm } from "@/features/advanced/pages/CustomerDetailPage";
 import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
 import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
-import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
+import { useEntityEditor, useRefreshOnListActivation, useViewMode } from "@/shared/hooks";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { toastSuccess } from "@/shared/utils/userFeedback";
 
@@ -15,6 +15,7 @@ function money(value) {
 }
 
 export default function CustomersPage() {
+  const [viewMode, setViewMode] = useViewMode("customers");
   const { activeRole } = useAuth();
   const admin = activeRole === "admin";
   const [query, setQuery] = useState("");
@@ -35,6 +36,26 @@ export default function CustomersPage() {
     { key: "is_active", label: "Status", render: (row) => row.is_active ? "Aktif" : "Nonaktif" },
   ], []);
 
+  const customerCard = {
+    title: (row) => row.name || "Pelanggan",
+    subtitle: (row) => row.email || "-",
+    badges: [
+      (row) => row.is_manual
+        ? <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-extrabold uppercase text-teal-700">Manual</span>
+        : <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-extrabold uppercase text-slate-500">Transaksi</span>,
+      (row) => (
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${row.is_active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+          {row.is_active ? "Aktif" : "Nonaktif"}
+        </span>
+      ),
+    ],
+    fields: [
+      { label: "Pesanan", render: (row) => row.orders_count ?? 0 },
+      { label: "Total Belanja", render: (row) => money(row.total_spent) },
+      { label: "Terakhir", render: (row) => (row.last_order_at ? new Date(row.last_order_at).toLocaleString("id-ID") : "-") },
+    ],
+  };
+
   return <>
     {editor.open ? <CustomerDetailForm customer={editor.entity || null} admin={admin} onSaved={() => { editor.markListDirty(); editor.completeSave(); editor.close(); toastSuccess("Simpan Pelanggan", editor.entity ? "Pelanggan berhasil diperbarui." : "Pelanggan berhasil ditambahkan."); }} onDeleted={() => { editor.close(); toastSuccess("Hapus Pelanggan", "Pelanggan berhasil dihapus."); }} /> : null}
     {editor.isListActive ? (
@@ -50,8 +71,12 @@ export default function CustomersPage() {
         totalCount={total.totalCount}
         totalLabel={total.totalLabel}
         totalTitle={total.totalTitle}
+        viewMode={viewMode}
+        onChangeViewMode={setViewMode}
       >
         <DataGrid
+          viewMode={viewMode}
+          card={customerCard}
           storageKey="seller.customers"
           onFilterStateChange={total.onFilterStateChange}
           columns={columns}

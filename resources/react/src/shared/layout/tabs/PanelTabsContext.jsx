@@ -79,7 +79,7 @@ export function PanelTabsProvider({ children, items = [] }) {
   const [activeChildByParent, setActiveChildByParent] = useState(() => {
     const state = {};
     if (dashboardParent) state[dashboardParent.id] = "";
-    if (initialParent) state[initialParent.id] = initialParent.exact ? "" : `${initialParent.id}:list`;
+    if (initialParent) state[initialParent.id] = (initialParent.exact || initialParent.noChildTabs) ? "" : `${initialParent.id}:list`;
     return state;
   });
 
@@ -94,7 +94,7 @@ export function PanelTabsProvider({ children, items = [] }) {
       : { ...current, [parent.id]: createDefaultChildren(parent, openCreate) });
     setActiveChildByParent((current) => current[parent.id]
       ? current
-      : { ...current, [parent.id]: openCreate ? `${parent.id}:create:default` : `${parent.id}:list` });
+      : { ...current, [parent.id]: (item.exact || item.noChildTabs) ? "" : (openCreate ? `${parent.id}:create:default` : `${parent.id}:list`) });
     setActiveParentId(parent.id);
     return parent;
   }, [items]);
@@ -113,7 +113,7 @@ export function PanelTabsProvider({ children, items = [] }) {
   const openParent = useCallback((item, options = {}) => {
     const parent = ensureParent(item, { openCreate: options.openCreate === true });
     if (!parent) return;
-    if (options.resetToCreate && !item.exact) {
+    if (options.resetToCreate && !item.exact && !item.noChildTabs) {
       const createId = `${parent.id}:create:default`;
       setChildrenByParent((current) => {
         const childTabs = current[parent.id] || createDefaultChildren(parent, true);
@@ -387,7 +387,7 @@ export function PanelTabsProvider({ children, items = [] }) {
     markTabClean,
     dirtyTabIds,
     navigate,
-  }), [activateParent, activateTab, activeParent, activeParentId, activeTab, activeTabId, closeActiveTab, closeAllChildren, closeAllParents, closeParent, closeTab, dirtyTabIds, items, listRevisionByParent, markListDirty, navigate, openCreateTab, openEditTab, openOperationTab, openList, openParent, parentTabs, setTabDirty, tabs]);
+  }), [activateParent, activateTab, activeParent, activeParentId, activeTab, activeTabId, closeActiveTab, closeAllChildren, closeAllParents, closeParent, closeTab, dirtyTabIds, items, listRevisionByParent, markListDirty, markTabClean, navigate, openCreateTab, openEditTab, openList, openOperationTab, openParent, parentTabs, setTabDirty, tabs]);
 
   return <PanelTabsContext.Provider value={value}>{children}</PanelTabsContext.Provider>;
 }

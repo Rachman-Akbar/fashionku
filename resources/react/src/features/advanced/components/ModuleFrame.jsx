@@ -38,6 +38,9 @@ function ModuleFrameInner({
   totalCount,
   totalLabel = "Data",
   totalTitle = "",
+  viewMode,
+  onChangeViewMode,
+  viewModeOptions,
 }) {
   const { registration } = useToolbarTableColumns();
   const incomingProps = {
@@ -52,7 +55,8 @@ function ModuleFrameInner({
 
   return (
     <section className="w-full min-w-0 max-w-full overflow-hidden">
-      <EntityToolbar
+      <div className="sticky top-0 z-20 -mx-px bg-white pb-2">
+        <EntityToolbar
         query={query}
         onQueryChange={onQueryChange}
         onRefresh={onRefresh}
@@ -76,7 +80,11 @@ function ModuleFrameInner({
         totalCount={totalCount}
         totalLabel={totalLabel}
         totalTitle={totalTitle}
-      />
+        viewMode={viewMode}
+        onChangeViewMode={onChangeViewMode}
+        viewModeOptions={viewModeOptions}
+        />
+      </div>
       <div className="space-y-0.5">{children}</div>
     </section>
   );

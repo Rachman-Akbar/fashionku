@@ -8,3 +8,4 @@ export { useColumnFilterState } from "./useColumnFilterState";
 export * from "./useTableSelection";
 export * from "./useColumnVisibility";
 export { useListTotalCount } from "./useListTotalCount";
+export { useViewMode } from "./useViewMode";

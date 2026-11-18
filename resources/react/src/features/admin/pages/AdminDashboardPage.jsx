@@ -1,24 +1,13 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Bar } from "react-chartjs-2";
-import { Chart as ChartJS, registerables, CategoryScale, LinearScale, BarElement, Tooltip, Legend, Title } from "chart.js";
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend, Title } from "chart.js";
 import "chartjs-adapter-date-fns";
 import { useAdminDashboard } from "@/features/admin/services/adminDashboardService";
 import { getApiMessage } from "@/core/utils/apiClient";
-import { cn } from "@/shared/utils/utils";
+import { useTheme } from "@/shared/theme/ThemeProvider";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, Title);
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
-
-const toneColors = {
-  emerald: "#10B981",
-  blue: "#3B82F6",
-  teal: "#06B6D4",
-  amber: "#F59E0B",
-  red: "#EF4444",
-  indigo: "#6366F1",
-};
 
 function StatCard({ item }) {
   return (
@@ -39,6 +28,10 @@ function StatCard({ item }) {
 
 export default function AdminDashboardPage() {
   const dashboardQuery = useAdminDashboard();
+  const { resolvedMode } = useTheme();
+  const isDark = resolvedMode === "dark";
+  const axisTickColor = isDark ? "#a8b7cd" : "#64748b";
+  const axisGridColor = isDark ? "#24334d" : "#f1f5f9";
   const { isLoading, error, data } = dashboardQuery;
   const dataSafe = data || { stats: [], revenue: [], recentOrders: [] };
 
@@ -110,14 +103,14 @@ export default function AdminDashboardPage() {
                       scales: {
                         x: {
                           grid: { display: false },
-                          ticks: { font: { size: 11, weight: 700 }, color: "#64748b" },
+                          ticks: { font: { size: 11, weight: 700 }, color: axisTickColor },
                         },
                         y: {
                           beginAtZero: true,
-                          grid: { color: "#f1f5f9" },
+                          grid: { color: axisGridColor },
                           ticks: {
                             font: { size: 10, weight: 700 },
-                            color: "#64748b",
+                            color: axisTickColor,
                             callback: (value) => `Rp ${value.toLocaleString("id-ID")}`,
                           },
                         },

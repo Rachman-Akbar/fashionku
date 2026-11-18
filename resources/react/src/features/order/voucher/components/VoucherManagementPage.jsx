@@ -5,7 +5,12 @@ import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { useEntityEditor } from "@/shared/hooks/useEntityEditor";
-import { useColumnVisibility, useRefreshOnListActivation, useTableSelection } from "@/shared/hooks";
+import { useColumnVisibility, useRefreshOnListActivation, useTableSelection, useViewMode } from "@/shared/hooks";
+import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
+import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
+import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
+import { formatPrice } from "@/shared/utils/utils";
+import { toTitleCase } from "@/shared/utils/textFormatter";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { VoucherFormDialog } from "@/features/order/voucher/components/VoucherFormDialog";
 import { VOUCHER_TABLE_COLUMNS, VoucherManagementTable } from "@/features/order/voucher/components/VoucherManagementTable";
@@ -16,6 +21,7 @@ import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOpera
 import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
 
 export function VoucherManagementPage({ portal, children: wrap }) {
+  const [viewMode, setViewMode] = useViewMode(`${portal}-vouchers`);
   const notifications = useNotificationCenter();
   const vouchersQuery = useManagedVouchers(portal, { include_inactive: 1 });
   const deleteMutation = useDeleteVoucher(portal);
@@ -47,6 +53,38 @@ export function VoucherManagementPage({ portal, children: wrap }) {
     } catch (error) {
       notifications.push({ type: "error", title: "Voucher", message: getVoucherManagementError(error) });
     }
+  };
+
+  const voucherCard = {
+    title: (row) => toTitleCase(row.name) || row.code || "Voucher",
+    subtitle: (row) => row.code || "-",
+    image: (row) => row.imageUrl || row.image || null,
+    badges: [
+      (row) => <StatusBadge status={row.isActive ? "active" : "inactive"} />,
+    ],
+    fields: [
+      {
+        label: "Diskon",
+        render: (row) => `${row.discountTarget === "shipping" ? "Ongkir" : "Produk"} · ${row.discountType === "percentage" ? `${row.discountValue}%` : formatPrice(row.discountValue)}`,
+      },
+      { label: "Min. Belanja", render: (row) => formatPrice(row.minSpend) },
+      { label: "Periode", render: (row) => `${row.startsAt || "-"} → ${row.endsAt || "-"}` },
+      {
+        label: "Pemakaian",
+        render: (row) => `${Number(row.usedCount) || 0}${row.usageLimit ? ` / ${row.usageLimit}` : ""}`,
+      },
+    ],
+    footer: (row) => (
+      <>
+        <span className="text-[11px] font-bold text-slate-500">Klik untuk edit</span>
+        <InlineActiveSwitch
+          checked={row.isActive}
+          pending={quickUpdateMutation.variables?.id === row.id}
+          onChange={(checked) => toggleActive(row, checked)}
+          compact
+        />
+      </>
+    ),
   };
 
   const toggleActive = (row, isActive) => {
@@ -85,11 +123,25 @@ export function VoucherManagementPage({ portal, children: wrap }) {
             onShowAllColumns={columnVisibility.showAll}
             onResetColumns={columnVisibility.reset}
             onApplyDefaultColumns={columnVisibility.applyAsDefault}
+            viewMode={viewMode}
+            onChangeViewMode={setViewMode}
           />
           )}
         >
           <AsyncState loading={vouchersQuery.isLoading} error={vouchersQuery.error ? getVoucherManagementError(vouchersQuery.error) : ""} empty={!vouchersQuery.isLoading && !filteredRows.length} emptyText="Voucher belum tersedia." />
-          {filteredRows.length ? (
+          {filteredRows.length && viewMode === "grid" ? (
+            <RecordCardGrid
+              rows={filteredRows}
+              columns={columns}
+              card={voucherCard}
+              onRowClick={editor.edit}
+              selectionEnabled={selection.enabled}
+              selectedIds={selection.selectedIds}
+              onToggleRow={selection.toggleRow}
+              rowKey={(row) => row.id}
+            />
+          ) : null}
+          {filteredRows.length && viewMode !== "grid" ? (
             <VoucherManagementTable
               rows={filteredRows}
               columns={columns}

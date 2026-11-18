@@ -6,6 +6,7 @@ import { useColumnVisibility } from "@/shared/hooks/useColumnVisibility";
 import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { cn } from "@/shared/utils/utils";
 import { isInactiveRow } from "@/shared/components/feedback/inactiveRow";
+import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
 import { useToolbarTableColumns } from "./ToolbarTableColumnsContext";
 
 function hasFilterValue(type, value) {
@@ -18,7 +19,7 @@ function valueText(value) {
   return formatted !== "-" ? String(formatted).toLowerCase() : "";
 }
 
-export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", onRowClick, selectionEnabled = false, selectedIds = new Set(), allSelected = false, onToggleRow, onToggleAll, storageKey, hasNextPage = false, isFetchingNextPage = false, onLoadMore, onFilterStateChange }) {
+export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", onRowClick, selectionEnabled = false, selectedIds = new Set(), allSelected = false, onToggleRow, onToggleAll, storageKey, hasNextPage = false, isFetchingNextPage = false, onLoadMore, onFilterStateChange, viewMode = "list", card }) {
   const { register, unregister } = useToolbarTableColumns();
   const visibleState = useColumnVisibility(columns, storageKey || `advanced.${columns.map((column) => column.key).join(".")}`);
   const visibleColumns = useMemo(
@@ -111,9 +112,35 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
     return () => unregister();
   }, [columns.length, columns, layoutColumns, register, unregister, visibleState.applyAsDefault, visibleState.reset, visibleState.showAll, visibleState.toggleColumn, visibleState.visibleKeys]);
 
+  const emptyMessage = rows.length && !activeFilterCount ? emptyText : activeFilterCount ? "Tidak ada data yang cocok dengan filter aktif." : emptyText;
+
+  if (viewMode === "grid") {
+    return (
+      <div className="w-full min-w-0 max-w-full">
+        {sortedRows.length ? (
+          <RecordCardGrid
+            rows={sortedRows}
+            columns={layout.orderedColumns}
+            card={card}
+            onRowClick={onRowClick}
+            selectionEnabled={selectionEnabled}
+            selectedIds={selectedIds}
+            onToggleRow={onToggleRow}
+            rowKey={(row) => row.id ?? row.orderId ?? row.order_id}
+          />
+        ) : (
+          <div className="border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">{emptyMessage}</div>
+        )}
+        {hasNextPage || isFetchingNextPage ? (
+          <InfiniteScrollSentinel hasNextPage={hasNextPage} isFetchingNextPage={isFetchingNextPage} onLoadMore={onLoadMore} />
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="w-full min-w-0 max-w-full">
-      {!sortedRows.length ? <div className="border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">{rows.length && !activeFilterCount ? emptyText : activeFilterCount ? "Tidak ada data yang cocok dengan filter aktif." : emptyText}</div> : null}
+      {!sortedRows.length ? <div className="border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">{emptyMessage}</div> : null}
 
       {sortedRows.length ? (
         <div className="w-full min-w-0 max-w-full max-h-[calc(100vh-285px)] overflow-auto border border-slate-200 bg-white">

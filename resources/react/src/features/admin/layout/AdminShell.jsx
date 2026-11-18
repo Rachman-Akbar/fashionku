@@ -14,7 +14,7 @@ import { cn } from "@/shared/utils/utils";
 export const ADMIN_NAV_ITEMS = [
   { href: "/admin", label: "Ringkasan", icon: "dashboard", exact: true, hiddenInSidebar: true },
 
-  { href: "/admin/store", label: "Pengaturan Toko", icon: "storefront", group: "Pengaturan Toko", iconColor: "#6366f1", pinTop: true },
+  { href: "/admin/store", label: "Pengaturan Toko", icon: "storefront", group: "Pengaturan Toko", iconColor: "#6366f1", pinTop: true, noChildTabs: true },
 
   { href: "/admin/products", label: "Product", icon: "inventory_2", group: "Master Data", iconColor: "#60a5fa" },
   { href: "/admin/categories", label: "Category", icon: "category", group: "Master Data", iconColor: "#34d399" },
@@ -33,7 +33,6 @@ export const ADMIN_NAV_ITEMS = [
 
   { href: "/admin/chat", label: "Chat", icon: "chat", group: "Chat", noChildTabs: true, iconColor: "#22c55e", bottom: true },
   { href: "/admin/planner", label: "Jadwal", icon: "event_note", group: "Jadwal", iconColor: "#14b8a6", bottom: true },
-  { href: "/admin/help", label: "Bantuan", icon: "help", group: "Bantuan", iconColor: "#ec4899" },
 ];
 
 export default function AdminShell({ children }) {
@@ -72,7 +71,7 @@ export default function AdminShell({ children }) {
             />
             <PanelTabBar />
             <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-white pt-0 pb-0">
-              <div className={cn("w-full min-w-0 pb-8 pt-0", isChatRoute ? "flex h-full min-h-0 flex-col" : "")}>
+              <div id="panel-editor-root" className={cn("relative w-full min-w-0 pb-8 pt-0", isChatRoute ? "flex h-full min-h-0 flex-col" : "")}>
                 {children || <RouteOutletBoundary className={cn("h-full w-full min-w-0 max-w-full", isChatRoute && "min-h-0 flex-1")} />}
               </div>
             </main>
