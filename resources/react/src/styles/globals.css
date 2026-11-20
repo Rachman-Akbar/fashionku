@@ -326,6 +326,35 @@ body,
   --color-primary-ring: rgba(13, 148, 136, 0.28);
 }
 
+/* --------------------------------------------------------------------------
+   Token rail panel (admin, penjual, profil)
+   Semua nilai diturunkan dari satu tone warna palet aktif, sehingga pergantian
+   palet dan mode terang/gelap langsung terasa di seluruh panel.
+   -------------------------------------------------------------------------- */
+.profile-theme {
+  --panel-rail-bg: color-mix(in srgb, var(--color-primary) 16%, #0b1f3b);
+  --panel-rail-hover: rgba(255, 255, 255, 0.1);
+  --panel-rail-icon: color-mix(in srgb, var(--color-primary) 58%, #ffffff);
+  --panel-rail-active: color-mix(in srgb, var(--color-primary) 36%, transparent);
+  --panel-rail-active-shadow:
+    0 8px 20px -6px color-mix(in srgb, var(--color-primary) 55%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  --panel-border-tint: color-mix(in srgb, var(--color-primary) 30%, #e2e8f0);
+  --panel-popover-shadow:
+    0 24px 56px -12px color-mix(in srgb, var(--color-primary) 26%, transparent),
+    0 8px 24px -12px rgba(15, 23, 42, 0.45);
+  --panel-popover-active-shadow: 0 10px 26px -8px color-mix(in srgb, var(--color-primary) 50%, transparent);
+}
+
+.profile-theme[data-mode="dark"] {
+  --panel-rail-bg: color-mix(in srgb, var(--color-primary) 12%, #06101d);
+  --panel-rail-hover: rgba(255, 255, 255, 0.08);
+  --panel-border-tint: color-mix(in srgb, var(--color-primary) 34%, #24334d);
+  --panel-popover-shadow:
+    0 24px 56px -12px color-mix(in srgb, var(--color-primary) 22%, transparent),
+    0 16px 40px -16px rgba(0, 0, 0, 0.7);
+}
+
 /* Aksen panel (admin & profil) mengikuti palet warna yang dipilih. */
 .profile-theme .bg-emerald-600 {
   background-color: var(--color-primary);

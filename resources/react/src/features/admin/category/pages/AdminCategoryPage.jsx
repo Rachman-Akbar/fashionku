@@ -186,6 +186,7 @@ export default function AdminCategoryPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editor, setEditor] = useState({ open: false, category: null });
   const [detailCategory, setDetailCategory] = useState(null);
+  const [optimisticActiveStates, setOptimisticActiveStates] = useState({});
   const deferredQuery = useDeferredValue(query.trim());
   const categoriesQuery = useCategories({ ...(deferredQuery ? { search: deferredQuery } : {}), per_page: 100 });
   const createMutation = useCreateCategory();
@@ -229,6 +230,41 @@ export default function AdminCategoryPage() {
     return parent?.name || (category.parentId ? String(category.parentId) : "-");
   };
 
+  // Kategori sendiri beserta seluruh keturunannya dikeluarkan dari pilihan
+  // dropdown induk agar hierarki tidak membentuk siklus (cycle) atau
+  // menjadikan kategori sebagai anak dirinya sendiri.
+  const selectableParentsFor = (category) => {
+    const excluded = new Set([String(category.id)]);
+    const childrenByParent = rows.reduce((map, row) => {
+      const key = String(row.parentId ?? "");
+      (map[key] ||= []).push(String(row.id));
+      return map;
+    }, {});
+    const stack = [String(category.id)];
+    while (stack.length) {
+      const current = stack.pop();
+      for (const childId of childrenByParent[current] || []) {
+        if (!excluded.has(childId)) {
+          excluded.add(childId);
+          stack.push(childId);
+        }
+      }
+    }
+    return rows.filter((row) => !excluded.has(String(row.id)));
+  };
+
+  const handleParentChange = async (category, value) => {
+    const parentId = value === "" ? null : Number(value);
+    const currentId = category.parentId === null || category.parentId === undefined || category.parentId === "" ? null : Number(category.parentId);
+    if (currentId === parentId) return;
+    try {
+      await updateMutation.mutateAsync({ id: category.id, values: { parent_id: parentId } });
+      categoriesQuery.refetch();
+    } catch {
+      // handled by mutation hooks
+    }
+  };
+
   const rowActions = (category) => (
     <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
       <button
@@ -239,15 +275,6 @@ export default function AdminCategoryPage() {
         title="Edit"
       >
         <span className="material-symbols-outlined text-[16px]">edit</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => handleActivate(category)}
-        className="flex h-8 w-8 items-center justify-center rounded-[8px] text-slate-500 transition-colors hover:bg-amber-50 hover:text-amber-700"
-        aria-label={category.isActive ? "Nonaktifkan" : "Aktifkan"}
-        title={category.isActive ? "Nonaktifkan" : "Aktifkan"}
-      >
-        <span className="material-symbols-outlined text-[16px]">{category.isActive ? "toggle_on" : "toggle_off"}</span>
       </button>
       <button
         type="button"
@@ -304,11 +331,16 @@ export default function AdminCategoryPage() {
   };
 
   const handleActivate = async (category, next = !category.isActive) => {
+    const id = String(category.id);
+    const previous = category.isActive !== false;
+    setOptimisticActiveStates((prev) => ({ ...prev, [id]: next }));
     try {
       await updateMutation.mutateAsync({ id: category.id, values: { is_active: next } });
+      setOptimisticActiveStates((prev) => { const { [id]: _removed, ...rest } = prev; return rest; });
       categoriesQuery.refetch();
-    } catch {
-      // handled by mutation hook
+    } catch (error) {
+      setOptimisticActiveStates((prev) => ({ ...prev, [id]: previous }));
+      toastError("Gagal Mengubah Status", `Gagal mengubah status ${category.name || ""}.`);
     }
   };
 
@@ -424,14 +456,14 @@ export default function AdminCategoryPage() {
           {!categoriesQuery.isLoading && !categoriesQuery.error && rows.length && viewMode !== "grid" ? (
             <div className="border border-slate-200 bg-white">
               <table className="w-full border-collapse text-left text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-slate-50">
                   <tr className="bg-slate-50">
                     {visibleColumns.map((column) => (
-                      <th key={column.key} className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                      <th key={column.key} className="bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">
                         {column.label}
                       </th>
                     ))}
-                    <th className="w-28 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Aksi</th>
+                    <th className="w-28 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -444,7 +476,7 @@ export default function AdminCategoryPage() {
                             <td key={column.key} className="px-4 py-3 text-slate-700">
                               <span onClick={(event) => event.stopPropagation()}>
                                 <InlineActiveSwitch
-                                  checked={category.isActive !== false}
+                                  checked={optimisticActiveStates[String(category.id)] ?? (category.isActive !== false)}
                                   pending={updateMutation.isPending && updateMutation.variables?.id === category.id}
                                   activeLabel="Aktif"
                                   inactiveLabel="Nonaktif"
@@ -456,9 +488,29 @@ export default function AdminCategoryPage() {
                           );
                         }
                         if (column.key === "parentId") {
+                          const availableParents = selectableParentsFor(category);
+                          const pendingParent = updateMutation.isPending && updateMutation.variables?.id === category.id;
+                          const currentParentMissing = category.parentId != null && category.parentId !== "" && !availableParents.some((parent) => String(parent.id) === String(category.parentId));
                           return (
-                            <td key={column.key} className="px-4 py-3 text-slate-700">
-                              {parentNameOf(category)}
+                            <td key={column.key} className="px-4 py-3 text-slate-700" onClick={(event) => event.stopPropagation()}>
+                              <select
+                                value={category.parentId ?? ""}
+                                disabled={pendingParent}
+                                onChange={(event) => handleParentChange(category, event.target.value)}
+                                aria-label={`Kategori induk ${category.name}`}
+                                title="Pilih kategori induk"
+                                className="h-8 w-full min-w-[150px] cursor-pointer rounded-[8px] border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:cursor-wait disabled:opacity-60"
+                              >
+                                <option value="">Tidak ada (root)</option>
+                                {currentParentMissing ? (
+                                  <option value={category.parentId}>{parentNameOf(category)}</option>
+                                ) : null}
+                                {availableParents.map((parent) => (
+                                  <option key={parent.id} value={parent.id}>
+                                    {parent.name}
+                                  </option>
+                                ))}
+                              </select>
                             </td>
                           );
                         }

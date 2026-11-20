@@ -17,30 +17,30 @@ import { cn } from "@/shared/utils/utils";
 export const ADMIN_NAV_ITEMS = [
   { href: "/admin", label: "Ringkasan", icon: "dashboard", exact: true, hiddenInSidebar: true },
 
-  { href: "/admin/store", label: "Pengaturan Toko", icon: "storefront", group: "Pengaturan Toko", iconColor: "#6366f1", pinTop: true, noChildTabs: true },
+  { href: "/admin/store", label: "Pengaturan Toko", icon: "storefront", group: "Pengaturan Toko", pinTop: true, noChildTabs: true },
 
-  { href: "/admin/products", label: "Product", icon: "inventory_2", group: "Master Data", iconColor: "#60a5fa" },
-  { href: "/admin/categories", label: "Category", icon: "category", group: "Master Data", iconColor: "#34d399" },
-  { href: "/admin/bahan-baku", label: "Bahan Baku", icon: "science", group: "Master Data", iconColor: "#f472b6" },
-  { href: "/admin/customers", label: "Pelanggan", icon: "groups", group: "Master Data", iconColor: "#fbbf24" },
+  { href: "/admin/products", label: "Product", icon: "inventory_2", group: "Master Data" },
+  { href: "/admin/categories", label: "Category", icon: "category", group: "Master Data" },
+  { href: "/admin/bahan-baku", label: "Bahan Baku", icon: "science", group: "Master Data" },
+  { href: "/admin/customers", label: "Pelanggan", icon: "groups", group: "Master Data" },
 
-  { href: "/admin/orders", label: "Pesanan dan Penjualan", icon: "receipt_long", group: "Operasional", iconColor: "#fb923c" },
-  { href: "/admin/stock", label: "Stock", icon: "warehouse", group: "Operasional", iconColor: "#22d3ee" },
-  { href: "/admin/cashflow", label: "Keuangan", icon: "account_balance_wallet", group: "Operasional", iconColor: "#a3e635" },
+  { href: "/admin/orders", label: "Pesanan dan Penjualan", icon: "receipt_long", group: "Operasional" },
+  { href: "/admin/stock", label: "Stock", icon: "warehouse", group: "Operasional" },
+  { href: "/admin/cashflow", label: "Keuangan", icon: "account_balance_wallet", group: "Operasional" },
 
-  { href: "/admin/vouchers", label: "Voucher", icon: "confirmation_number", group: "Marketing", iconColor: "#f59e0b" },
-  { href: "/admin/promotions", label: "Promosi", icon: "campaign", group: "Marketing", iconColor: "#f43f5e" },
-  { href: "/admin/reviews", label: "Ulasan", icon: "rate_review", group: "Marketing", iconColor: "#a78bfa" },
+  { href: "/admin/vouchers", label: "Voucher", icon: "confirmation_number", group: "Marketing" },
+  { href: "/admin/promotions", label: "Promosi", icon: "campaign", group: "Marketing" },
+  { href: "/admin/reviews", label: "Ulasan", icon: "rate_review", group: "Marketing" },
 
-  { href: "/admin/users", label: "Manajemen User", icon: "manage_accounts", group: "Manajemen User", iconColor: "#8b5cf6" },
+  { href: "/admin/users", label: "Manajemen User", icon: "manage_accounts", group: "Manajemen User" },
 
-  { href: "/admin/chat", label: "Chat", icon: "chat", group: "Chat", noChildTabs: true, iconColor: "#22c55e", bottom: true },
-  { href: "/admin/planner", label: "Jadwal", icon: "event_note", group: "Jadwal", iconColor: "#14b8a6", bottom: true },
+  { href: "/admin/chat", label: "Chat", icon: "chat", group: "Chat", noChildTabs: true, bottom: true },
+  { href: "/admin/planner", label: "Jadwal", icon: "event_note", group: "Jadwal", bottom: true },
 ];
 
 export default function AdminShell({ children }) {
   const { user } = useAuth();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { resolvedMode, palette } = useTheme();
   const isChatRoute = pathname === "/admin/chat";
   const { badges } = usePanelBadges("/admin/chat");
@@ -64,15 +64,12 @@ export default function AdminShell({ children }) {
       <FocusModeContext.Provider value={focusValue}>
       <NotificationFeedbackBridge />
       <div className="profile-theme h-dvh bg-white text-slate-900" data-mode={resolvedMode} data-palette={palette}>
-        <PageTransitionLoader />
         <div className={cn("grid h-full grid-cols-1", isFocus ? "" : "lg:grid-cols-[76px_minmax(0,1fr)]")}>
           {isFocus ? null : <PanelSidebar
             items={ADMIN_NAV_ITEMS}
             badges={badges}
             homeHref="/admin"
             title="Admin"
-            sidebarClassName="border-r border-white/10 bg-[#0b1f3b]"
-            activeClassName="bg-white/15 text-white"
             showHomeLink={false}
             showMarketplaceLink={false}
           />}
@@ -83,16 +80,19 @@ export default function AdminShell({ children }) {
               storeName="Administrasi"
               userName={user?.name || "Admin"}
               roleLabel="Admin"
-              accentTextClassName="text-emerald-700"
-              avatarClassName="bg-slate-900"
+              accentTextClassName="text-[var(--color-primary-strong)]"
+              avatarClassName="bg-[var(--color-primary)]"
               notificationClassName="hover:bg-slate-50"
-              mobileNavigation={<PanelMobileNavigation items={ADMIN_NAV_ITEMS} badges={badges} activeClassName="bg-emerald-50 text-emerald-700" />}
+              mobileNavigation={<PanelMobileNavigation items={ADMIN_NAV_ITEMS} badges={badges} activeClassName="bg-[var(--color-primary-soft)] text-[var(--color-primary-strong)]" />}
               modeHeader={<AdminThemeControl />}
             />}
             {isFocus ? null : <PanelTabBar />}
+            <PageTransitionLoader variant="below-tabs" />
             <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-white pt-0 pb-0">
               <div id="panel-editor-root" className={cn("relative w-full min-w-0 pb-8 pt-0", isChatRoute ? "flex h-full min-h-0 flex-col" : "")}>
-                {children || <RouteOutletBoundary className={cn("h-full w-full min-w-0 max-w-full", isChatRoute && "min-h-0 flex-1")} />}
+                <div key={pathname + search}>
+                  {children || <RouteOutletBoundary className={cn("h-full w-full min-w-0 max-w-full", isChatRoute && "min-h-0 flex-1")} />}
+                </div>
               </div>
             </main>
           </div>

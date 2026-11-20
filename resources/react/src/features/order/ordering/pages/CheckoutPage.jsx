@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Banknote,
@@ -23,6 +23,7 @@ import {
   useShippingOptions,
 } from "@/features/order/ordering/orderService";
 import { openMidtransPayment } from "@/features/order/ordering/midtransService";
+import { OrderFlowStepper } from "@/features/order/ordering/components/OrderFlowStepper";
 import VoucherSearchSelect from "@/features/order/voucher/components/VoucherSearchSelect";
 import {
   useCheckoutVouchers,
@@ -97,7 +98,7 @@ function getCreatedOrderRoute(order) {
     return "/cart?tab=order";
   }
 
-  return `/cart?tab=order&orderId=${encodeURIComponent(order.id)}`;
+  return `/orders/${encodeURIComponent(order.id)}`;
 }
 
 function normalizeDirectItem(item = {}) {
@@ -142,6 +143,7 @@ export default function CheckoutPage() {
   const createOrderMutation = useCreateOrder();
   const [addressId, setAddressId] = useState(null);
   const [shippingId, setShippingId] = useState("");
+  const shippingTouchedRef = useRef(false);
   const [payment, setPayment] = useState("midtrans");
   // Tipe pesanan kini hanya `reguler` | `terjadwal`; stok habis otomatis
   // ditandai backend sebagai "menunggu produk" (preorder).
@@ -405,13 +407,28 @@ export default function CheckoutPage() {
   }, [addressId, addresses]);
 
   useEffect(() => {
-    if (
-      shippingOptions.some((option) => String(option.id) === String(shippingId))
-    ) {
+    const deliveryOption = shippingOptions.find(
+      (option) => String(option.courier) !== "ambil_sendiri",
+    );
+    const preferred = String((deliveryOption || shippingOptions[0])?.id || "");
+    const current = shippingOptions.find(
+      (option) => String(option.id) === String(shippingId),
+    );
+
+    if (!current) {
+      if (preferred && preferred !== shippingId) setShippingId(preferred);
       return;
     }
 
-    setShippingId(String(shippingOptions[0]?.id || ""));
+    // "Diambil Pembeli" tidak boleh terpilih otomatis selama masih ada opsi
+    // kurir: buyer jadi terhambat validasi jadwal survey tanpa alasan jelas.
+    if (
+      !shippingTouchedRef.current &&
+      String(current.courier) === "ambil_sendiri" &&
+      deliveryOption
+    ) {
+      setShippingId(String(deliveryOption.id));
+    }
   }, [shippingId, shippingOptions]);
 
   useEffect(() => {
@@ -586,34 +603,21 @@ export default function CheckoutPage() {
 
   if (isPreviewPage) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
-        <div className="mb-6 flex items-center gap-3 text-sm text-slate-500">
-          <button
-            type="button"
-            disabled={checkoutSubmitting}
-            onClick={() => navigate("/checkout", { state: location.state })}
-            className="flex items-center gap-2 rounded-lg px-2 py-1 font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-            Kembali ke Checkout
-          </button>
-          <span>/</span>
-          <span className="font-semibold text-[#047857]">Preview Pesanan</span>
-        </div>
+      <div className="mx-auto max-w-[1200px] px-4 py-6 sm:py-8">
+        <OrderFlowStepper
+          currentStep={2}
+          title="Review & Konfirmasi"
+          subtitle="Periksa pesanan sebelum dikirim"
+          backLabel="Perbaiki Informasi"
+          onBack={() => {
+            if (!checkoutSubmitting) navigate("/checkout", { state: location.state });
+          }}
+        />
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 px-5 py-5 sm:px-7">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#10B981]">Tahap 2 dari 3</p>
-                <h1 className="mt-1 text-2xl font-black text-slate-900">Periksa pesanan sebelum dikirim</h1>
-                <p className="mt-1 text-sm leading-6 text-slate-500">Pastikan produk, alamat, pengiriman, pembayaran, dan voucher sudah benar.</p>
-              </div>
-              <div className="flex items-center gap-2 text-xs font-bold">
-                <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-[#047857]">Checkout selesai diisi</span>
-                <span className="rounded-full bg-[#10B981] px-3 py-1.5 text-white">Preview</span>
-              </div>
-            </div>
+            <h1 className="text-lg font-black text-slate-900 sm:text-xl">Periksa pesanan sebelum dikirim</h1>
+            <p className="mt-1 text-sm leading-6 text-slate-500">Pastikan produk, alamat, pengiriman, pembayaran, dan voucher sudah benar.</p>
           </div>
 
           <div className="grid gap-5 p-5 sm:p-7 md:grid-cols-2">
@@ -704,18 +708,14 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6"><div className="mb-5 grid grid-cols-3 gap-2 text-center text-xs font-bold"><div className="bg-emerald-600 px-3 py-2 text-white">1 Informasi</div><div className="bg-slate-100 px-3 py-2 text-slate-500">2 Review & Konfirmasi</div><div className="bg-slate-100 px-3 py-2 text-slate-500">3 Detail Order</div></div>
-      <div className="mb-6">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#10B981]">
-          Checkout
-        </p>
-        <h1 className="mt-1 text-2xl font-black text-slate-900">
-          Step 1 · Informasi Checkout
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Isi alamat, pengiriman, pembayaran, voucher, dan tipe pesanan. Setelah itu lanjut ke review sebelum konfirmasi.
-        </p>
-      </div>
+    <div className="mx-auto max-w-[1200px] px-4 py-6 sm:py-8">
+      <OrderFlowStepper
+        currentStep={1}
+        title="Informasi Checkout"
+        subtitle="Alamat, pengiriman, pembayaran, dan voucher"
+        backLabel="Keranjang"
+        onBack={() => navigate("/cart")}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-5">
@@ -830,7 +830,10 @@ export default function CheckoutPage() {
                     type="radio"
                     className="accent-[#10B981]"
                     checked={String(shipping?.id) === String(option.id)}
-                    onChange={() => setShippingId(String(option.id))}
+                    onChange={() => {
+                      shippingTouchedRef.current = true;
+                      setShippingId(String(option.id));
+                    }}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-slate-900">

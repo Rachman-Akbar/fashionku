@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { cn } from "@/shared/utils/utils";
 import { usePanelTabs } from "@/shared/layout/tabs";
 
-export const PanelMobileNavigation = memo(function PanelMobileNavigation({ items, activeClassName, badges = {} }) {
+export const PanelMobileNavigation = memo(function PanelMobileNavigation({ items, activeClassName = "bg-[var(--color-primary-soft)] text-[var(--color-primary-strong)]", badges = {} }) {
   const tabs = usePanelTabs();
   const visibleItems = items.filter((item) => !item.hiddenInSidebar);
 
@@ -25,7 +25,7 @@ export const PanelMobileNavigation = memo(function PanelMobileNavigation({ items
               aria-label={item.label}
               title={item.group ? `${item.group} · ${item.label}` : item.label}
             >
-              <span className="material-symbols-outlined text-[20px]" style={!active && item.iconColor ? { color: item.iconColor } : undefined}>{item.icon}</span>
+              <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
               {Number(badges[item.href] || 0) > 0 ? <span className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" /> : null}
             </Link>
           );

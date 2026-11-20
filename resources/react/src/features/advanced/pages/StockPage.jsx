@@ -1,7 +1,7 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
-import { advancedError, useAdjustRawMaterial, useAdjustStock, useDeleteRawMaterial, useManageableProducts, useProductCosting, useRawMaterialCostImpacts, useRawMaterialMovements, useRawMaterials, useSaveRawMaterial, useStockMovements } from "@/features/advanced/services/advancedMarketplaceService";
+import { advancedError, useAdjustRawMaterial, useAdjustStock, useDeleteRawMaterial, useManageableProducts, useProductCosting, useRawMaterialMovements, useRawMaterials, useSaveProductCosting, useSaveRawMaterial, useStockMovements } from "@/features/advanced/services/advancedMarketplaceService";
 import { normalizeSellerProduct } from "@/features/seller/product/services/sellerProductService";
 import { ModuleFrame } from "@/features/advanced/components/ModuleFrame";
 import { DataGrid } from "@/features/advanced/components/DataGrid";
@@ -35,8 +35,6 @@ export default function StockPage() {
   const [viewMode, setViewMode] = useViewMode("inventory");
   const { activeRole } = useAuth();
   const navigate = useNavigate();
-  const [scope, setScope] = useState("stock");
-  const [hppFilter, setHppFilter] = useState("");
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState(() => searchParams.get("q") || "");
   const deferred = useDeferredValue(query.trim());
@@ -52,16 +50,16 @@ export default function StockPage() {
   const [delta, setDelta] = useState("");
   const [stockReference, setStockReference] = useState("");
   const [unitCost, setUnitCost] = useState("");
+  const [costEdit, setCostEdit] = useState(null);
   const products = useManageableProducts({ per_page: 100, is_active: true });
   const productMovements = useStockMovements({ per_page: 100, ...(deferred ? { search: deferred } : {}) });
   const materials = useRawMaterials({ per_page: 100, ...(deferred ? { search: deferred } : {}) });
   const materialMovements = useRawMaterialMovements({ per_page: 100 });
-  const costImpacts = useRawMaterialCostImpacts({ per_page: 100, direction: "increase" });
-  const productionCosting = useProductCosting(productAdjust?.product_id, Boolean(productAdjust?.product_id && Number(delta) > 0));
   const adjustStock = useAdjustStock();
   const saveMaterial = useSaveRawMaterial();
   const deleteMaterial = useDeleteRawMaterial();
   const adjustMaterial = useAdjustRawMaterial();
+  const saveProductCosting = useSaveProductCosting();
 
   const materialRows = useMemo(() => materials.data?.rows || [], [materials.data?.rows]);
   const materialAllSelected = materialRows.length > 0 && materialSelected.size === materialRows.length;
@@ -101,10 +99,9 @@ export default function StockPage() {
 
   const stockSpreadsheet = useSpreadsheetWorkspace({ module: "stock", label: "Stok Produk", allowBulkDelete: false, onCompleted: () => productMovements.refetch() });
   const materialSpreadsheet = useSpreadsheetWorkspace({ module: "raw-material", label: "Bahan Baku", selectedRows: materialRows.filter((row) => materialSelected.has(`m-${row.id}`)), allowBulkDelete: true, onCompleted: () => { materials.refetch(); setMaterialSelected(new Set()); } });
-  const materialStockSpreadsheet = useSpreadsheetWorkspace({ module: "raw-material-stock", label: "Stok Bahan Baku", allowBulkDelete: false, onCompleted: () => { materials.refetch(); materialMovements.refetch(); costImpacts.refetch(); } });
-  const impactSpreadsheet = useSpreadsheetWorkspace({ module: "cost-impact", label: "Laporan Dampak HPP", allowImport: false, allowBulkDelete: false });
+  const materialStockSpreadsheet = useSpreadsheetWorkspace({ module: "raw-material-stock", label: "Stok Bahan Baku", allowBulkDelete: false, onCompleted: () => { materials.refetch(); materialMovements.refetch(); } });
 
-  const allWorkspaces = [stockSpreadsheet, materialSpreadsheet, materialStockSpreadsheet, impactSpreadsheet];
+  const allWorkspaces = [stockSpreadsheet, materialSpreadsheet, materialStockSpreadsheet];
   const activeWorkspace = allWorkspaces.find((workspace) => workspace.activeOperation) || stockSpreadsheet;
 
   const allProductVariants = useMemo(
@@ -166,11 +163,11 @@ export default function StockPage() {
   );
 
   const stockRows = useMemo(() => {
-    const rows = scope === "product" ? productRows : scope === "material" ? materialOutRows : [...productRows, ...materialOutRows];
+    const rows = [...productRows, ...materialOutRows];
     if (!deferred) return rows;
     const needle = deferred.toLowerCase();
     return rows.filter((row) => [row.name, row.variant, row.code, row.kind_label].some((value) => String(value || "").toLowerCase().includes(needle)));
-  }, [scope, productRows, materialOutRows, deferred]);
+  }, [productRows, materialOutRows, deferred]);
 
   const dateHistoryRows = useMemo(() => {
     const merged = [
@@ -196,20 +193,8 @@ export default function StockPage() {
     return usage.length ? usage : all;
   }, [materialMovements.data?.rows]);
 
-  const totalProduct = useListTotalCount(undefined, { fallbackTotal: productRows.length, label: "Barang" });
   const totalStock = useListTotalCount(undefined, { fallbackTotal: stockRows.length, label: "Barang" });
-  const totalMaterials = useListTotalCount(materials.data?.meta, { label: "Bahan Baku" });
-  const totalProductHistory = useListTotalCount(productMovements.data?.meta, { label: "Pergerakan" });
-  const totalMaterialHistory = useListTotalCount(materialMovements.data?.meta, { label: "Pergerakan" });
-  const totalDateHistory = useListTotalCount(undefined, { fallbackTotal: dateHistoryRows.length, label: "Pergerakan" });
-  const totalCostImpact = useListTotalCount(costImpacts.data?.meta, { label: "Dampak HPP" });
-  const activeTotal = hppFilter === "increase" ? totalCostImpact
-    : scope === "product" ? totalProduct
-      : scope === "material" ? totalMaterials
-        : scope === "history-product" ? totalProductHistory
-          : scope === "history-material" ? totalMaterialHistory
-            : scope === "history-date" ? totalDateHistory
-              : totalStock;
+  const activeTotal = totalStock;
 
   const openProductDetail = (row) => {
     const raw = (products.data?.rows || []).find((product) => Number(product.id) === Number(row.product_id));
@@ -256,13 +241,7 @@ export default function StockPage() {
       width: 96,
       render: (row) => (
         <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
-          <button type="button" title="Stock / Restock" onClick={() => (row.__kind === "material" ? (setMaterialAdjust(rawMaterial(row)), setDelta(""), setUnitCost(String(row.average_cost || ""))) : (setProductAdjust(rawVariant(row)), setDelta(""), setStockReference("")))} className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"><span className="material-symbols-outlined text-[17px]">add_box</span></button>
-          {row.__kind === "material" ? (
-            <>
-              <button type="button" title="Edit" onClick={() => setMaterialForm({ ...rawMaterial(row) })} className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"><span className="material-symbols-outlined text-[17px]">edit</span></button>
-              <button type="button" title="Hapus" onClick={() => setMaterialDelete(rawMaterial(row))} className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:border-red-300 hover:bg-red-50 hover:text-red-600"><span className="material-symbols-outlined text-[17px]">delete</span></button>
-            </>
-          ) : null}
+          <button type="button" title="Edit Biaya" onClick={() => setCostEdit({ kind: row.__kind, id: row.raw_id, name: row.name, code: row.code, cost: row.average_cost })} className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"><span className="material-symbols-outlined text-[17px]">attach_money</span></button>
         </div>
       ),
     },
@@ -294,10 +273,7 @@ export default function StockPage() {
     { key: "new_suggested_price", label: "Saran Harga Baru", render: (row) => money(row.new_suggested_price) },
   ];
 
-  const spreadsheetActions = hppFilter === "increase" ? impactSpreadsheet.actions
-    : scope === "material" ? materialSpreadsheet.actions
-      : scope === "history-material" ? materialStockSpreadsheet.actions
-        : stockSpreadsheet.actions;
+  const spreadsheetActions = stockSpreadsheet.actions;
 
   function submitOpnamePicker(event) {
     event.preventDefault();
@@ -336,7 +312,6 @@ export default function StockPage() {
         },
       });
       toastSuccess("Status Bahan Baku", `${row.name || row.code} ditandai ${next ? "aktif" : "non-aktif"}.`);
-      costImpacts.refetch();
     } catch (error) {
       toastError("Status Bahan Baku", advancedError(error));
     } finally {
@@ -373,7 +348,6 @@ export default function StockPage() {
       await saveMaterial.mutateAsync({ id: materialForm?.id, values: materialForm });
       setMaterialForm(null);
       toastSuccess("Simpan Bahan Baku", "Bahan baku berhasil disimpan. Jika biaya berubah, HPP produk terkait telah dihitung ulang.");
-      costImpacts.refetch();
     } catch (error) {
       toastError("Simpan Bahan Baku", advancedError(error));
     }
@@ -388,7 +362,6 @@ export default function StockPage() {
       toastSuccess("Hapus Bahan Baku", `Bahan baku ${materialDelete.name || materialDelete.code} berhasil dihapus.`);
       materials.refetch();
       materialMovements.refetch();
-      costImpacts.refetch();
     } catch (error) {
       toastError("Hapus Bahan Baku", advancedError(error));
     }
@@ -406,9 +379,40 @@ export default function StockPage() {
       toastSuccess("Stock / Restock Bahan Baku", "Stok bahan baku berhasil diperbarui. Dampak biaya terhadap HPP sudah disinkronkan.");
       materials.refetch();
       materialMovements.refetch();
-      costImpacts.refetch();
     } catch (error) {
       toastError("Stock / Restock Bahan Baku", advancedError(error));
+    }
+  }
+
+  async function submitCostEdit(event) {
+    event.preventDefault();
+    if (!costEdit) return;
+    try {
+      if (costEdit.kind === "material") {
+        const material = materialRows.find((row) => String(row.id) === String(costEdit.id));
+        if (!material) return;
+        await saveMaterial.mutateAsync({
+          id: material.id,
+          values: {
+            code: material.code || null,
+            name: material.name,
+            unit: material.unit,
+            minimum_stock: Number(material.minimum_stock || 0),
+            average_cost: Number(costEdit.cost) || 0,
+            is_active: material.is_active !== false,
+          },
+        });
+        toastSuccess("Edit Biaya Bahan Baku", `Biaya ${material.name || material.code} berhasil diperbarui.`);
+        materials.refetch();
+        materialMovements.refetch();
+      } else {
+        await saveProductCosting.mutateAsync({ productId: costEdit.id, values: { average_cost: Number(costEdit.cost) || 0 } });
+        toastSuccess("Edit Biaya Produk", `Biaya ${costEdit.name || costEdit.code} berhasil diperbarui.`);
+        products.refetch();
+      }
+      setCostEdit(null);
+    } catch (error) {
+      toastError("Edit Biaya", advancedError(error));
     }
   }
 
@@ -428,20 +432,6 @@ export default function StockPage() {
     ],
   };
 
-  const scopeOptions = [
-    { value: "stock", label: "Semua Stok (Produk + Bahan)" },
-    { value: "product", label: "Stok Produk" },
-    { value: "material", label: "Stok Bahan Baku" },
-    { value: "history-product", label: "Riwayat per Produk" },
-    { value: "history-material", label: "Riwayat per Bahan" },
-    { value: "history-date", label: "Riwayat per Tanggal" },
-  ];
-
-  const hppOptions = [
-    { value: "", label: "Tanpa filter HPP" },
-    { value: "increase", label: "Kenaikan HPP" },
-  ];
-
   const viewModeOptions = [
     { key: "list", icon: "view_list", label: "Tampilan list" },
     { key: "grid", icon: "grid_view", label: "Tampilan kartu" },
@@ -456,17 +446,18 @@ export default function StockPage() {
     />
   );
 
-  const isMaterialScope = scope === "material" || scope === "stock";
-  const canCreateMaterial = scope === "material" || scope === "stock";
+  const isMaterialScope = true;
+  const canCreateMaterial = true;
 
   const filters = (
     <>
-      <select value={scope} onChange={(event) => setScope(event.target.value)} aria-label="Tata letak data stok" className={toolbarControlClassName}>
-        {scopeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
-      <select value={hppFilter} onChange={(event) => setHppFilter(event.target.value)} aria-label="Filter kenaikan HPP" className={toolbarControlClassName}>
-        {hppOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
+      <input
+        type="text"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Cari produk, varian, atau bahan baku"
+        className={toolbarControlClassName}
+      />
     </>
   );
 
@@ -476,7 +467,7 @@ export default function StockPage() {
       subtitle="Stok produk, bahan baku, produksi, audit pergerakan, import/export terpisah, dan laporan dampak kenaikan biaya terhadap HPP."
       query={query}
       onQueryChange={setQuery}
-      onRefresh={() => { products.refetch(); productMovements.refetch(); materials.refetch(); materialMovements.refetch(); costImpacts.refetch(); }}
+      onRefresh={() => { products.refetch(); productMovements.refetch(); materials.refetch(); materialMovements.refetch(); }}
       refreshing={false}
       filters={filters}
       totalCount={activeTotal?.totalCount}
@@ -494,20 +485,9 @@ export default function StockPage() {
       viewModeOptions={viewModeOptions}
     >
       {viewMode === "chart" ? <StockChartTab variants={variants} /> : null}
-      {viewMode !== "chart" && hppFilter === "increase" ? (
-        <>
-          <div className="border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">Laporan ini muncul otomatis saat average cost bahan baku naik dan perubahan tersebut menaikkan HPP produk. Harga jual aktif tidak diubah otomatis; Seller dapat memakai kolom Saran Harga Baru sebagai dasar keputusan.</div>
-          <DataGrid viewMode={viewMode} headerActions={specialActionButton} storageKey="inventory.cost-impact" onFilterStateChange={totalCostImpact.onFilterStateChange} columns={impactColumns} rows={costImpacts.data?.rows || []} emptyText="Belum ada kenaikan biaya bahan baku yang memengaruhi HPP." />
-          <div className="border border-slate-200 bg-slate-50 p-4 text-xs font-black uppercase tracking-wide text-slate-500">Riwayat Pemakaian Bahan Baku</div>
-          <DataGrid viewMode={viewMode} headerActions={specialActionButton} storageKey="inventory.usage-history" columns={materialHistoryColumns} rows={usageHistoryRows} emptyText="Riwayat pemakaian bahan baku belum tersedia." />
-        </>
+      {viewMode !== "chart" ? (
+        <DataGrid viewMode={viewMode} headerActions={specialActionButton} storageKey="inventory.stock-all-v2" onFilterStateChange={totalStock.onFilterStateChange} columns={stockColumns} rows={stockRows} emptyText="Belum ada stok produk maupun bahan baku." onRowClick={openRowDetail} selectionEnabled selectedIds={materialSelected} allSelected={materialAllSelected} onToggleRow={toggleMaterialRow} onToggleAll={toggleMaterialAll} isRowSelectable={(row) => row.__kind === "material"} />
       ) : null}
-      {viewMode !== "chart" && hppFilter !== "increase" && scope === "stock" ? <DataGrid viewMode={viewMode} headerActions={specialActionButton} storageKey="inventory.stock-all-v2" onFilterStateChange={totalStock.onFilterStateChange} columns={stockColumns} rows={stockRows} emptyText="Belum ada stok produk maupun bahan baku." onRowClick={openRowDetail} selectionEnabled selectedIds={materialSelected} allSelected={materialAllSelected} onToggleRow={toggleMaterialRow} onToggleAll={toggleMaterialAll} isRowSelectable={(row) => row.__kind === "material"} /> : null}
-      {viewMode !== "chart" && hppFilter !== "increase" && scope === "product" ? <DataGrid viewMode={viewMode} headerActions={specialActionButton} storageKey="inventory.product-stock-v2" onFilterStateChange={totalProduct.onFilterStateChange} columns={stockColumns} rows={stockRows} emptyText="Produk belum tersedia." onRowClick={openRowDetail} /> : null}
-      {viewMode !== "chart" && hppFilter !== "increase" && scope === "material" ? <DataGrid viewMode={viewMode} card={materialCard} headerActions={specialActionButton} storageKey="inventory.raw-materials-v2" onFilterStateChange={totalMaterials.onFilterStateChange} columns={stockColumns} rows={stockRows} emptyText="Bahan baku belum tersedia." onRowClick={openRowDetail} selectionEnabled selectedIds={materialSelected} allSelected={materialAllSelected} onToggleRow={toggleMaterialRow} onToggleAll={toggleMaterialAll} isRowSelectable={(row) => row.__kind === "material"} /> : null}
-      {viewMode !== "chart" && hppFilter !== "increase" && scope === "history-product" ? <DataGrid viewMode={viewMode} headerActions={specialActionButton} storageKey="inventory.product-history" onFilterStateChange={totalProductHistory.onFilterStateChange} columns={productHistoryColumns} rows={productMovements.data?.rows || []} emptyText="Riwayat stok produk belum tersedia." /> : null}
-      {viewMode !== "chart" && hppFilter !== "increase" && scope === "history-material" ? <DataGrid viewMode={viewMode} headerActions={specialActionButton} storageKey="inventory.material-history" onFilterStateChange={totalMaterialHistory.onFilterStateChange} columns={materialHistoryColumns} rows={materialMovements.data?.rows || []} emptyText="Riwayat stok bahan baku belum tersedia." /> : null}
-      {viewMode !== "chart" && hppFilter !== "increase" && scope === "history-date" ? <DataGrid viewMode={viewMode} headerActions={specialActionButton} storageKey="inventory.history-date" onFilterStateChange={totalDateHistory.onFilterStateChange} columns={historyDateColumns} rows={dateHistoryRows} emptyText="Riwayat stok gabungan belum tersedia." /> : null}
     </ModuleFrame>
 
     <SpreadsheetOperationPanel workspace={activeWorkspace} />
@@ -546,6 +526,10 @@ export default function StockPage() {
           clearable={false}
         />
       </Field>
+    </FormModal>
+
+    <FormModal open={Boolean(costEdit)} title="Edit Biaya" subtitle="Ubah biaya rata-rata untuk bahan baku atau produk." onClose={() => setCostEdit(null)} onSubmit={submitCostEdit} busy={saveMaterial.isPending || saveProductCosting.isPending} submitLabel="Simpan">
+      <Field label="Biaya Rata-rata" required hint="Masukkan biaya rata-rata baru per satuan. Untuk bahan baku, nilai ini mempengaruhi weighted average cost dan HPP produk terkait."><Input type="number" step="0.0001" min="0" value={costEdit?.cost || ""} onChange={(event) => setCostEdit((current) => current ? { ...current, cost: event.target.value } : null)} required /></Field>
     </FormModal>
 
     <ConfirmDialog open={Boolean(materialDelete)} title="Hapus Bahan Baku" message={`Bahan baku “${materialDelete?.name || materialDelete?.code || ""}” akan dihapus dari master. Riwayat pergerakan stok tetap tersimpan.`} pending={deleteMaterial.isPending} onClose={() => setMaterialDelete(null)} onConfirm={removeMaterial} />

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toTitleCase } from "@/shared/utils/textFormatter";
+import { startNavigationProgress } from "@/shared/layout/navigationProgress";
 import { confirmDiscardChanges } from "@/shared/utils/userFeedback";
 
 const PanelTabsContext = createContext(null);
@@ -110,6 +111,12 @@ export function PanelTabsProvider({ children, items = [] }) {
   const activeTabId = activeParent ? (activeChildByParent[activeParent.id] || (activeParent.exact ? "" : `${activeParent.id}:list`)) : "";
   const activeTab = tabs.find((tab) => tab.id === activeTabId) || tabs[0] || null;
 
+  // Perpindahan tab anak (daftar/create/detail) tidak mengubah URL, jadi
+  // indikator loading halaman perlu dipicu manual agar selalu terlihat.
+  useEffect(() => {
+    startNavigationProgress();
+  }, [activeParentId, activeTabId]);
+
   const openParent = useCallback((item, options = {}) => {
     const parent = ensureParent(item, { openCreate: options.openCreate === true });
     if (!parent) return;
@@ -127,11 +134,13 @@ export function PanelTabsProvider({ children, items = [] }) {
   }, [ensureParent, navigate]);
 
   const activateParent = useCallback((parentId) => {
-    const parent = parentTabs.find((tab) => tab.id === parentId);
+    const item = items.find((it) => it.href === parentId);
+    if (!item) return;
+    const parent = ensureParent(item);
     if (!parent) return;
     setActiveParentId(parentId);
     navigate(parent.href);
-  }, [navigate, parentTabs]);
+  }, [ensureParent, items, navigate]);
 
   const setTabDirty = useCallback((tabId, dirty) => {
     if (!tabId) return;

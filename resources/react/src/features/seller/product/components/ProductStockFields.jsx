@@ -56,17 +56,17 @@ export const ProductStockFields = memo(function ProductStockFields({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[10px] border border-slate-200">
-        <div className="overflow-x-auto">
+      <div className="overflow-x-clip rounded-[10px] border border-slate-200">
+        <div className="max-h-[60vh] overflow-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-100 text-xs font-extrabold text-slate-600">
+            <thead className="sticky top-0 z-10 bg-slate-100 text-xs font-extrabold text-slate-600">
               <tr>
-                <th className="px-4 py-3">Varian</th>
-                <th className="px-4 py-3">SKU</th>
-                <th className="px-4 py-3">Harga</th>
-                <th className="px-4 py-3">Stok</th>
-                <th className="px-4 py-3">Minimal Stok</th>
-                <th className="px-4 py-3">Batas Order</th>
+                <th className="bg-slate-100 px-4 py-3 shadow-[inset_0_-1px_0_0_#e2e8f0]">Varian</th>
+                <th className="bg-slate-100 px-4 py-3 shadow-[inset_0_-1px_0_0_#e2e8f0]">SKU</th>
+                <th className="bg-slate-100 px-4 py-3 shadow-[inset_0_-1px_0_0_#e2e8f0]">Harga</th>
+                <th className="bg-slate-100 px-4 py-3 shadow-[inset_0_-1px_0_0_#e2e8f0]">Stok</th>
+                <th className="bg-slate-100 px-4 py-3 shadow-[inset_0_-1px_0_0_#e2e8f0]">Minimal Stok</th>
+                <th className="bg-slate-100 px-4 py-3 shadow-[inset_0_-1px_0_0_#e2e8f0]">Batas Order</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">

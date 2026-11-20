@@ -145,33 +145,54 @@ final class GetShippingOptionsUseCase
         $setting = $this->shippingSetting();
 
         return [
-            'origin_latitude' => $this->firstCoordinate($setting?->store_latitude),
-            'origin_longitude' => $this->firstCoordinate($setting?->store_longitude),
+            'origin_latitude' => $this->firstCoordinate($setting['store_latitude'] ?? null),
+            'origin_longitude' => $this->firstCoordinate($setting['store_longitude'] ?? null),
             'latitude' => $this->firstCoordinate($destination->latitude),
             'longitude' => $this->firstCoordinate($destination->longitude),
-            'free_shipping_max_distance' => (float) ($setting?->free_shipping_max_distance ?? 0),
-            'default_flat_rate' => (float) ($setting?->default_flat_rate ?? 0),
-            'rate_per_km' => (float) ($setting?->rate_per_km ?? config('services.shipping.express_rate_per_km', 0)),
+            'free_shipping_max_distance' => (float) ($setting['free_shipping_max_distance'] ?? 0),
+            'default_flat_rate' => (float) ($setting['default_flat_rate'] ?? 0),
+            'rate_per_km' => (float) ($setting['rate_per_km'] ?? config('services.shipping.express_rate_per_km', 0)),
             'weight' => 0,
             'item_value' => 0,
         ];
     }
 
-    private function shippingSetting(): ?object
+    /**
+     * Tarif/koordinat ongkir jarang berubah: cache lintas-request agar
+     * endpoint opsi pengiriman tidak membaca database pada setiap hit.
+     *
+     * Hanya array skalar yang boleh disimpan di cache. `config/cache.php`
+     * menetapkan `serializable_classes => false`, sehingga objek (stdClass
+     * hasil `DB::table()`) tidak bisa di-unserialize saat cache hit dan
+     * berubah menjadi __PHP_Incomplete_Class (error "incomplete object").
+     * Nilai cache lama yang bukan array diabaikan dan langsung ditimpa.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function shippingSetting(): ?array
     {
-        // Tarif/koordinat ongkir jarang berubah: cache lintas-request agar
-        // endpoint opsi pengiriman tidak membaca database pada setiap hit.
-        return Cache::remember('shipping.settings', 3600, function (): ?object {
-            try {
-                if (! Schema::hasTable('shipping_settings')) {
-                    return null;
-                }
+        $cached = Cache::get('shipping.settings');
+        if (is_array($cached)) {
+            return $cached;
+        }
 
-                return DB::table('shipping_settings')->orderBy('id')->first();
-            } catch (Throwable) {
+        try {
+            if (! Schema::hasTable('shipping_settings')) {
                 return null;
             }
-        });
+
+            $row = DB::table('shipping_settings')->orderBy('id')->first();
+            if (! $row) {
+                return null;
+            }
+
+            $setting = (array) $row;
+            Cache::put('shipping.settings', $setting, 3600);
+
+            return $setting;
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function firstCoordinate(mixed ...$values): ?float

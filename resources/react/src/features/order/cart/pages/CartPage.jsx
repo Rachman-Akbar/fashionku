@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ProductCard } from "@/features/catalog/product/components/ProductCard";
 import {
-  ArrowLeft,
   ArrowRight,
-  CheckCircle2,
-  Clock3,
   Heart,
   MessageSquareText,
   PackageCheck,
@@ -14,24 +11,16 @@ import {
   Star,
   Ticket,
   Trash2,
-  XCircle,
 } from "lucide-react";
 import { useCart } from "@/features/order/cart/context/CartContext";
 import { useWishlist } from "@/features/order/wishlist/context/WishlistContext";
-import {
-  useConfirmOrderReceived,
-  useOrderDetail,
-  useOrders,
-} from "@/features/order/ordering/orderService";
-import { advancedError, useReviews } from "@/features/advanced/services/advancedMarketplaceService";
+import { useOrders } from "@/features/order/ordering/orderService";
+import { useReviews } from "@/features/advanced/services/advancedMarketplaceService";
 import OrderReviewModal from "@/features/order/review/components/OrderReviewModal";
 import { CartItemRow } from "@/features/order/cart/components/CartItemRow";
-import { openMidtransPayment } from "@/features/order/ordering/midtransService";
-import { Skeleton, SkeletonLine } from "@/shared/components/feedback/Skeleton";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import VoucherSearchSelect from "@/features/order/voucher/components/VoucherSearchSelect";
 import { formatPrice } from "@/shared/utils/utils";
-import { parseShipping } from "@/shared/utils/shipping";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 
 const tabs = [
@@ -272,179 +261,6 @@ function WishlistTab({ items, onAddToCart, onRemoveFromWishlist }) {
   );
 }
 
-function OrderDetailPanel({ orderId, onBack, paymentNotice = "" }) {
-  const orderQuery = useOrderDetail(orderId);
-  const order = orderQuery.data;
-  const [paying, setPaying] = useState(false);
-  const [paymentMessage, setPaymentMessage] = useState("");
-  const [actionMessage, setActionMessage] = useState("");
-  const confirmMutation = useConfirmOrderReceived();
-
-  if (orderQuery.isLoading) {
-    return (
-      <div className="rounded-2xl border border-slate-100 bg-white p-6" aria-busy="true">
-        <div className="flex items-center gap-3 mb-5"><Skeleton className="h-9 w-9 rounded-xl" /><Skeleton className="h-5 w-48" /></div>
-        <div className="space-y-3"><SkeletonLine className="h-4 w-full" /><SkeletonLine className="h-4 w-3/4" /></div>
-      </div>
-    );
-  }
-
-  if (orderQuery.error || !order) {
-    return (
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-16 text-center">
-        <p className="text-sm font-semibold text-slate-500">Detail pesanan tidak ditemukan.</p>
-        <button type="button" onClick={onBack} className="mt-3 text-sm font-bold text-[#047857]">Kembali</button>
-      </div>
-    );
-  }
-
-  const success = ["paid", "settlement", "success"].includes(String(order.paymentStatus).toLowerCase()) || ["processing", "shipped", "completed", "delivered"].includes(String(order.status).toLowerCase());
-  const failed = ["cancelled", "failed", "expired"].includes(String(order.status).toLowerCase()) || String(order.paymentStatus).toLowerCase() === "failed";
-  const StatusIcon = failed ? XCircle : success ? CheckCircle2 : Clock3;
-  const statusColor = failed ? "text-red-500 bg-red-50" : success ? "text-[#047857] bg-emerald-50" : "text-amber-600 bg-amber-50";
-  const title = failed ? "Dibatalkan" : success ? "Berhasil" : "Dibuat";
-  const orderItems = order.items.length ? order.items : order.subOrders.flatMap((sub) => sub.items || []);
-  const paymentStatus = String(order.paymentStatus || "").toLowerCase();
-  const canPay = !["paid", "settlement", "success"].includes(paymentStatus) && Boolean(order.snapToken || order.paymentUrl || order.redirectUrl);
-
-  const handleReceived = async () => {
-    try {
-      setActionMessage("");
-      await confirmMutation.mutateAsync(order.id);
-      setActionMessage("Pesanan diterima. Anda dapat memberikan review.");
-      orderQuery.refetch();
-    } catch (error) {
-      setActionMessage(advancedError(error));
-    }
-  };
-
-  const handlePayNow = async () => {
-    try {
-      setPaying(true);
-      setPaymentMessage("");
-      await openMidtransPayment(order, {
-        onSuccess: () => orderQuery.refetch(),
-        onPending: () => orderQuery.refetch(),
-        onError: () => { setPaymentMessage("Pembayaran gagal. Silakan coba kembali."); orderQuery.refetch(); },
-        onClose: () => orderQuery.refetch(),
-      });
-    } catch (error) {
-      setPaymentMessage(error.message);
-    } finally {
-      setPaying(false);
-    }
-  };
-
-  return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-5">
-      <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-1.5 text-sm font-bold text-[#047857] hover:text-[#10B981]">
-        <ArrowLeft size={15} /> Kembali
-      </button>
-
-      {(paymentNotice || paymentMessage || actionMessage) ? (
-        <div className={`mb-4 rounded-xl border px-4 py-2.5 text-sm font-semibold ${paymentMessage || paymentNotice.includes("belum") || paymentNotice.includes("gagal") ? "border-amber-200 bg-amber-50 text-amber-700" : "border-emerald-200 bg-emerald-50 text-[#047857]"}`}>
-          {paymentMessage || actionMessage || paymentNotice}
-        </div>
-      ) : null}
-
-      <div className="flex items-center gap-4 border-b border-slate-100 pb-4">
-        <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${statusColor}`}>
-          <StatusIcon size={22} />
-        </div>
-        <div className="flex-1">
-          <p className="text-xs font-bold text-slate-400">{order.orderNumber}</p>
-          <h3 className="text-lg font-bold text-slate-800">{title}</h3>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
-              {order.orderType === "terjadwal"
-                ? "Pesanan Terjadwal"
-                : order.orderType === "manual"
-                  ? "Pesanan Manual"
-                  : "Pesanan Reguler"}
-            </span>
-            {order.isPreorder ? (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                Menunggu Produk
-              </span>
-            ) : null}
-          </div>
-          <p className="mt-1 text-xs text-slate-400">{order.createdAt ? new Date(order.createdAt).toLocaleString("id-ID") : "-"}</p>
-        </div>
-      </div>
-
-      <div className="grid gap-5 py-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div>
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Produk</h4>
-          <div className="mt-2 divide-y divide-slate-50">
-            {orderItems.map((item) => (
-              <div key={`${item.id}-${item.productId}-${item.variantId}`} className="flex items-center gap-3 py-3">
-                {item.imageUrl ? (
-                  <img src={resolveMediaUrl(item.imageUrl)} alt={item.productName} className="h-12 w-12 rounded-xl object-cover" loading="lazy" onError={onImageError} />
-                ) : null}
-                <div className="min-w-0 flex-1">
-                  <p className="line-clamp-1 text-sm font-semibold text-slate-800">{item.productName}</p>
-                  <p className="text-xs text-slate-400">{item.variantLabel || item.sku || "-"} x{item.quantity}</p>
-                </div>
-                <strong className="shrink-0 text-sm text-slate-800">{formatPrice(item.subtotal || item.price * item.quantity)}</strong>
-              </div>
-            ))}
-          </div>
-        </div>
-        <aside className="border-t border-slate-100 pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Ringkasan</h4>
-          <div className="mt-3 space-y-2 text-sm text-slate-500">
-            <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(order.subtotal || Math.max(0, order.grandTotal - order.shippingCost))}</span></div>
-            <div className="flex justify-between"><span>Ongkir</span><span>{formatPrice(order.shippingCost)}</span></div>
-            <div className="flex justify-between"><span>Diskon</span><span>-{formatPrice(order.discountAmount + order.shippingDiscountAmount)}</span></div>
-            <hr className="border-slate-100" />
-            <div className="flex justify-between font-bold text-slate-800"><span>Total</span><span className="text-[#047857]">{formatPrice(order.grandTotal)}</span></div>
-          </div>
-          <div className="mt-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Alamat</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">{parseShipping(order.shippingAddress).display || "-"}</p>
-          </div>
-          {order.orderType === "terjadwal" && order.scheduledAt ? (
-            <div className="mt-3">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Jadwal Kirim</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                {new Date(String(order.scheduledAt).replace(" ", "T")).toLocaleString("id-ID")}
-              </p>
-            </div>
-          ) : null}
-          {order.pickupAt ? (
-            <div className="mt-3">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Jadwal Pengambilan</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                {new Date(String(order.pickupAt).replace(" ", "T")).toLocaleString("id-ID")}
-                {order.pickupNote ? ` — ${order.pickupNote}` : ""}
-              </p>
-            </div>
-          ) : null}
-          {order.isPreorder && order.preorderReleaseAt ? (
-            <div className="mt-3">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Perkiraan Rilis Produk</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                {new Date(String(order.preorderReleaseAt).replace(" ", "T")).toLocaleString("id-ID")}
-              </p>
-            </div>
-          ) : null}
-          <p className="mt-3 text-[11px] text-slate-400">Bayar: {order.paymentMethod || "-"}</p>
-          {String(order.status).toLowerCase() === "shipped" ? (
-            <button type="button" disabled={confirmMutation.isPending} onClick={handleReceived} className="mt-3 w-full rounded-xl bg-[#10B981] px-4 py-2 text-xs font-bold text-white hover:bg-[#059669] disabled:opacity-60">
-              Sudah Diterima
-            </button>
-          ) : null}
-          {canPay ? (
-            <button type="button" disabled={paying} onClick={handlePayNow} className="mt-3 w-full rounded-xl bg-[#10B981] px-4 py-2 text-xs font-bold text-white hover:bg-[#059669] disabled:opacity-60">
-              {paying ? "Membuka Midtrans..." : "Bayar Sekarang"}
-            </button>
-          ) : null}
-        </aside>
-      </div>
-    </div>
-  );
-}
-
 function OrderTab({ items, onOpen, statusFilter }) {
   const filteredItems = useMemo(() => {
     let rows = items;
@@ -509,8 +325,11 @@ function OrderTab({ items, onOpen, statusFilter }) {
                 </div>
               </div>
             </div>
-            <div className="mt-3 border-t border-slate-50 pt-3">
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-50 pt-3">
               <p className="text-[11px] text-slate-400">{item.date}</p>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#047857]">
+                Lihat <ArrowRight size={12} />
+              </span>
             </div>
           </button>
         );
@@ -635,6 +454,8 @@ export default function CartPage() {
 
   const requestedTab = searchParams.get("tab");
   const activeTab = tabs.some((tab) => tab.key === requestedTab) ? requestedTab : "cart";
+  // Tautan lama `/cart?tab=order&orderId=...` kini diarahkan ke halaman alur
+  // pesanan tersendiri (`/orders/:id`, langkah 3).
   const selectedOrderId = searchParams.get("orderId");
 
   const [sortBy] = useState("latest");
@@ -724,17 +545,8 @@ export default function CartPage() {
   };
 
   const openOrderDetail = (id) => {
-    const next = new URLSearchParams(searchParams);
-    next.set("tab", "order");
-    next.set("orderId", String(id));
-    setSearchParams(next);
-  };
-
-  const closeDetail = () => {
-    const next = new URLSearchParams(searchParams);
-    next.set("tab", "order");
-    next.delete("orderId");
-    setSearchParams(next, { replace: true });
+    if (!id) return;
+    navigate(`/orders/${encodeURIComponent(String(id))}`);
   };
 
   useEffect(() => {
@@ -755,6 +567,10 @@ export default function CartPage() {
   const handleToggleItem = (itemKey) => setSelectedKeys((current) => current.includes(itemKey) ? current.filter((key) => key !== itemKey) : [...current, itemKey]);
   const handleDecrease = (item) => { const q = Math.max(1, Number(item.quantity || 1) - 1); if (q !== item.quantity) updateQty(item.productId, item.variantId, q); };
   const handleIncrease = (item) => { const q = Math.min(Number(item.stock || Infinity), Math.max(1, Number(item.quantity || 1)) + 1); if (q !== item.quantity) updateQty(item.productId, item.variantId, q); };
+
+  if (selectedOrderId) {
+    return <Navigate to={`/orders/${encodeURIComponent(selectedOrderId)}`} replace />;
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -794,28 +610,24 @@ export default function CartPage() {
           ) : null}
 
           {activeTab === "order" ? (
-            selectedOrderId ? (
-              <OrderDetailPanel orderId={selectedOrderId} onBack={closeDetail} paymentNotice={location.state?.paymentError || (location.state?.orderCreated ? "Pesanan berhasil dibuat." : "")} />
-            ) : (
-              <>
-                <div className="mb-4 flex flex-wrap items-center gap-2">
-                  <div className="max-w-[180px]">
-                    <SearchableSelect
-                      value={orderStatusFilter}
-                      onChange={setOrderStatusFilter}
-                      options={ORDER_STATUS_OPTIONS}
-                      placeholder="Semua status"
-                      emptyText="—"
-                    />
-                  </div>
+            <>
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <div className="max-w-[180px]">
+                  <SearchableSelect
+                    value={orderStatusFilter}
+                    onChange={setOrderStatusFilter}
+                    options={ORDER_STATUS_OPTIONS}
+                    placeholder="Semua status"
+                    emptyText="—"
+                  />
                 </div>
-                <OrderTab
-                  items={orderItems}
-                  onOpen={openOrderDetail}
-                  statusFilter={orderStatusFilter}
-                />
-              </>
-            )
+              </div>
+              <OrderTab
+                items={orderItems}
+                onOpen={openOrderDetail}
+                statusFilter={orderStatusFilter}
+              />
+            </>
           ) : null}
 
           {activeTab === "review" ? (

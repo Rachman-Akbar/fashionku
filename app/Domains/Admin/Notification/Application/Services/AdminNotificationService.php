@@ -15,6 +15,8 @@ use InvalidArgumentException;
 
 final class AdminNotificationService
 {
+    private const RECIPIENTS_CACHE_KEY = 'admin.notification.recipients';
+
     public function __construct(private AdminNotificationRepositoryInterface $repository) {}
 
     public function paginate(string $userId, array $filters, int $perPage): LengthAwarePaginator
@@ -34,10 +36,16 @@ final class AdminNotificationService
     {
         // Daftar penerima admin relatif statis; cache singkat agar setiap
         // notifikasi tidak menjalankan query join 3 tabel.
-        $adminIds = Cache::remember(
-            'admin.notification.recipients',
-            60,
-            fn (): Collection => DB::table('users')
+        //
+        // Disimpan sebagai array skalar (bukan Collection): `config/cache.php`
+        // menetapkan `serializable_classes => false`, sehingga objek yang
+        // di-cache tidak bisa di-unserialize saat cache hit dan berubah
+        // menjadi __PHP_Incomplete_Class. Cache lama yang bukan array
+        // diabaikan dan langsung ditimpa.
+        $adminIds = Cache::get(self::RECIPIENTS_CACHE_KEY);
+
+        if (! is_array($adminIds)) {
+            $adminIds = DB::table('users')
                 ->join('user_roles', 'user_roles.user_id', '=', 'users.id')
                 ->join('roles', 'roles.id', '=', 'user_roles.role_id')
                 ->whereIn('roles.name', ['admin', 'super_admin'])
@@ -48,7 +56,11 @@ final class AdminNotificationService
                 ->distinct()
                 ->pluck('users.id')
                 ->map(fn ($id): string => (string) $id)
-        );
+                ->values()
+                ->all();
+
+            Cache::put(self::RECIPIENTS_CACHE_KEY, $adminIds, 60);
+        }
 
         return $this->notifyAdminUsers($adminIds, $data, $actorId);
     }

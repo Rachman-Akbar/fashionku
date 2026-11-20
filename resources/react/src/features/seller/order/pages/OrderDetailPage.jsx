@@ -228,15 +228,15 @@ function OrderDetailForm({ row, onDeleted, onSaved }) {
               </div>
             ) : null}
 
-            <div className="mt-3 overflow-hidden rounded-[10px] ring-1 ring-slate-200">
-              <div className="overflow-x-auto">
+            <div className="mt-3 overflow-x-clip rounded-[10px] ring-1 ring-slate-200">
+              <div className="overflow-x-auto lg:overflow-x-clip">
                 <table className="w-full border-collapse text-left text-sm">
-                  <thead className="bg-slate-50 text-xs font-extrabold uppercase text-slate-500">
+                  <thead className="sticky top-0 z-10 bg-slate-50 text-xs font-extrabold uppercase text-slate-500">
                     <tr>
-                      <th className="px-4 py-2.5">Produk</th>
-                      <th className="px-4 py-2.5 text-center">Qty</th>
-                      <th className="px-4 py-2.5 text-right">Harga</th>
-                      <th className="px-4 py-2.5 text-right">Subtotal</th>
+                      <th className="bg-slate-50 px-4 py-2.5 shadow-[inset_0_-1px_0_0_#e2e8f0]">Produk</th>
+                      <th className="bg-slate-50 px-4 py-2.5 text-center shadow-[inset_0_-1px_0_0_#e2e8f0]">Qty</th>
+                      <th className="bg-slate-50 px-4 py-2.5 text-right shadow-[inset_0_-1px_0_0_#e2e8f0]">Harga</th>
+                      <th className="bg-slate-50 px-4 py-2.5 text-right shadow-[inset_0_-1px_0_0_#e2e8f0]">Subtotal</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">

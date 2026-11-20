@@ -514,12 +514,12 @@ export default function SchedulePage() {
             {viewMode === "list" ? (
               <div className="border border-slate-200 bg-white">
                 <table className="w-full border-collapse text-left text-sm">
-                  <thead>
+                  <thead className="sticky top-0 z-10 bg-slate-50">
                     <tr className="bg-slate-50">
                       {visibleColumns.map((column) => (
-                        <th key={column.key} className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{column.label}</th>
+                        <th key={column.key} className="bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">{column.label}</th>
                       ))}
-                      <th className="w-24 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Aksi</th>
+                      <th className="w-24 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>

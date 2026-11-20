@@ -2,7 +2,6 @@ import { memo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   BellRing,
-  ChevronRight,
   LifeBuoy,
   MessageSquare,
   Moon,
@@ -18,44 +17,15 @@ import { RouteOutletBoundary } from "@/shared/layout/RouteOutletBoundary";
 import { useTheme } from "@/shared/theme/ThemeProvider";
 import { cn } from "@/shared/utils/utils";
 import PageTransitionLoader from "@/shared/layout/PageTransitionLoader";
+import { RailTooltip, useRailTooltip } from "@/shared/layout/RailTooltip";
 
 const NAV_ITEMS = [
-  {
-    href: "/profile",
-    label: "Biodata",
-    description: "Kelola nama, email, dan foto profil akun.",
-    icon: UserRound,
-  },
-  {
-    href: "/profile/chat",
-    label: "Chat",
-    description: "Percakapan dengan toko dan admin.",
-    icon: MessageSquare,
-  },
-  {
-    href: "/profile/notifications",
-    label: "Notifikasi",
-    description: "Pembaruan status pesanan dan transaksi.",
-    icon: BellRing,
-  },
-  {
-    href: "/profile/payments",
-    label: "Pembayaran",
-    description: "Riwayat transaksi dan status pembayaran.",
-    icon: WalletCards,
-  },
-  {
-    href: "/profile/appearance",
-    label: "Tampilan",
-    description: "Atur mode terang/gelap dan palet warna.",
-    icon: Palette,
-  },
-  {
-    href: "/profile/help",
-    label: "Pusat Bantuan",
-    description: "Ajukan bantuan dan pantau riwayat tiket.",
-    icon: LifeBuoy,
-  },
+  { href: "/profile", label: "Biodata", icon: UserRound },
+  { href: "/profile/chat", label: "Chat", icon: MessageSquare },
+  { href: "/profile/notifications", label: "Notifikasi", icon: BellRing },
+  { href: "/profile/payments", label: "Pembayaran", icon: WalletCards },
+  { href: "/profile/appearance", label: "Tampilan", icon: Palette },
+  { href: "/profile/help", label: "Pusat Bantuan", icon: LifeBuoy },
 ];
 
 function isActive(pathname, href) {
@@ -63,60 +33,28 @@ function isActive(pathname, href) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-const railFlyoutClassName =
-  "pointer-events-none absolute left-full top-1/2 z-50 ml-3 w-64 -translate-y-1/2 translate-x-1 rounded-2xl border border-[#e5e7eb] bg-white p-3 opacity-0 shadow-xl shadow-slate-900/10 transition-all duration-150 group-hover/item:translate-x-0 group-hover/item:opacity-100 group-focus-within/item:translate-x-0 group-focus-within/item:opacity-100";
-
-function RailFlyout({ icon: Icon, label, description, showChevron = true }) {
+function RailIconButton({ to, label, icon: Icon, active, onShowTip, onClearTip }) {
   return (
-    <div aria-hidden="true" className={railFlyoutClassName}>
-      <span
-        aria-hidden
-        className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-b border-l border-[#e5e7eb] bg-white"
-      />
-      <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
-          <Icon size={18} />
-        </span>
-        <div className="min-w-0">
-          <p className="text-sm font-bold leading-5 text-slate-900">{label}</p>
-          <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
-            {description}
-          </p>
-        </div>
-        {showChevron ? (
-          <ChevronRight size={14} className="ml-auto mt-1 shrink-0 text-slate-300" />
-        ) : null}
-      </div>
-      {showChevron ? (
-        <p className="mt-2.5 flex items-center gap-1 border-t border-[#e5e7eb] pt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-primary)]">
-          Buka halaman
-        </p>
+    <Link
+      to={to}
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
+      onMouseEnter={(event) => onShowTip(event, label)}
+      onMouseLeave={onClearTip}
+      onFocus={(event) => onShowTip(event, label)}
+      onBlur={onClearTip}
+      className={cn(
+        "relative flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-200",
+        active
+          ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
+          : "text-slate-500 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)]",
+      )}
+    >
+      <Icon size={20} />
+      {active ? (
+        <span className="absolute -right-[10px] top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-full bg-[var(--color-primary)]" />
       ) : null}
-    </div>
-  );
-}
-
-function RailIconButton({ to, label, description, icon: Icon, active }) {
-  return (
-    <div className="group/item relative flex w-full justify-center">
-      <Link
-        to={to}
-        aria-label={label}
-        aria-current={active ? "page" : undefined}
-        className={cn(
-          "relative flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-200",
-          active
-            ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
-            : "text-slate-500 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)]",
-        )}
-      >
-        <Icon size={20} />
-        {active ? (
-          <span className="absolute -right-[10px] top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-full bg-[var(--color-primary)]" />
-        ) : null}
-      </Link>
-      <RailFlyout icon={Icon} label={label} description={description} />
-    </div>
+    </Link>
   );
 }
 
@@ -124,8 +62,10 @@ const ProfileNavigation = memo(function ProfileNavigation() {
   const { pathname } = useLocation();
   const { user } = useAuth();
   const { resolvedMode, toggleMode } = useTheme();
+  const { tooltip, showTip, clearTip } = useRailTooltip();
   const initial = user?.name?.slice(0, 1)?.toUpperCase() || "R";
   const ThemeIcon = resolvedMode === "dark" ? Sun : Moon;
+  const themeLabel = resolvedMode === "dark" ? "Mode terang" : "Mode gelap";
 
   return (
     <>
@@ -136,44 +76,47 @@ const ProfileNavigation = memo(function ProfileNavigation() {
               key={item.href}
               to={item.href}
               label={item.label}
-              description={item.description}
               icon={item.icon}
               active={isActive(pathname, item.href)}
+              onShowTip={showTip}
+              onClearTip={clearTip}
             />
           ))}
         </nav>
 
         <div className="flex w-full flex-col items-center gap-2">
-          <div className="group/item relative flex w-full justify-center">
-            <button
-              type="button"
-              onClick={toggleMode}
-              aria-label={
-                resolvedMode === "dark"
-                  ? "Aktifkan mode terang"
-                  : "Aktifkan mode gelap"
-              }
-              className="relative flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 transition-all duration-200 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)]"
-            >
-              <ThemeIcon size={19} />
-            </button>
-            <RailFlyout
-              icon={ThemeIcon}
-              label={resolvedMode === "dark" ? "Mode terang" : "Mode gelap"}
-              description="Klik untuk mengganti mode tampilan area akun."
-              showChevron={false}
-            />
-          </div>
+          <button
+            type="button"
+            onClick={toggleMode}
+            onMouseEnter={(event) => showTip(event, themeLabel)}
+            onMouseLeave={clearTip}
+            onFocus={(event) => showTip(event, themeLabel)}
+            onBlur={clearTip}
+            aria-label={
+              resolvedMode === "dark"
+                ? "Aktifkan mode terang"
+                : "Aktifkan mode gelap"
+            }
+            className="relative flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 transition-all duration-200 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)]"
+          >
+            <ThemeIcon size={19} />
+          </button>
 
           <Link
             to="/profile"
             title={user?.name || "Profile"}
             aria-label="Profile"
-            className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white transition-all hover:bg-[var(--color-primary)]"
+            onMouseEnter={(event) => showTip(event, user?.name || "Profil saya")}
+            onMouseLeave={clearTip}
+            onFocus={(event) => showTip(event, user?.name || "Profil saya")}
+            onBlur={clearTip}
+            className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--color-primary)] text-sm font-bold text-white transition-all hover:bg-[var(--color-primary-hover)]"
           >
             {initial}
           </Link>
         </div>
+
+        <RailTooltip tooltip={tooltip} />
       </aside>
 
       <nav className={profileLayout.mobileNav} aria-label="Navigasi akun buyer">

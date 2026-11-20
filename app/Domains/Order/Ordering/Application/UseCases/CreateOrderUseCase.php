@@ -166,6 +166,16 @@ class CreateOrderUseCase
                 throw new RuntimeException('Alamat pengiriman tidak ditemukan.');
             }
 
+            // Ongkir marketplace dihitung lokal (haversine), sehingga tidak ada
+            // destination id dari penyedia ekspedisi. Kolom
+            // `sub_orders.destination_id` bersifat NOT NULL, jadi isi dengan id
+            // alamat tujuan (atau komerce destination id bila tersedia) agar
+            // pembuatan sub order tidak gagal.
+            $destinationId = trim((string) ($address->komerce_destination_id ?? ''));
+            if ($destinationId === '') {
+                $destinationId = 'ADDR-'.$addressId;
+            }
+
             $shippingAddress = json_encode([
                 'recipient' => $address->recipient_name,
                 'phone' => $address->phone_number,
@@ -202,7 +212,6 @@ class CreateOrderUseCase
 
             $service = strtoupper((string) $selectedOption['service']);
             $shippingTotal = (float) $selectedOption['cost'];
-            $destinationId = null;
         }
 
         $orderNumber = 'ORD-'.now()->format('YmdHis').'-'.strtoupper(bin2hex(random_bytes(3)));

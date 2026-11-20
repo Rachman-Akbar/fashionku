@@ -5,12 +5,11 @@ import { ColumnVisibilityMenu } from "@/shared/components/crud/ColumnVisibilityM
 import { ViewModeToggle } from "@/shared/components/ui/ViewModeToggle";
 import { cn } from "@/shared/utils/utils";
 
-function getTotalCountSizeClass(value, hasLabel) {
-  const digits = String(Math.max(0, Math.trunc(Number(value) || 0))).length + (hasLabel ? 3 : 0);
-  if (digits <= 2) return "text-xl";
-  if (digits === 3) return "text-lg";
-  if (digits === 4) return "text-base";
-  if (digits === 5) return "text-sm";
+function getTotalCountSizeClass(value) {
+  const digits = String(Math.max(0, Math.trunc(Number(value) || 0))).length;
+  if (digits <= 3) return "text-base";
+  if (digits === 4) return "text-sm";
+  if (digits === 5) return "text-[13px]";
   if (digits === 6) return "text-xs";
   if (digits === 7) return "text-[11px]";
   return "text-[10px]";
@@ -25,7 +24,6 @@ export const EntityToolbar = memo(function EntityToolbar({
   createLabel = "Tambah Data",
   placeholder = "Cari data lalu tekan Enter",
   totalCount,
-  totalLabel = "Data",
   totalTitle = "",
   filters,
   hideCreate = false,
@@ -72,19 +70,7 @@ export const EntityToolbar = memo(function EntityToolbar({
   };
 
   return (
-    <div className="mb-0.5 flex min-w-0 flex-col gap-[2px] bg-white px-2 py-2">
-    <div className="flex min-w-0 flex-col gap-[5px] xl:flex-row xl:items-center">
-      {Number(totalCount) >= 0 ? (
-        <span
-          className="flex h-9 w-20 shrink-0 items-center justify-center gap-1 overflow-hidden whitespace-nowrap border-l-[3px] border-emerald-500 bg-emerald-50 px-1.5 leading-none text-emerald-800 ring-1 ring-inset ring-emerald-100"
-          title={totalTitle || "Total data di database"}
-        >
-          <span className={cn("font-extrabold tabular-nums tracking-tight", getTotalCountSizeClass(totalCount, Boolean(totalLabel)))}>
-            {Number(totalCount).toLocaleString("id-ID")}
-          </span>
-          {totalLabel ? <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-emerald-600">{totalLabel}</span> : null}
-        </span>
-      ) : null}
+    <div className="mb-0.5 flex min-w-0 flex-col gap-[2px] bg-white px-2 py-2">    <div className="flex min-w-0 flex-col gap-[5px] xl:flex-row xl:items-center">
       <form onSubmit={submitSearch} className="flex min-w-0 flex-1 items-center gap-[5px]">
         <div className="flex h-9 min-w-0 flex-1 items-center rounded-[10px] bg-slate-50 px-3 ring-1 ring-inset ring-slate-200 focus-within:bg-white focus-within:ring-emerald-500">
           <span className="material-symbols-outlined shrink-0 text-[19px] text-slate-400">search</span>
@@ -96,6 +82,18 @@ export const EntityToolbar = memo(function EntityToolbar({
           ) : null}
         </div>
       </form>
+
+      {Number(totalCount) >= 0 ? (
+        <span
+          className="flex h-9 min-w-12 shrink-0 items-center justify-center self-end border-l-[3px] border-emerald-500 bg-emerald-50 px-2.5 leading-none text-emerald-800 ring-1 ring-inset ring-emerald-100 xl:self-auto"
+          title={totalTitle || "Total data"}
+          aria-label={totalTitle || "Total data"}
+        >
+          <span className={cn("font-extrabold tabular-nums tracking-tight", getTotalCountSizeClass(totalCount))}>
+            {Number(totalCount).toLocaleString("id-ID")}
+          </span>
+        </span>
+      ) : null}
 
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-[5px] xl:ml-auto">
         {filters}

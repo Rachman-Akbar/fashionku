@@ -48,6 +48,7 @@ export default function BahanBakuPage() {
   const [unitCost, setUnitCost] = useState("");
   const [unitCostInitial, setUnitCostInitial] = useState("");
   const [activeToggleId, setActiveToggleId] = useState(null);
+  const [optimisticMaterialStates, setOptimisticMaterialStates] = useState({});
 
   const materials = useRawMaterials({ per_page: 100, ...(deferred ? { search: deferred } : {}) });
   const materialMovements = useRawMaterialMovements({ per_page: 100 });
@@ -127,7 +128,7 @@ export default function BahanBakuPage() {
     { key: "stock", label: "Stok", filterType: "range" },
     { key: "minimum_stock", label: "Minimum", filterType: "range" },
     { key: "average_cost", label: "Biaya Rata-rata", filterType: "range", render: (row) => money(row.average_cost), align: "right" },
-    { key: "is_active", label: "Status", filterType: "select", options: [{ value: "true", label: "Aktif" }, { value: "false", label: "Non-Aktif" }], render: (row) => <InlineActiveSwitch checked={row.is_active !== false} pending={activeToggleId === row.id} activeLabel="Aktif" inactiveLabel="Non-Aktif" compact showLabel={false} onChange={(next) => toggleMaterialActive(row, next)} /> },
+    { key: "is_active", label: "Status", filterType: "select", options: [{ value: "true", label: "Aktif" }, { value: "false", label: "Non-Aktif" }], render: (row) => <InlineActiveSwitch checked={optimisticMaterialStates[String(row.id)] ?? (row.is_active !== false)} pending={activeToggleId === row.id} activeLabel="Aktif" inactiveLabel="Non-Aktif" compact showLabel={false} onChange={(next) => toggleMaterialActive(row, next)} /> },
     {
       key: "actions",
       label: "Aksi",
@@ -183,7 +184,10 @@ export default function BahanBakuPage() {
 
   const toggleMaterialActive = async (row, next) => {
     if (saveMaterial.isPending) return;
-    setActiveToggleId(row.id);
+    const id = String(row.id);
+    const previous = row.is_active !== false;
+    setActiveToggleId(id);
+    setOptimisticMaterialStates((prev) => ({ ...prev, [id]: next }));
     try {
       await saveMaterial.mutateAsync({
         id: row.id,
@@ -197,7 +201,9 @@ export default function BahanBakuPage() {
         },
       });
       toastSuccess("Status Bahan Baku", `${row.name || row.code} ditandai ${next ? "aktif" : "non-aktif"}.`);
+      setOptimisticMaterialStates((prev) => { const { [id]: _removed, ...rest } = prev; return rest; });
     } catch (error) {
+      setOptimisticMaterialStates((prev) => ({ ...prev, [id]: previous }));
       toastError("Status Bahan Baku", advancedError(error));
     } finally {
       setActiveToggleId(null);

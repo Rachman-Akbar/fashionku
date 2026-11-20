@@ -189,6 +189,7 @@ export default function AdminUsersPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editUser, setEditUser] = useState(null);
   const [detailUser, setDetailUser] = useState(null);
+  const [optimisticActiveStates, setOptimisticActiveStates] = useState({});
   const deferredQuery = useDeferredValue(query.trim());
   const usersQuery = useUsers({ ...(deferredQuery ? { search: deferredQuery } : {}), per_page: 100 });
   const createMutation = useCreateUser();
@@ -230,7 +231,18 @@ export default function AdminUsersPage() {
   };
 
   const handleActivate = (user, nextActive) => {
-    updateMutation.mutate({ id: user.id, values: { ...user.raw, is_active: nextActive } });
+    const id = String(user.id);
+    const previous = user.status === "Aktif";
+    setOptimisticActiveStates((prev) => ({ ...prev, [id]: nextActive }));
+    updateMutation.mutateAsync({ id: user.id, values: { ...user.raw, is_active: nextActive } })
+      .then(() => {
+        setOptimisticActiveStates((prev) => { const { [id]: _removed, ...rest } = prev; return rest; });
+        usersQuery.refetch();
+      })
+      .catch(() => {
+        setOptimisticActiveStates((prev) => ({ ...prev, [id]: previous }));
+        toastError("Gagal Mengubah Status", `Gagal mengubah status ${user.name || ""}.`);
+      });
   };
   const saveDetailUser = async (form) => {
     if (!detailUser) return;
@@ -255,14 +267,6 @@ export default function AdminUsersPage() {
         aria-label="Edit pengguna"
       >
         <span className="material-symbols-outlined text-[16px]">edit</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => handleActivate(user, user.status !== "Aktif")}
-        className="h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-slate-500 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
-        aria-label={user.status === "Aktif" ? "Nonaktifkan" : "Aktifkan"}
-      >
-        <span className="material-symbols-outlined text-[16px]">{user.status === "Aktif" ? "block" : "check_circle"}</span>
       </button>
       <button
         type="button"
@@ -367,12 +371,12 @@ export default function AdminUsersPage() {
           {rows.length && viewMode !== "grid" ? (
             <div className="border border-slate-200 bg-white">
               <table className="w-full text-left text-sm border-collapse">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-slate-50">
                   <tr className="bg-slate-50">
                     {visibleColumns.map((column) => (
-                      <th key={column.key} className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{column.label}</th>
+                      <th key={column.key} className="bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">{column.label}</th>
                     ))}
-                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 w-24">Aksi</th>
+                    <th className="w-24 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -389,7 +393,7 @@ export default function AdminUsersPage() {
                             ) : column.key === "status" ? (
                               <span onClick={(event) => event.stopPropagation()} className="inline-flex items-center gap-2">
                                 <InlineActiveSwitch
-                                  checked={user.status === "Aktif"}
+                                  checked={optimisticActiveStates[String(user.id)] ?? (user.status === "Aktif")}
                                   pending={updateMutation.isPending && updateMutation.variables?.id === user.id}
                                   activeLabel="Aktif"
                                   inactiveLabel="Nonaktif"

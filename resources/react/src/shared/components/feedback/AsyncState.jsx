@@ -7,7 +7,12 @@ export const AsyncState = memo(function AsyncState({
   emptyText = "Data belum tersedia.",
 }) {
   if (loading) {
-    return null;
+    return (
+      <div className="flex items-center justify-center gap-2 rounded-[10px] border border-slate-100 bg-white px-4 py-8" role="status" aria-busy="true">
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-emerald-500" />
+        <span className="text-sm font-semibold text-slate-500">Memuat data...</span>
+      </div>
+    );
   }
 
   if (error) {

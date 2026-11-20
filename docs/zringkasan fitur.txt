@@ -1,0 +1,60 @@
+A. Buyer
+    1. List Product, CatalogGroup, Categori, Voucher, Dll
+    2. Create Order Product General, Booking, and Preorder
+    4. Add To cart and Wishlist
+    5. List History Order dan Rate&Review Product
+    6. Chat
+
+B. Admin
+Admin mempunyai 2 cara menggunakan fitur, yaitu berjualan saja atau sekaligus melakukan operasional
+    1. Manajemen User
+    2.  CRUD Category, Product (variant, hpp, stock, dll), Voucher, Promotion (Main Marketplace)
+        CRUD Materials, HPP, Transaksi, Stock, Schedule/jadwal/pengingat (Operasional)
+    3. Import + Export Laporan dan Master data 
+    4. Manajemen Rate&Review Product, Order, Stock, dan Transaksi
+    5. Chat Buyer
+       
+Tambahkan fitur import update yang menjadi acuan adalah kode nya bukan nama product, sehingga jika ada perubahan nama product tidak akan mempengaruhi data yang sudah ada. Bukan juga ID langsung dari database, karena ID tidak dapat dilihat oleh user secara langsung
+    1. bahan baku
+    2. Product
+    3. Stock
+    4. pengeluaran dan pemasukan
+
+Fitur yang berfungsi sebagai data gunakan diagram menggunakan Chart.js. Gunakan di halaman ini :
+Halaman yang menggunakan Chart.js harus bisa menampilkan data dari filter tanggal, bulan, dan tahun. Data yang ditampilkan adalah data yang sudah di filter.
+    1. Dashboard Admin
+    2. Finance
+    3. Stock
+    4. Laporan Penjualan dan product 
+
+Hapus validasi yang tidak digunakan seperti 
+    1. product milik toko ini
+    2. voucher tidak dapat digunakan di toko (voucher sudah pasti bisa digunakan)
+    3. tidak di temukan toko
+karena saat ini project merupakan marketplace internal bukan lagi marketplace multistore
+
+Master Data
+    1. Product
+    2. Category
+    3. Bahan Baku
+    4. Pelanggan
+
+Operasional
+    1. Pesanan dan Penjualan
+    2. Stock
+    3. Keuangan
+
+Marketing
+    1. Voucher
+    2. Promo
+    3. Ulasan
+
+Manajemen User
+
+Chat 
+
+Bantuan
+
+Jadwal
+
+Pengaturan Toko (Alamat dan pengiriman dan kode custom) jadikan 1 karena sebelumnya terpisah
