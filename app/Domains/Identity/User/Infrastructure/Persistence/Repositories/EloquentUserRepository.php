@@ -136,6 +136,10 @@ final class EloquentUserRepository implements UserRepositoryInterface
                 $updateData['banned_at'] = $dto->bannedAt;
             }
 
+            if ($dto->violationMessage !== null) {
+                $updateData['violation_message'] = $dto->violationMessage;
+            }
+
             if ($updateData !== []) {
                 $user->forceFill($updateData)->save();
             }

@@ -54,8 +54,8 @@ function ModuleFrameInner({
   const resolved = resolveColumnsProps(incomingProps, registration);
 
   return (
-    <section className="w-full min-w-0 max-w-full overflow-hidden">
-      <div className="sticky top-0 z-20 -mx-px bg-white pb-2">
+    <section className="w-full min-w-0 max-w-full">
+      <div className="sticky top-0 z-20 -mx-px bg-white pb-2 pt-1">
         <EntityToolbar
         query={query}
         onQueryChange={onQueryChange}

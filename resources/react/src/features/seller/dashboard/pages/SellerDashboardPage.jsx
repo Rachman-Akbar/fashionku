@@ -17,6 +17,7 @@ const statusLabels = {
   processing: "Siap Pickup",
   shipped: "Dikirim",
   completed: "Selesai",
+  rejected: "Ditolak",
   cancelled: "Dibatalkan",
 };
 

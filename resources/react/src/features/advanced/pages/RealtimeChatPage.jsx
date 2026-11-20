@@ -18,6 +18,7 @@ import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
 import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
+import { useFocusMode } from "@/shared/layout/FocusModeContext";
 import { isOperatorRole } from "@/shared/utils/roles";
 import { cn } from "@/shared/utils/utils";
 
@@ -128,6 +129,7 @@ export default function RealtimeChatPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   // Operator toko tunggal (admin) membuka chat baru lewat form konteks.
   const canStartManually = isOperatorRole(activeRole);
+  const { isFocus, toggle: toggleFocus } = useFocusMode();
   const queryConversationId = Number(searchParams.get("conversation") || 0) || null;
   const [selectedId, setSelectedId] = useState(queryConversationId);
   const [query, setQuery] = useState("");
@@ -479,7 +481,12 @@ export default function RealtimeChatPage() {
                   {connectionLabel(connectionStatus, "seller")}
                 </span>
               </div>
-              {canStartManually && <Button size="sm" onClick={openStart}>Data Baru</Button>}
+              <div className="flex items-center gap-1">
+                {canStartManually && <Button size="sm" onClick={openStart}>Data Baru</Button>}
+                <button type="button" onClick={toggleFocus} title={isFocus ? "Keluar fokus" : "Mode fokus"} className="flex h-9 w-9 items-center justify-center rounded-md text-slate-500 hover:bg-slate-200">
+                  <span className="material-symbols-outlined text-[19px]">{isFocus ? "close_fullscreen" : "center_focus_strong"}</span>
+                </button>
+              </div>
             </div>
             <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari percakapan" className="h-9" />
           </div>
@@ -504,6 +511,7 @@ export default function RealtimeChatPage() {
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <button type="button" onClick={focusComposer} title="Fokus ke kolom pesan" className="flex h-9 w-9 items-center justify-center rounded-md text-slate-500 hover:bg-slate-200"><span className="material-symbols-outlined text-[19px]">center_focus_strong</span></button>
+                  <button type="button" onClick={toggleFocus} title={isFocus ? "Keluar fokus" : "Mode fokus"} className="flex h-9 w-9 items-center justify-center rounded-md text-slate-500 hover:bg-slate-200"><span className="material-symbols-outlined text-[19px]">{isFocus ? "close_fullscreen" : "center_focus_strong"}</span></button>
                   <button type="button" onClick={() => setFullscreen((c) => !c)} title={fullscreen ? "Keluar layar penuh" : "Layar penuh"} className="flex h-9 w-9 items-center justify-center rounded-md text-slate-500 hover:bg-slate-200"><span className="material-symbols-outlined text-[19px]">{fullscreen ? "fullscreen_exit" : "fullscreen"}</span></button>
                 </div>
               </header>

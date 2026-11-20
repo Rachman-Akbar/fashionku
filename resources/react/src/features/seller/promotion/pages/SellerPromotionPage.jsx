@@ -105,7 +105,7 @@ export default function SellerPromotionPage() {
             onCreate={editor.create}
             onRefresh={() => promotionsQuery.refetch()}
             refreshing={promotionsQuery.isFetching}
-            createLabel="Ajukan Promosi"
+            createLabel="Tambah Promosi"
             placeholder="Cari nama atau target promosi"
             totalCount={total.totalCount}
             totalLabel={total.totalLabel}
@@ -168,8 +168,8 @@ export default function SellerPromotionPage() {
         onClose={editor.close}
         onSaved={() => {
           editor.markListDirty();
-          const task = notifications.startTask({ title: editor.entity ? "Perbarui Promosi" : "Ajukan Promosi", message: editor.entity ? "Menyimpan perubahan promosi..." : "Mengajukan promosi ke admin..." });
-          task.success(editor.entity ? "Promosi berhasil diperbarui dan menunggu approval admin." : "Promosi berhasil diajukan dan menunggu approval admin.");
+const task = notifications.startTask({ title: editor.entity ? "Perbarui Promosi" : "Tambah Promosi", message: editor.entity ? "Menyimpan perubahan promosi..." : "Menyimpan promosi..." });
+           task.success(editor.entity ? "Promosi berhasil diperbarui." : "Promosi berhasil dibuat dan langsung aktif.");
           editor.completeSave();
         }}
       />

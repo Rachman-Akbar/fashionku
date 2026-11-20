@@ -9,7 +9,7 @@ function money(value) {
 }
 
 function statusLabel(status) {
-  return ({ pending: "Menunggu", processing: "Diproses", shipped: "Dikirim", received: "Diterima", completed: "Selesai", cancelled: "Dibatalkan" })[status] || status;
+  return ({ pending: "Menunggu", processing: "Diproses", shipped: "Dikirim", received: "Diterima", completed: "Selesai", rejected: "Ditolak", cancelled: "Dibatalkan" })[status] || status;
 }
 
 function formatDate(value) {

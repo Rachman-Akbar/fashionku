@@ -39,6 +39,7 @@ final class UpdateUserRequest extends FormRequest
     public function rules(): array
     {
         $userId = (string) $this->route('id');
+        $isActive = $this->boolean('is_active') ?? true;
 
         return [
             'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
@@ -49,6 +50,7 @@ final class UpdateUserRequest extends FormRequest
             'is_email_verified' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
             'banned_at' => ['sometimes', 'nullable', 'date'],
+            'violation_message' => $isActive === false ? ['required', 'string', 'max:2000'] : ['nullable', 'string', 'max:2000'],
             'message' => ['nullable', 'string', 'max:1000'],
             'verification_code' => ['sometimes', 'string', 'digits:6'],
             'role_ids' => ['nullable', 'array'],

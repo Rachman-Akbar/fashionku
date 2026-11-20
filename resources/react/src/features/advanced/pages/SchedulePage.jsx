@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { CrudDialog } from "@/shared/components/crud/CrudDialog";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { ViewModeToggle } from "@/shared/components/ui/ViewModeToggle";
+import { useFocusMode } from "@/shared/layout/FocusModeContext";
 import { useColumnVisibility, useTableSelection } from "@/shared/hooks";
 import { cn } from "@/shared/utils/utils";
 import {
@@ -372,6 +373,7 @@ function CalendarView({ rows, onEdit, onDelete }) {
 }
 
 export default function SchedulePage() {
+  const { isFocus, toggle: toggleFocus } = useFocusMode();
   const [viewMode, setViewMode] = useState("kanban");
   const [query, setQuery] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -488,7 +490,11 @@ export default function SchedulePage() {
               onResetColumns={columnVisibility.reset}
               onApplyDefaultColumns={columnVisibility.applyAsDefault}
             />
-            <div className="flex justify-end px-2">
+            <div className="flex items-center justify-end gap-2 px-2">
+              <button type="button" onClick={toggleFocus} className={cn("inline-flex h-7 items-center gap-1 rounded-[8px] border px-2 text-[11px] font-bold transition-colors", isFocus ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50")}>
+                <span className="material-symbols-outlined text-[15px]">{isFocus ? "close_fullscreen" : "center_focus_strong"}</span>
+                {isFocus ? "Keluar fokus" : "Fokus"}
+              </button>
               <ViewModeToggle value={viewMode} onChange={setViewMode} options={VIEW_OPTIONS} />
             </div>
           </div>
@@ -592,3 +598,4 @@ export default function SchedulePage() {
     </SellerPanelShell>
   );
 }
+

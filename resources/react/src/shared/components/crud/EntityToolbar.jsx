@@ -72,7 +72,8 @@ export const EntityToolbar = memo(function EntityToolbar({
   };
 
   return (
-    <div className="mb-0.5 flex min-w-0 flex-col gap-[5px] bg-white px-2 py-2 xl:flex-row xl:items-center">
+    <div className="mb-0.5 flex min-w-0 flex-col gap-[2px] bg-white px-2 py-2">
+    <div className="flex min-w-0 flex-col gap-[5px] xl:flex-row xl:items-center">
       {Number(totalCount) >= 0 ? (
         <span
           className="flex h-9 w-20 shrink-0 items-center justify-center gap-1 overflow-hidden whitespace-nowrap border-l-[3px] border-emerald-500 bg-emerald-50 px-1.5 leading-none text-emerald-800 ring-1 ring-inset ring-emerald-100"
@@ -99,15 +100,6 @@ export const EntityToolbar = memo(function EntityToolbar({
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-[5px] xl:ml-auto">
         {filters}
         {extraActions}
-        {onChangeViewMode ? (
-          <ViewModeToggle
-            value={viewMode}
-            onChange={onChangeViewMode}
-            options={viewModeOptions}
-            className="h-9"
-            label={viewModeLabel}
-          />
-        ) : null}
         <ColumnVisibilityMenu
           columns={columns}
           visibleKeys={visibleColumns}
@@ -132,6 +124,18 @@ export const EntityToolbar = memo(function EntityToolbar({
           <ActionIconButton icon="add" title={`Tambah${createLabel && createLabel !== "Tambah Data" ? ` ${createLabel.replace(/^Tambah\s*/i, "")}` : " data"}`} onClick={onCreate} variant="primary" className="h-9 w-12 rounded-[10px]" />
         ) : null}
       </div>
+      </div>
+      {onChangeViewMode ? (
+        <div className="flex items-center justify-end">
+          <ViewModeToggle
+            value={viewMode}
+            onChange={onChangeViewMode}
+            options={viewModeOptions}
+            className="h-8"
+            label={viewModeLabel}
+          />
+        </div>
+      ) : null}
     </div>
   );
 });

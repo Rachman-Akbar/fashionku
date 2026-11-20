@@ -6,6 +6,7 @@ import { CrudDialog } from "@/shared/components/crud/CrudDialog";
 import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { useColumnVisibility, useTableSelection, useViewMode } from "@/shared/hooks";
+import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/features/admin/category/services/categoryService";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
@@ -302,9 +303,9 @@ export default function AdminCategoryPage() {
     }
   };
 
-  const handleActivate = async (category) => {
+  const handleActivate = async (category, next = !category.isActive) => {
     try {
-      await updateMutation.mutateAsync({ id: category.id, values: { is_active: !category.isActive } });
+      await updateMutation.mutateAsync({ id: category.id, values: { is_active: next } });
       categoriesQuery.refetch();
     } catch {
       // handled by mutation hook
@@ -441,8 +442,15 @@ export default function AdminCategoryPage() {
                         if (column.key === "isActive") {
                           return (
                             <td key={column.key} className="px-4 py-3 text-slate-700">
-                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${category.isActive ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                                {category.isActive ? "Aktif" : "Nonaktif"}
+                              <span onClick={(event) => event.stopPropagation()}>
+                                <InlineActiveSwitch
+                                  checked={category.isActive !== false}
+                                  pending={updateMutation.isPending && updateMutation.variables?.id === category.id}
+                                  activeLabel="Aktif"
+                                  inactiveLabel="Nonaktif"
+                                  compact
+                                  onChange={(next) => handleActivate(category, next)}
+                                />
                               </span>
                             </td>
                           );

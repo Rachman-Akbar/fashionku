@@ -74,10 +74,7 @@ final class RawMaterialService
             $wasExisting = $model->exists;
             $oldAverageCost = $wasExisting ? (float) $model->average_cost : 0.0;
             $requestedAverageCost = max(0, (float) ($data['average_cost'] ?? $oldAverageCost));
-            if ($wasExisting && abs($requestedAverageCost - $oldAverageCost) >= 0.0001) {
-                throw new InvalidArgumentException('Biaya rata-rata bahan baku tidak diubah dari master. Gunakan Stock / Restock Bahan Baku dengan harga beli agar average cost dan histori HPP dihitung otomatis.');
-            }
-            $newAverageCost = $wasExisting ? $oldAverageCost : $requestedAverageCost;
+            $newAverageCost = $requestedAverageCost;
 
             $model->fill([
                 'code' => $code,
@@ -87,6 +84,19 @@ final class RawMaterialService
                 'average_cost' => $newAverageCost,
                 'is_active' => $data['is_active'] ?? true,
             ])->save();
+
+            if ($wasExisting && abs($newAverageCost - $oldAverageCost) >= 0.0001) {
+                $history = $this->recordCostHistory(
+                    $model,
+                    $oldAverageCost,
+                    $newAverageCost,
+                    null,
+                    'manual_edit',
+                    null,
+                    now()
+                );
+                $this->productCostingService->refreshForRawMaterial($model->id, $history->id, now());
+            }
 
             return $model->refresh();
         });

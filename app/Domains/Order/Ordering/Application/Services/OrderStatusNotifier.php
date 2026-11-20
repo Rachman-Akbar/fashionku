@@ -13,6 +13,7 @@ use App\Domains\Order\Ordering\Infrastructure\Mail\OrderCompletedMail;
 use App\Domains\Order\Ordering\Infrastructure\Mail\OrderConfirmedMail;
 use App\Domains\Order\Ordering\Infrastructure\Mail\OrderDeliveredMail;
 use App\Domains\Order\Ordering\Infrastructure\Mail\OrderProcessingMail;
+use App\Domains\Order\Ordering\Infrastructure\Mail\OrderRejectedMail;
 use App\Domains\Order\Ordering\Infrastructure\Mail\OrderShippedMail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -33,7 +34,7 @@ final class OrderStatusNotifier
     /**
      * @return array{chat: bool, email: bool}
      */
-    public function notifyStatus(int $orderId, string $status, ?string $reason = null): array
+    public function notifyStatus(int $orderId, string $status, ?string $reason = null, ?string $actorRole = null): array
     {
         $order = $this->orders->findById($orderId);
 
@@ -44,24 +45,31 @@ final class OrderStatusNotifier
         $buyer = User::find($order->userId);
 
         return [
-            'chat' => $this->notifyChat($order, $status, $buyer),
+            'chat' => $this->notifyChat($order, $status, $buyer, $reason, $actorRole),
             'email' => $this->notifyEmail($order, $status, $buyer, $reason),
         ];
     }
 
-    private function notifyChat(Order $order, string $status, ?User $buyer): bool
+    private function notifyChat(Order $order, string $status, ?User $buyer, ?string $reason, ?string $actorRole): bool
     {
-        if (! in_array($status, ['processing', 'completed'], true) || ! $buyer) {
+        if (! in_array($status, ['processing', 'rejected', 'cancelled', 'completed'], true) || ! $buyer) {
             return false;
         }
 
-        if ($status === 'processing') {
-            $message = "Halo {$buyer->name}, pesanan #{$order->orderNumber} kamu sudah disetujui "
-                .'dan sedang diproses oleh penjual. Kami akan menginformasikan perkembangan selanjutnya. 🙏';
-        } else {
-            $message = "Halo {$buyer->name}, pesanan #{$order->orderNumber} kamu sudah SELESAI. "
-                .'Terima kasih sudah berbelanja di Fashionku. Jangan lupa beri rating seperti biasa ya! ⭐';
-        }
+        $actor = $actorRole === 'admin' ? 'admin' : 'penjual';
+        $reasonNote = $reason !== null && trim($reason) !== '' ? ' Alasan: '.trim($reason) : '';
+
+        $message = match ($status) {
+            'processing' => "Halo {$buyer->name}, pesanan #{$order->orderNumber} kamu sudah disetujui "
+                ."dan sedang diproses oleh {$actor}. Kami akan menginformasikan perkembangan selanjutnya. 🙏",
+            'rejected' => "Halo {$buyer->name}, pesanan #{$order->orderNumber} kamu DITOLAK oleh {$actor}."
+                .$reasonNote.' Silakan hubungi kami bila membutuhkan bantuan.',
+            'cancelled' => "Halo {$buyer->name}, pesanan #{$order->orderNumber} kamu DIBATALKAN oleh {$actor}."
+                .$reasonNote.' Silakan hubungi kami bila membutuhkan bantuan.',
+            'completed' => "Halo {$buyer->name}, pesanan #{$order->orderNumber} kamu sudah SELESAI "
+                ."dan ditandai selesai oleh {$actor}. Terima kasih sudah berbelanja. "
+                .'Jangan lupa beri rating seperti biasa ya! ⭐',
+        };
 
         return $this->chat->send(
             buyerId: (string) $buyer->id,
@@ -98,6 +106,7 @@ final class OrderStatusNotifier
                 )),
                 'received' => Mail::to($buyer->email)->send(new OrderDeliveredMail($order, $buyerName)),
                 'completed' => Mail::to($buyer->email)->send(new OrderCompletedMail($order, $buyerName)),
+                'rejected' => Mail::to($buyer->email)->send(new OrderRejectedMail($order, $buyerName, $reason ?? 'Ditolak oleh admin')),
                 'cancelled' => Mail::to($buyer->email)->send(new OrderCancelledMail($order, $buyerName, $reason ?? 'Dibatalkan oleh sistem')),
                 default => null,
             };

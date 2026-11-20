@@ -19,14 +19,21 @@ function valueText(value) {
   return formatted !== "-" ? String(formatted).toLowerCase() : "";
 }
 
-export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", onRowClick, selectionEnabled = false, selectedIds = new Set(), allSelected = false, onToggleRow, onToggleAll, storageKey, hasNextPage = false, isFetchingNextPage = false, onLoadMore, onFilterStateChange, viewMode = "list", card }) {
+export const HEADER_ACTIONS_KEY = "special_actions";
+
+export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", onRowClick, selectionEnabled = false, selectedIds = new Set(), allSelected = false, onToggleRow, onToggleAll, isRowSelectable, storageKey, hasNextPage = false, isFetchingNextPage = false, onLoadMore, onFilterStateChange, viewMode = "list", card, headerActions, headerActionsLabel = "Aksi Khusus" }) {
   const { register, unregister } = useToolbarTableColumns();
-  const visibleState = useColumnVisibility(columns, storageKey || `advanced.${columns.map((column) => column.key).join(".")}`);
+  const tableColumns = useMemo(() => {
+    if (!headerActions || columns.some((column) => column.key === HEADER_ACTIONS_KEY)) return columns;
+    return [...columns, { key: HEADER_ACTIONS_KEY, label: headerActionsLabel, width: 240, minWidth: 220, maxWidth: 340, filterable: false, align: "right" }];
+  }, [columns, headerActions, headerActionsLabel]);
+  const visibleState = useColumnVisibility(tableColumns, storageKey || `advanced.${tableColumns.map((column) => column.key).join(".")}`);
   const visibleColumns = useMemo(
-    () => columns.filter((column) => visibleState.visibleSet.has(column.key)),
-    [columns, visibleState.visibleSet],
+    () => tableColumns.filter((column) => visibleState.visibleSet.has(column.key)),
+    [tableColumns, visibleState.visibleSet],
   );
-  const tableKey = useMemo(() => storageKey || `advanced.${columns.map((column) => column.key).join(".")}`, [columns, storageKey]);
+  const specialVisible = visibleState.visibleSet.has(HEADER_ACTIONS_KEY);
+  const tableKey = useMemo(() => storageKey || `advanced.${tableColumns.map((column) => column.key).join(".")}`, [tableColumns, storageKey]);
   const layoutColumns = useMemo(
     () => visibleColumns.map((column) => ({ ...column, width: column.width || 170, minWidth: column.minWidth || 96, maxWidth: column.maxWidth || 520 })),
     [visibleColumns],
@@ -34,7 +41,7 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
   const filterConfig = useMemo(() => {
     const config = {};
     layoutColumns.forEach((column) => {
-      if (column.filterable === false) return;
+      if (column.filterable === false || column.key === HEADER_ACTIONS_KEY) return;
       config[column.key] = { type: column.filterType || "text", options: column.options || [] };
     });
     return config;
@@ -43,7 +50,7 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
   const selectOptions = useMemo(() => {
     const options = {};
     layoutColumns.forEach((column) => {
-      if ((column.filterType || "text") !== "select" || (column.options && column.options.length)) return;
+      if (column.key === HEADER_ACTIONS_KEY || (column.filterType || "text") !== "select" || (column.options && column.options.length)) return;
       const values = new Set();
       rows.forEach((row) => {
         const value = formatTableValue(resolveTableValue(row, column.key));
@@ -97,12 +104,12 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
 
   useEffect(() => {
     if (!register) return undefined;
-    if (columns.length <= 1) {
+    if (tableColumns.length <= 1) {
       unregister();
       return undefined;
     }
     register({
-      columns,
+      columns: tableColumns,
       visibleKeys: visibleState.visibleKeys,
       onToggle: visibleState.toggleColumn,
       onShowAll: visibleState.showAll,
@@ -110,21 +117,25 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
       onApplyDefault: visibleState.applyAsDefault,
     });
     return () => unregister();
-  }, [columns.length, columns, layoutColumns, register, unregister, visibleState.applyAsDefault, visibleState.reset, visibleState.showAll, visibleState.toggleColumn, visibleState.visibleKeys]);
+  }, [tableColumns, layoutColumns, register, unregister, visibleState.applyAsDefault, visibleState.reset, visibleState.showAll, visibleState.toggleColumn, visibleState.visibleKeys]);
 
   const emptyMessage = rows.length && !activeFilterCount ? emptyText : activeFilterCount ? "Tidak ada data yang cocok dengan filter aktif." : emptyText;
 
   if (viewMode === "grid") {
     return (
       <div className="w-full min-w-0 max-w-full">
+        {headerActions && specialVisible ? (
+          <div className="mb-1 flex items-center justify-end bg-white px-1 py-1">{headerActions}</div>
+        ) : null}
         {sortedRows.length ? (
           <RecordCardGrid
             rows={sortedRows}
-            columns={layout.orderedColumns}
+            columns={layout.orderedColumns.filter((column) => column.key !== HEADER_ACTIONS_KEY)}
             card={card}
             onRowClick={onRowClick}
             selectionEnabled={selectionEnabled}
             selectedIds={selectedIds}
+            isRowSelectable={isRowSelectable}
             onToggleRow={onToggleRow}
             rowKey={(row) => row.id ?? row.orderId ?? row.order_id}
           />
@@ -140,6 +151,9 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
 
   return (
     <div className="w-full min-w-0 max-w-full">
+      {!sortedRows.length && headerActions && specialVisible ? (
+        <div className="mb-1 flex items-center justify-end bg-white px-1 py-1">{headerActions}</div>
+      ) : null}
       {!sortedRows.length ? <div className="border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">{emptyMessage}</div> : null}
 
       {sortedRows.length ? (
@@ -152,7 +166,11 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
                     <input type="checkbox" checked={allSelected} onChange={onToggleAll} aria-label="Pilih semua data" />
                   </th>
                 ) : null}
-                {layout.orderedColumns.map((column) => (
+                {layout.orderedColumns.map((column) => column.key === HEADER_ACTIONS_KEY ? (
+                  <th key={column.key} className="border-b border-slate-200 px-3 py-2.5 text-right align-middle" style={layout.getColumnStyle(column.key)}>
+                    {headerActions}
+                  </th>
+                ) : (
                   <TableHeaderFilter
                     key={column.key}
                     label={column.label}
@@ -196,10 +214,13 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
                   <tr key={row.id} onClick={() => onRowClick?.(row)} className={cn("relative", inactive && "bg-slate-50", onRowClick ? "cursor-pointer hover:bg-emerald-50/40" : "hover:bg-slate-50")}>
                     {selectionEnabled ? (
                       <td className={cn("px-3 py-2.5 text-center", inactive && "opacity-50 saturate-50")} onClick={(event) => event.stopPropagation()}>
-                        <input type="checkbox" checked={selectedIds.has(String(row.id)) || selectedIds.has(Number(row.id))} onChange={() => onToggleRow?.(row.id)} aria-label={`Pilih data ${row.id}`} />
+                        {!isRowSelectable || isRowSelectable(row) ? (
+                          <input type="checkbox" checked={selectedIds.has(String(row.id)) || selectedIds.has(Number(row.id))} onChange={() => onToggleRow?.(row.id)} aria-label={`Pilih data ${row.id}`} />
+                        ) : null}
                       </td>
                     ) : null}
                     {layout.orderedColumns.map((column) => {
+                      if (column.key === HEADER_ACTIONS_KEY) return <td key={column.key} className="px-3 py-2.5" />;
                       const content = column.render ? column.render(row) : formatTableValue(resolveTableValue(row, column.key));
                       return (
                         <td key={column.key} className={cn("overflow-hidden px-3 py-2.5 align-top text-slate-700", column.align === "right" && "text-right", column.align === "center" && "text-center")}>

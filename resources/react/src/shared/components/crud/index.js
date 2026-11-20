@@ -7,6 +7,7 @@ export { FormEditorFooter } from "./FormEditorFooter";
 export { FormEditorLayout } from "./FormEditorLayout";
 export { ReasonDialog } from "./ReasonDialog";
 export { RowActions } from "./RowActions";
+export { SpecialActionButton } from "./SpecialActionButton";
 export { toolbarControlClassName } from "./toolbarControlClassName";
 export * from "./ColumnVisibilityMenu";
 export * from "./BulkActionsMenu";

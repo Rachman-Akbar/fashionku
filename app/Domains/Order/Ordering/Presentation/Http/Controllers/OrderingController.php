@@ -198,7 +198,12 @@ class OrderingController extends Controller
             throw new AccessDeniedHttpException('Anda tidak dapat membatalkan pesanan ini.');
         }
 
+        $role = $this->activeRole($request);
         $this->cancelOrderUseCase->execute($id);
+
+        if ($role === 'admin') {
+            $this->statusNotifier->notifyStatus($id, 'cancelled', $request->input('reason'), 'admin');
+        }
 
         return response()->json(['success' => true, 'message' => 'Order berhasil dibatalkan.']);
     }
@@ -223,7 +228,7 @@ class OrderingController extends Controller
         if ($parent && in_array(strtolower((string) $parent->payment_status), ['paid', 'success'], true)) {
             throw new AccessDeniedHttpException('Pesanan yang sudah lunas tidak dapat dihapus.');
         }
-        if (in_array($subOrder->status, ['processing', 'shipped', 'received', 'completed', 'cancelled'], true)) {
+        if (in_array($subOrder->status, ['processing', 'shipped', 'received', 'completed', 'cancelled', 'rejected'], true)) {
             throw new AccessDeniedHttpException("Pesanan berstatus {$subOrder->status} tidak dapat dihapus.");
         }
 
@@ -248,7 +253,7 @@ class OrderingController extends Controller
     public function updateStatus(Request $request, int $id): JsonResponse
     {
         $validated = $request->validate([
-            'status' => ['required', 'string', 'in:pending,processing,shipped,received,completed,cancelled'],
+            'status' => ['required', 'string', 'in:pending,processing,shipped,received,completed,cancelled,rejected'],
             'tracking_number' => ['nullable', 'string', 'max:255'],
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
@@ -289,12 +294,13 @@ class OrderingController extends Controller
                 $previousStatus = (string) $subOrder->status;
                 $nextStatus = (string) $validated['status'];
                 $transitions = [
-                    'pending' => ['processing', 'cancelled'],
-                    'processing' => ['shipped', 'cancelled'],
+                    'pending' => ['processing', 'rejected', 'cancelled'],
+                    'processing' => ['shipped', 'rejected', 'cancelled'],
                     'shipped' => ['received', 'completed'],
                     'received' => ['completed'],
                     'completed' => [],
                     'cancelled' => [],
+                    'rejected' => [],
                 ];
 
                 if ($previousStatus !== $nextStatus && ! in_array($nextStatus, $transitions[$previousStatus] ?? [], true)) {
@@ -325,8 +331,8 @@ class OrderingController extends Controller
                 $statuses = SubOrderModel::query()->where('order_id', $parent->id)->pluck('status');
                 $parentStatus = 'pending';
 
-                if ($statuses->every(fn (string $status): bool => $status === 'cancelled')) {
-                    $parentStatus = 'cancelled';
+                if ($statuses->every(fn (string $status): bool => in_array($status, ['cancelled', 'rejected'], true))) {
+                    $parentStatus = $statuses->contains('rejected') ? 'rejected' : 'cancelled';
                 } elseif ($statuses->every(fn (string $status): bool => $status === 'completed')) {
                     $parentStatus = 'completed';
                 } elseif ($statuses->every(fn (string $status): bool => in_array($status, ['received', 'completed'], true))) {
@@ -355,14 +361,20 @@ class OrderingController extends Controller
                 ];
             });
 
-            if ($result['parent_changed'] && in_array($result['parent_status'], ['processing', 'completed'], true)) {
-                $this->statusNotifier->notifyStatus($result['order_id'], $result['parent_status']);
+            if ($result['parent_changed'] && in_array($result['parent_status'], ['processing', 'rejected', 'cancelled', 'completed'], true)) {
+                $this->statusNotifier->notifyStatus($result['order_id'], $result['parent_status'], $validated['reason'] ?? null, 'seller');
             }
 
             return response()->json(['success' => true, 'message' => 'Status sub-order berhasil diperbarui.']);
         }
 
-        $this->updateOrderStatusUseCase->execute($id, $validated['status'], $validated['reason'] ?? null);
+        $this->updateOrderStatusUseCase->execute(
+            $id,
+            $validated['status'],
+            $validated['reason'] ?? null,
+            $role,
+            $validated['tracking_number'] ?? null
+        );
 
         return response()->json(['success' => true, 'message' => 'Status order berhasil diperbarui.']);
     }
@@ -377,7 +389,7 @@ class OrderingController extends Controller
             'courier' => ['nullable', 'string', 'max:50'],
             'service' => ['nullable', 'string', 'max:100'],
             'shipping_cost' => ['nullable', 'numeric', 'min:0'],
-            'status' => ['required', 'string', 'in:pending,processing,shipped,received,completed,cancelled'],
+            'status' => ['required', 'string', 'in:pending,processing,shipped,received,completed,cancelled,rejected'],
             'tracking_number' => ['nullable', 'string', 'max:255'],
             'items' => ['nullable', 'array', 'min:1'],
             'items.*.order_item_id' => ['required', 'integer'],
@@ -405,6 +417,13 @@ class OrderingController extends Controller
 
         $editedItems = $validated['items'] ?? null;
         $isManual = $this->isManualOrder($parent);
+
+        // Order yang masuk lewat marketplace tidak boleh diubah admin/seller;
+        // perubahan hanya lewat aksi status agar data penjualan tidak direkayasa.
+        if (! $isManual) {
+            throw new AccessDeniedHttpException('Order marketplace tidak dapat diedit. Gunakan aksi ubah status, tolak, atau batalkan.');
+        }
+
         if ($editedItems !== null && ! $isManual) {
             throw new AccessDeniedHttpException('Produk hanya dapat diubah pada order manual.');
         }
@@ -416,12 +435,13 @@ class OrderingController extends Controller
             $previousStatus = (string) $subOrder->status;
             $nextStatus = (string) $validated['status'];
             $transitions = [
-                'pending' => ['processing', 'cancelled'],
-                'processing' => ['shipped', 'cancelled'],
+                'pending' => ['processing', 'rejected', 'cancelled'],
+                'processing' => ['shipped', 'rejected', 'cancelled'],
                 'shipped' => ['received', 'completed'],
                 'received' => ['completed'],
                 'completed' => [],
                 'cancelled' => [],
+                'rejected' => [],
             ];
 
             if ($previousStatus !== $nextStatus && ! in_array($nextStatus, $transitions[$previousStatus] ?? [], true)) {
@@ -526,8 +546,8 @@ class OrderingController extends Controller
             $statuses = SubOrderModel::query()->where('order_id', $parent->id)->pluck('status');
             $parentStatus = 'pending';
 
-            if ($statuses->every(fn (string $status): bool => $status === 'cancelled')) {
-                $parentStatus = 'cancelled';
+            if ($statuses->every(fn (string $status): bool => in_array($status, ['cancelled', 'rejected'], true))) {
+                $parentStatus = $statuses->contains('rejected') ? 'rejected' : 'cancelled';
             } elseif ($statuses->every(fn (string $status): bool => $status === 'completed')) {
                 $parentStatus = 'completed';
             } elseif ($statuses->every(fn (string $status): bool => in_array($status, ['received', 'completed'], true))) {
@@ -558,7 +578,12 @@ class OrderingController extends Controller
         });
 
         if ($result['notify']) {
-            $this->statusNotifier->notifyStatus($result['order_id'], $result['parent_status'] ?? $nextStatus ?? $validated['status']);
+            $this->statusNotifier->notifyStatus(
+                $result['order_id'],
+                $result['parent_status'] ?? $nextStatus ?? $validated['status'],
+                $validated['reason'] ?? null,
+                $role
+            );
         }
 
         return response()->json([
@@ -581,7 +606,7 @@ class OrderingController extends Controller
     public function notifyStatus(Request $request, int $id): JsonResponse
     {
         $validated = $request->validate([
-            'status' => ['nullable', 'string', 'in:pending,processing,shipped,received,completed,cancelled'],
+            'status' => ['nullable', 'string', 'in:pending,processing,shipped,received,completed,cancelled,rejected'],
         ]);
 
         $order = $this->orderRepository->findById($id);
@@ -597,7 +622,7 @@ class OrderingController extends Controller
 
         $status = strtolower(trim((string) ($validated['status'] ?? $order->status)));
 
-        $result = $this->statusNotifier->notifyStatus($id, $status);
+        $result = $this->statusNotifier->notifyStatus($id, $status, null, $role);
 
         return response()->json([
             'success' => true,

@@ -2,7 +2,8 @@ import { useCallback, useState } from "react";
 
 export const VIEW_MODE_LIST = "list";
 export const VIEW_MODE_GRID = "grid";
-export const VIEW_MODE_VALUES = [VIEW_MODE_LIST, VIEW_MODE_GRID];
+export const VIEW_MODE_CHART = "chart";
+export const VIEW_MODE_VALUES = [VIEW_MODE_LIST, VIEW_MODE_GRID, VIEW_MODE_CHART];
 
 function storageKeyFor(key) {
   return `panel.viewMode.${key}`;

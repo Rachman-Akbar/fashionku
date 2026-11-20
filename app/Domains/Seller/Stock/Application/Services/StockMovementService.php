@@ -150,7 +150,7 @@ final class StockMovementService
             return;
         }
 
-        if ($nextStatus === 'cancelled') {
+        if (in_array($nextStatus, ['cancelled', 'rejected'], true)) {
             $this->releaseOrderItems($orderId, null);
 
             return;
@@ -169,7 +169,7 @@ final class StockMovementService
             return;
         }
 
-        if ($nextStatus === 'cancelled') {
+        if (in_array($nextStatus, ['cancelled', 'rejected'], true)) {
             $this->releaseOrderItems(null, $subOrderId);
 
             return;

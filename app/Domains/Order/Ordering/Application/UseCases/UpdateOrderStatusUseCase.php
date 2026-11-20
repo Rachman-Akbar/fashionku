@@ -12,12 +12,13 @@ use Illuminate\Support\Facades\DB;
 class UpdateOrderStatusUseCase
 {
     private const TRANSITIONS = [
-        'pending' => ['processing', 'cancelled'],
-        'processing' => ['shipped', 'cancelled'],
+        'pending' => ['processing', 'rejected', 'cancelled'],
+        'processing' => ['shipped', 'rejected', 'cancelled'],
         'shipped' => ['received', 'completed'],
         'received' => ['completed'],
         'completed' => [],
         'cancelled' => [],
+        'rejected' => [],
     ];
 
     public function __construct(
@@ -26,9 +27,14 @@ class UpdateOrderStatusUseCase
         private OrderStatusNotifier $statusNotifier
     ) {}
 
-    public function execute(int $orderId, string $status, ?string $reason = null): void
-    {
-        $result = DB::transaction(function () use ($orderId, $status): array {
+    public function execute(
+        int $orderId,
+        string $status,
+        ?string $reason = null,
+        ?string $actorRole = null,
+        ?string $trackingNumber = null
+    ): void {
+        $result = DB::transaction(function () use ($orderId, $status, $trackingNumber): array {
             $order = $this->orderRepository->findById($orderId);
 
             if (! $order) {
@@ -57,6 +63,12 @@ class UpdateOrderStatusUseCase
 
             $this->orderRepository->update($order);
 
+            if ($trackingNumber !== null && trim($trackingNumber) !== '') {
+                SubOrderModel::query()
+                    ->where('order_id', $orderId)
+                    ->update(['tracking_number' => trim($trackingNumber), 'updated_at' => now()]);
+            }
+
             if ($status === 'completed') {
                 SubOrderModel::query()
                     ->where('order_id', $orderId)
@@ -72,7 +84,7 @@ class UpdateOrderStatusUseCase
         });
 
         if ($result['notify']) {
-            $this->statusNotifier->notifyStatus($orderId, $status, $reason);
+            $this->statusNotifier->notifyStatus($orderId, $status, $reason, $actorRole);
         }
     }
 }

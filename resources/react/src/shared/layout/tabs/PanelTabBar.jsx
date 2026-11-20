@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { cn } from "@/shared/utils/utils";
 import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
+import { useUnreadHelpCount } from "@/shared/hooks/usePanelBadges";
 
 function TabDropdown({ tabs, activeId, onActivate, onClose, onCloseAll, closeAllLabel = "Tutup Semua", label, accent = "slate", dirtyTabIds }) {
   const [open, setOpen] = useState(false);
@@ -145,6 +146,7 @@ function ScrollableTabs({ tabs, activeId, onActivate, onClose, variant, dirtyTab
 
 export const PanelTabBar = memo(function PanelTabBar() {
   const context = usePanelTabs();
+  const helpUnread = useUnreadHelpCount();
   if (!context) return null;
 
   const listTab = context.tabs.find((tab) => tab.type === "list");
@@ -186,14 +188,20 @@ export const PanelTabBar = memo(function PanelTabBar() {
               const helpHref = context.activeParentId?.startsWith("/admin") ? "/admin/help" : "/seller/help";
               context.navigate(helpHref);
             }}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-800"
-            title="Buka halaman bantuan"
-            aria-label="Buka halaman bantuan"
+            className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-800"
+            title={helpUnread > 0 ? `Buka halaman bantuan (${helpUnread} belum dibaca)` : "Buka halaman bantuan"}
+            aria-label={helpUnread > 0 ? `Buka halaman bantuan, ${helpUnread} belum dibaca` : "Buka halaman bantuan"}
           >
             <span className="material-symbols-outlined text-[18px]">help</span>
+            {helpUnread > 0 ? (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white ring-2 ring-white">
+                {helpUnread > 99 ? "99+" : helpUnread}
+              </span>
+            ) : null}
           </button>
         </div>
       ) : null}
     </div>
   );
 });
+

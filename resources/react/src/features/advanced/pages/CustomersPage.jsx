@@ -1,5 +1,6 @@
-import { useDeferredValue, useMemo, useState } from "react";
-import { useCustomers } from "@/features/advanced/services/advancedMarketplaceService";
+import { useDeferredValue, useState } from "react";
+import { useCustomers, useUpdateCustomer } from "@/features/advanced/services/advancedMarketplaceService";
+import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { ModuleFrame } from "@/features/advanced/components/ModuleFrame";
 import { DataGrid } from "@/features/advanced/components/DataGrid";
@@ -8,7 +9,7 @@ import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOpera
 import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
 import { useEntityEditor, useRefreshOnListActivation, useViewMode } from "@/shared/hooks";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
-import { toastSuccess } from "@/shared/utils/userFeedback";
+import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 
 function money(value) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -21,20 +22,35 @@ export default function CustomersPage() {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query.trim());
   const listQuery = useCustomers({ per_page: 20, ...(deferredQuery ? { search: deferredQuery } : {}) });
+  const updateCustomer = useUpdateCustomer();
+  const [activeToggleId, setActiveToggleId] = useState(null);
+
+  const toggleCustomerActive = async (row, next) => {
+    if (updateCustomer.isPending) return;
+    setActiveToggleId(row.id);
+    try {
+      await updateCustomer.mutateAsync({ id: row.id, values: { is_active: next } });
+      toastSuccess("Status Pelanggan", `${row.name || "Pelanggan"} ditandai ${next ? "aktif" : "nonaktif"}.`);
+    } catch (error) {
+      toastError("Status Pelanggan", error?.response?.data?.message || "Gagal mengubah status pelanggan.");
+    } finally {
+      setActiveToggleId(null);
+    }
+  };
   const rows = listQuery.data?.rows || [];
   const total = useListTotalCount(listQuery.data?.meta, { fallbackTotal: rows.length, label: "Pelanggan" });
   const editor = useEntityEditor({ getEditLabel: (row) => row.name || `Pelanggan #${row.id}` });
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: listQuery.refetch });
   const spreadsheet = useSpreadsheetWorkspace({ module: "customer", label: "Pelanggan", allowImport: false, allowBulkDelete: false });
-  const columns = useMemo(() => [
+  const columns = [
     { key: "name", label: "Nama" },
     { key: "email", label: "Email" },
     { key: "is_manual", label: "Sumber", render: (row) => row.is_manual ? <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-extrabold uppercase text-teal-700">Manual</span> : <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-extrabold uppercase text-slate-500">Transaksi</span> },
     { key: "orders_count", label: "Jumlah Pesanan" },
     { key: "total_spent", label: "Total Belanja", render: (row) => money(row.total_spent) },
     { key: "last_order_at", label: "Pesanan Terakhir", render: (row) => row.last_order_at ? new Date(row.last_order_at).toLocaleString("id-ID") : "-" },
-    { key: "is_active", label: "Status", render: (row) => row.is_active ? "Aktif" : "Nonaktif" },
-  ], []);
+    { key: "is_active", label: "Status", filterType: "select", options: [{ value: "true", label: "Aktif" }, { value: "false", label: "Nonaktif" }], render: (row) => <InlineActiveSwitch checked={row.is_active !== false} pending={activeToggleId === row.id} activeLabel="Aktif" inactiveLabel="Nonaktif" compact onChange={(next) => toggleCustomerActive(row, next)} /> },
+  ];
 
   const customerCard = {
     title: (row) => row.name || "Pelanggan",

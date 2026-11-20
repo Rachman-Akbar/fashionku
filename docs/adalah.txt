@@ -66,36 +66,3 @@ firebase
     const app = initializeApp(firebaseConfig);
     const analytics = getAnalytics(app);
 
-Hapus validasi yang tidak digunakan seperti 
-    1. product milik toko ini
-    2. voucher tidak dapat digunakan di toko (voucher sudah pasti bisa digunakan)
-    3. tidak di temukan toko
-karena saat ini project merupakan marketplace internal bukan lagi marketplace multistore
-
-Master Data
-    1. Product
-    2. Category
-    3. Bahan Baku
-    4. Pelanggan
-
-Operasional
-    1. Pesanan dan Penjualan
-    2. Stock
-    3. Keuangan
-
-Marketing
-    1. Voucher
-    2. Promo
-    3. Ulasan
-
-Manajemen User
-
-Chat 
-
-Bantuan
-
-Jadwal
-
-Pengaturan Toko (Alamat dan pengiriman dan kode custom) jadikan 1 karena sebelumnya terpisah
-
-

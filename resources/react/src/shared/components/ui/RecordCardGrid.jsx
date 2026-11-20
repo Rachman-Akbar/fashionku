@@ -5,7 +5,7 @@ import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { cn } from "@/shared/utils/utils";
 
 const MEDIA_KEYS = ["image", "image_url", "imageUrl", "thumbnail", "photo", "avatar", "gambar"];
-const SKIPPED_KEYS = ["actions", "expand", "selection"];
+const SKIPPED_KEYS = ["actions", "expand", "selection", "special_actions"];
 
 function valueOf(column, row) {
   if (!column) return undefined;
@@ -27,6 +27,7 @@ export const RecordCardGrid = memo(function RecordCardGrid({
   onRowClickLabel = "Klik untuk membuka detail",
   selectionEnabled = false,
   selectedIds = new Set(),
+  isRowSelectable,
   onToggleRow,
   gridClassName = "grid grid-cols-1 gap-[5px] p-[2px] sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4",
   rowKey,
@@ -93,7 +94,7 @@ export const RecordCardGrid = memo(function RecordCardGrid({
               inactive && "opacity-60 saturate-50",
             )}
           >
-            {selectionEnabled ? (
+            {selectionEnabled && (!isRowSelectable || isRowSelectable(row)) ? (
               <label
                 className="absolute left-1.5 top-1.5 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded-[6px] bg-white/90 shadow-sm ring-1 ring-slate-200"
                 onClick={(event) => event.stopPropagation()}

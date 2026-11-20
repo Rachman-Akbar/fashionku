@@ -7,7 +7,7 @@ import { Input } from "@/shared/components/ui/Input";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { parseShipping } from "@/shared/utils/shipping";
 import { formatPrice } from "@/shared/utils/utils";
-import { getOrderManagementError, orderTypeLabel, useDeleteOrder, useUpdateOrder } from "@/features/admin/order/services/orderManagementService";
+import { getOrderManagementError, orderTypeLabel, useDeleteOrder, useUpdateOrder, useUpdateOrderStatus } from "@/features/admin/order/services/orderManagementService";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { isOperatorRole } from "@/shared/utils/roles";
 import { FormActionDock, FormEditorLayout } from "@/shared/components/crud";
@@ -20,6 +20,7 @@ const STATUS_OPTIONS = [
   { value: "shipped", label: "Dikirim" },
   { value: "received", label: "Diterima" },
   { value: "completed", label: "Selesai" },
+  { value: "rejected", label: "Ditolak" },
   { value: "cancelled", label: "Dibatalkan" },
 ];
 
@@ -87,6 +88,7 @@ function OrderDetailForm({ row, onDeleted, onSaved }) {
   const [statusOverride, setStatusOverride] = useState(null);
   const deleteMutation = useDeleteOrder();
   const updateMutation = useUpdateOrder();
+  const statusMutation = useUpdateOrderStatus();
 
   const raw = row?.raw || {};
   const shipping = parseShipping(raw.shipping_address || row.shippingAddress);
@@ -106,6 +108,7 @@ function OrderDetailForm({ row, onDeleted, onSaved }) {
   const pickupNote = raw.pickup_note || row?.pickupNote || "";
 
   const [status, setStatus] = useState(row?.status || "pending");
+  const [statusReason, setStatusReason] = useState("");
   const [tracking, setTracking] = useState((raw.tracking_number || row?.trackingNumber || "").trim());
   const [customerName, setCustomerName] = useState(shipping.name || row?.customerName || "");
   const [customerPhone, setCustomerPhone] = useState(shipping.phone || "");
@@ -144,6 +147,16 @@ function OrderDetailForm({ row, onDeleted, onSaved }) {
     if (event) event.preventDefault();
     setBusy(true);
     try {
+      if (!isManual) {
+        // Order marketplace tidak boleh diedit; hanya status & resi yang
+        // diperbarui lewat aksi status agar data penjualan tidak direkayasa.
+        await statusMutation.mutateAsync({ id: row.id, status, trackingNumber: tracking.trim(), reason: statusReason.trim() });
+        setStatusOverride({ status, trackingNumber: tracking });
+        onSaved?.({ status, trackingNumber: tracking });
+        toastSuccess("Ubah Status Pesanan", "Status pesanan berhasil diperbarui.");
+        return;
+      }
+
       const result = await updateMutation.mutateAsync({
         id: row.id,
         payload: {
@@ -174,7 +187,7 @@ function OrderDetailForm({ row, onDeleted, onSaved }) {
         actions={
           <FormActionDock
             tone="emerald"
-            save={{ icon: "save", label: "Simpan" }}
+            save={{ icon: "save", label: isManual ? "Simpan" : "Simpan Status" }}
             onSave={handleSave}
             disabled={busy}
             extraActions={[{ icon: "print", label: "Cetak Nota", onClick: () => setPrintOpen(true) }]}
@@ -304,7 +317,7 @@ function OrderDetailForm({ row, onDeleted, onSaved }) {
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <label className="grid gap-1.5 text-sm font-bold text-slate-700">
                 <span>Kurir</span>
-                <SearchableSelect value={courier} onChange={setCourier} options={isManual ? MANUAL_COURIER_OPTIONS : COURIER_OPTIONS} clearable={false} buttonClassName="h-10" />
+                <SearchableSelect value={courier} onChange={setCourier} options={isManual ? MANUAL_COURIER_OPTIONS : COURIER_OPTIONS} clearable={false} disabled={!isManual} buttonClassName="h-10" />
               </label>
               {pickupAt ? (
                 <div className="flex items-center gap-[5px] rounded-[10px] border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-sm font-bold text-emerald-700 sm:col-span-2">
@@ -318,7 +331,7 @@ function OrderDetailForm({ row, onDeleted, onSaved }) {
               </label>
               <label className="grid gap-1.5 text-sm font-bold text-slate-700">
                 <span>Layanan / resi</span>
-                <Input value={service} onChange={(event) => setService(event.target.value)} placeholder="Contoh: Reguler atau no. resi (opsional)" />
+                <Input value={service} onChange={(event) => setService(event.target.value)} placeholder="Contoh: Reguler atau no. resi (opsional)" disabled={!isManual} readOnly={!isManual} />
               </label>
               <label className="grid gap-1.5 text-sm font-bold text-slate-700">
                 <span>No. Resi</span>
@@ -328,6 +341,12 @@ function OrderDetailForm({ row, onDeleted, onSaved }) {
                 <span>Status pesanan</span>
                 <SearchableSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} clearable={false} buttonClassName="h-10" />
               </label>
+              {["rejected", "cancelled"].includes(status) ? (
+                <label className="grid gap-1.5 text-sm font-bold text-slate-700 sm:col-span-2">
+                  <span>Alasan {status === "rejected" ? "penolakan" : "pembatalan"}</span>
+                  <Input value={statusReason} onChange={(event) => setStatusReason(event.target.value)} placeholder="Alasan akan dikirim ke buyer melalui chat dan email" />
+                </label>
+              ) : null}
               <div className="grid gap-1.5 text-sm font-bold text-slate-700">
                 <span>Metode pembayaran</span>
                 <div className="flex h-10 items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold uppercase text-slate-700">

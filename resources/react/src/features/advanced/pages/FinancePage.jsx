@@ -7,6 +7,7 @@ import FinanceChartPanel from "@/features/advanced/components/FinanceChartPanel"
 import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { Input } from "@/shared/components/ui/Input";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
+import { SpecialActionButton } from "@/shared/components/crud/SpecialActionButton";
 import { useEntityEditor, useRefreshOnListActivation, useTableSelection, useColumnVisibility } from "@/shared/hooks";
 import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
 import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
@@ -92,6 +93,8 @@ export default function FinancePage({ mode = "cashflow" }) {
   const [form, setForm] = useState(() => initialForm(allowedTypes[0], mode));
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [localPaymentOpen, setLocalPaymentOpen] = useState(false);
+  const [payPickerOpen, setPayPickerOpen] = useState(false);
+  const [payPickerTarget, setPayPickerTarget] = useState("");
   const [paymentRow, setPaymentRow] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("transfer");
@@ -111,6 +114,17 @@ export default function FinancePage({ mode = "cashflow" }) {
   const paymentMutation = useRecordFinancePayment();
   const deleteMutation = useDeleteFinance();
   const rows = listQuery.data?.rows || [];
+  const payOptions = useMemo(
+    () => rows
+      .filter((row) => Number(row.outstanding_amount) > 0 && !["paid", "cancelled"].includes(String(row.status || "").toLowerCase()))
+      .map((row) => ({
+        value: String(row.id),
+        label: `${row.reference_number || row.title || "Transaksi"} · Sisa ${money(row.outstanding_amount)}`,
+        keywords: `${row.title || ""} ${row.reference_number || ""} ${row.order_number || ""}`,
+        group: typeLabel(row.type),
+      })),
+    [rows],
+  );
   const selection = useTableSelection(rows);
   const paymentOpen = panelTabs ? panelTabs.activeTab?.type === "finance-payment" : localPaymentOpen;
   const paymentHistoryQuery = useFinancePaymentHistory(paymentRow?.id, paymentOpen);
@@ -191,11 +205,12 @@ export default function FinancePage({ mode = "cashflow" }) {
   }, [allowedTypes, isDebtMode]);
 
   const tableColumns = useMemo(() => {
-    if (mode === "cashflow") return columns;
+    const specialActionsColumn = { key: "special_actions", label: "Aksi Khusus", width: 240 };
+    if (mode === "cashflow") return [...columns, specialActionsColumn];
     const bayarColumn = {
       key: "bayar",
       label: "Bayar",
-      locked: true,
+      defaultVisible: false,
       render: (row) => {
         const canPay = Number(row.outstanding_amount) > 0 && !["paid", "cancelled"].includes(String(row.status || "").toLowerCase());
         return (
@@ -212,10 +227,10 @@ export default function FinancePage({ mode = "cashflow" }) {
         );
       },
     };
-    return [...columns, bayarColumn];
+    return [...columns, bayarColumn, specialActionsColumn];
   }, [columns, mode]);
 
-  const columnVisibility = useColumnVisibility(tableColumns, `advanced.finance.${mode}`);
+  const columnVisibility = useColumnVisibility(tableColumns, `advanced.finance.${mode}-v2`);
   const cardView = {
     ...financeCard,
     footer: (row) => {
@@ -278,6 +293,15 @@ export default function FinancePage({ mode = "cashflow" }) {
 
   recordPaymentRef.current = recordPayment;
 
+  function submitPayPicker(event) {
+    event.preventDefault();
+    const row = rows.find((item) => String(item.id) === String(payPickerTarget));
+    if (!row) return;
+    setPayPickerOpen(false);
+    setPayPickerTarget("");
+    recordPayment(row);
+  }
+
   function closePayment() {
     setPaymentRow(null);
     setPaymentAmount("");
@@ -315,6 +339,15 @@ export default function FinancePage({ mode = "cashflow" }) {
   }
 
   const title = mode === "cashflow" ? "Pemasukan-Pengeluaran" : "Hutang-Piutang";
+  const specialActionButton = (
+    <SpecialActionButton
+      icon="payments"
+      label="Bayar / Bayar Sebagian"
+      title={payOptions.length ? "Catat pembayaran penuh atau sebagian" : "Belum ada transaksi dengan sisa tagihan"}
+      disabled={!payOptions.length}
+      onClick={() => { setPayPickerTarget(""); setPayPickerOpen(true); }}
+    />
+  );
 
   return (
     <>
@@ -339,6 +372,7 @@ export default function FinancePage({ mode = "cashflow" }) {
           selectedCount={selection.selectedCount}
           onToggleSelection={selection.toggleEnabled}
           bulkActions={spreadsheet.actions}
+          extraActions={viewMode === "chart" && columnVisibility.visibleSet.has("special_actions") ? specialActionButton : undefined}
           columns={tableColumns}
           visibleColumns={columnVisibility.visibleKeys}
           onToggleColumn={columnVisibility.toggleColumn}
@@ -351,9 +385,10 @@ export default function FinancePage({ mode = "cashflow" }) {
               viewMode={viewMode}
               card={cardView}
               onFilterStateChange={total.onFilterStateChange}
+              headerActions={specialActionButton}
               columns={tableColumns}
               rows={rows}
-              storageKey={`advanced.finance.${mode}`}
+              storageKey={`advanced.finance.${mode}-v2`}
               emptyText={listQuery.isLoading ? "" : isDebtMode ? "Belum ada data hutang atau piutang." : "Belum ada data pemasukan atau pengeluaran."}
               selectionEnabled={selection.enabled}
               selectedIds={selection.selectedIds}
@@ -372,6 +407,27 @@ export default function FinancePage({ mode = "cashflow" }) {
       <SpreadsheetOperationPanel workspace={spreadsheet} />
       <ConfirmDialog open={Boolean(deleteTarget)} title={`Hapus ${deleteTarget ? typeLabel(deleteTarget.type) : "Data Keuangan"}`} message={deleteTarget ? `${deleteTarget.reference_number || deleteTarget.title} akan dihapus.` : "Data akan dihapus."} pending={false} onClose={() => setDeleteTarget(null)} onConfirm={remove} />
 
+
+      <FormModal
+        open={payPickerOpen}
+        title="Bayar / Bayar Sebagian"
+        subtitle="Pilih transaksi yang masih memiliki sisa tagihan, lalu catat pembayarannya."
+        onClose={() => { setPayPickerOpen(false); setPayPickerTarget(""); }}
+        onSubmit={submitPayPicker}
+        submitLabel="Lanjutkan"
+      >
+        <Field label="Transaksi" required hint="Nominal cicilan, metode, dan riwayat pembayaran diatur pada langkah berikutnya.">
+          <SearchableSelect
+            value={payPickerTarget}
+            onChange={setPayPickerTarget}
+            options={payOptions}
+            placeholder="Pilih transaksi"
+            searchPlaceholder="Cari referensi, judul, atau nomor pesanan"
+            emptyText="Belum ada transaksi dengan sisa tagihan"
+            clearable={false}
+          />
+        </Field>
+      </FormModal>
 
       <FormModal
         open={paymentOpen}

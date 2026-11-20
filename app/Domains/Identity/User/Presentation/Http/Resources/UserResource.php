@@ -19,6 +19,7 @@ final class UserResource extends JsonResource
             'is_email_verified' => (bool) $this->resource->is_email_verified,
             'is_active' => (bool) $this->resource->is_active,
             'banned_at' => $this->resource->banned_at?->toDateTimeString(),
+            'violation_message' => $this->resource->violation_message,
             'roles' => $this->resource->roles->map(fn ($role): array => [
                 'id' => $role->id,
                 'name' => $role->name,

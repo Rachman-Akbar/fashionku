@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { useSellerStore } from "@/features/seller/store/services/sellerStoreService";
@@ -6,8 +7,10 @@ import { NotificationFeedbackBridge } from "@/shared/notifications/NotificationF
 import { PanelHeader } from "@/shared/layout/PanelHeader";
 import { PanelMobileNavigation } from "@/shared/layout/PanelMobileNavigation";
 import { PanelSidebar } from "@/shared/layout/PanelSidebar";
+import { usePanelBadges } from "@/shared/hooks/usePanelBadges";
 import { PanelTabBar, PanelTabsProvider } from "@/shared/layout/tabs";
 import { RouteOutletBoundary } from "@/shared/layout/RouteOutletBoundary";
+import { FocusModeContext, useFocusModeValue } from "@/shared/layout/FocusModeContext";
 import PageTransitionLoader from "@/shared/layout/PageTransitionLoader";
 import { cn } from "@/shared/utils/utils";
 
@@ -31,24 +34,41 @@ export default function SellerLayout() {
   const { data: store } = useSellerStore();
   const { pathname } = useLocation();
   const isChatRoute = pathname === "/seller/chat";
+  const { badges } = usePanelBadges("/seller/chat");
+  const focusable = pathname.startsWith("/seller/chat");
+  const [isFocus, setIsFocus] = useState(false);
+  const focusValue = useFocusModeValue(isFocus, setIsFocus);
+
+  useEffect(() => {
+    if (!focusable) setIsFocus(false);
+  }, [focusable]);
+
+  useEffect(() => {
+    if (!isFocus) return undefined;
+    const handler = (event) => { if (event.key === "Escape") setIsFocus(false); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isFocus]);
 
   return (
     <PanelTabsProvider items={SELLER_NAV_ITEMS}>
+      <FocusModeContext.Provider value={focusValue}>
       <NotificationFeedbackBridge />
       <div className="h-dvh bg-white text-slate-900">
         <PageTransitionLoader />
-        <div className="grid h-full grid-cols-1 lg:grid-cols-[76px_minmax(0,1fr)]">
-          <PanelSidebar
+        <div className={cn("grid h-full grid-cols-1", isFocus ? "" : "lg:grid-cols-[76px_minmax(0,1fr)]")}>
+          {isFocus ? null : <PanelSidebar
             items={SELLER_NAV_ITEMS}
+            badges={badges}
             homeHref="/seller"
             title="Penjual"
             sidebarClassName="border-r border-slate-100 bg-white"
             activeClassName="bg-emerald-50 text-emerald-700"
             showHomeLink={false}
             showMarketplaceLink={false}
-          />
-          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden lg:pl-[1px]">
-            <PanelHeader
+          />}
+          <div className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden", isFocus ? "" : "lg:pl-[1px]")}>
+            {isFocus ? null : <PanelHeader
               eyebrow="Panel Penjual"
               title={store?.name || "Toko"}
               storeName={store?.name || "Toko"}
@@ -58,9 +78,9 @@ export default function SellerLayout() {
               avatarClassName="bg-emerald-600"
               notificationClassName="hover:bg-slate-50"
               notificationPanel={({ close }) => <NotificationCenterPanel onClose={close} />}
-              mobileNavigation={<PanelMobileNavigation items={SELLER_NAV_ITEMS} activeClassName="bg-emerald-50 text-emerald-700" />}
-            />
-            <PanelTabBar />
+              mobileNavigation={<PanelMobileNavigation items={SELLER_NAV_ITEMS} badges={badges} activeClassName="bg-emerald-50 text-emerald-700" />}
+            />}
+            {isFocus ? null : <PanelTabBar />}
             <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-white pb-20 lg:pb-6">
               <div id="panel-editor-root" className={cn("relative w-full px-4 py-6 sm:px-6 lg:px-8", isChatRoute ? "flex h-full min-h-0 flex-col" : "mx-auto max-w-6xl")}>
                 <RouteOutletBoundary className={cn("h-full w-full min-w-0 max-w-full", isChatRoute && "min-h-0 flex-1")} />
@@ -68,7 +88,16 @@ export default function SellerLayout() {
             </main>
           </div>
         </div>
+        {isFocus ? (
+          <button type="button" onClick={() => setIsFocus(false)} className="fixed right-3 top-3 z-[70] inline-flex h-9 items-center gap-1 rounded-[10px] bg-slate-900/90 px-3 text-xs font-bold text-white shadow-lg hover:bg-slate-900">
+            <span className="material-symbols-outlined text-[18px]">close_fullscreen</span>
+            Keluar fokus
+          </button>
+        ) : null}
       </div>
+      </FocusModeContext.Provider>
     </PanelTabsProvider>
   );
 }
+
+

@@ -158,11 +158,18 @@ export const SearchableSelect = memo(function SearchableSelect({
                 <span className="min-w-0 flex-1"><strong className="block">{createLabel ? createLabel(query.trim()) : `Data tidak ditemukan, tambahkan “${query.trim()}” sebagai data baru`}</strong><span className="mt-0.5 block text-xs font-medium text-emerald-700">Nama akan dibersihkan dan dicek ulang agar tidak membuat data ganda.</span></span>
               </button>
             ) : null}
-            {filteredOptions.length ? filteredOptions.map((option) => {
+            {filteredOptions.length ? filteredOptions.map((option, index) => {
               const active = option.value === String(value ?? "");
+              const previous = filteredOptions[index - 1];
+              const showGroup = Boolean(option.group) && option.group !== previous?.group;
               return (
+                <span key={`${option.value}:${option.label}`} className="block">
+                {showGroup ? (
+                  <span className="mt-1 block border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 first:border-t-0">
+                    {option.group}
+                  </span>
+                ) : null}
                 <button
-                  key={`${option.value}:${option.label}`}
                   type="button"
                   disabled={option.disabled}
                   onClick={() => selectOption(option)}
@@ -177,6 +184,7 @@ export const SearchableSelect = memo(function SearchableSelect({
                   <span className="min-w-0 flex-1 truncate">{option.label}</span>
                   {active ? <span aria-hidden="true" className="material-symbols-outlined text-[17px]">check</span> : null}
                 </button>
+                </span>
               );
             }) : <p className="px-3 py-5 text-center text-xs font-semibold text-slate-400">{emptyText}</p>}
           </div>

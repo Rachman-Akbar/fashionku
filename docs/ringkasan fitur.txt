@@ -27,3 +27,70 @@ Halaman yang menggunakan Chart.js harus bisa menampilkan data dari filter tangga
     3. Stock
     4. Laporan Penjualan dan product 
 
+Hapus validasi yang tidak digunakan seperti 
+    1. product milik toko ini
+    2. voucher tidak dapat digunakan di toko (voucher sudah pasti bisa digunakan)
+    3. tidak di temukan toko
+karena saat ini project merupakan marketplace internal bukan lagi marketplace multistore
+
+Master Data
+    1. Product
+    2. Category
+    3. Bahan Baku
+    4. Pelanggan
+
+Operasional
+    1. Pesanan dan Penjualan
+    2. Stock
+    3. Keuangan
+
+Marketing
+    1. Voucher
+    2. Promo
+    3. Ulasan
+
+Manajemen User
+
+Chat 
+
+Bantuan
+
+Jadwal
+
+Pengaturan Toko (Alamat dan pengiriman dan kode custom) jadikan 1 karena sebelumnya terpisah
+
+lakukan perbaikan dengan cara mengAtur agar admin panel lebih optimal sesuai intruksi dibawah
+Tombol Action Special
+    1. restock / stock opname (Stok)
+    2. bayar / bayar sebagian (Keuangan)
+    3. ubah status pesanan (Pesanan)
+    4. aktif / non aktif (Master data, Manajemen user, Marketing)
+tambahkan 1 Switch mode data tampil dalam bentuk grafik pada halaman di operasional
+
+Stok sekarang tidak usah menggunakan tab lagi namun diganti menjadi kolom saja. 
+Kenaikan bahan HPP buatkan saja fitur didalam filter beserta riwyat penggunaan nya. 
+agar lebih rapih atur agar riwayat stok bisa di atur per product, perbahan baku, atau pertanggal dengan tampilan dropdown sama seperti product yang mempunyai banyak variant
+
+Lakukan perbaikan pada container search bar di admin panel agar sticky
+
+==============================================================================
+
+Agar admin tidak nakal melakukan rekayasa penjualan atau order.
+jika orderan dibuat melalui marketplace maka Admin tidak dapat melakukan edit.
+Atur juga agar admin bisa menolak orderan jadi status nya pending, diterima, ditolak, dibatalkan, selesai. 
+Jika admin menolak maka buyer akan mendapatkan notifikasi bahwa orderan ditolak oleh admin. 
+Jika admin membatalkan maka buyer akan mendapatkan notifikasi bahwa orderan dibatalkan oleh admin. 
+Jika admin menyelesaikan maka buyer akan mendapatkan notifikasi bahwa orderan selesai oleh admin.
+
+Hapus aksi yang ada di kolom pada tabel sebelumnya karen sudah ada tombol action special sebelummnya.
+Pilih kolom terapkan juga untuk menampilkan aksi kolom.
+ubah status pesanan langsung aja diubah melalui kolom status pesanan agar lebih cepat dan efisien.
+
+melakukan edit biaya bahan baku dan product akan menjadi sebuah laporan di HPP dan akan menampilkan riwayat perubahan biaya bahan baku dan product.
+
+
+Tampilan active nonactive menjadi sebuah toggle switch agar lebih mudah diakses dan tidak memakan banyak tempat. 
+Jika nonakif maka 1 baris data akan gelap.
+
+Khusus manajemen user jika melakukan nonaktif maka akan memberikan sebuah pesan berupa pelanggaran yang dilakukan oleh user tersebut. 
+Buyer dapat membaca pelanggaran melalui modal page yang tampil di website buyer

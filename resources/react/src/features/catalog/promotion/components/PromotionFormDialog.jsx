@@ -156,11 +156,11 @@ export function PromotionFormDialog({ open, entity, portal, onClose, onSaved, on
   };
 
   return (
-    <CrudDialog open={open} onClose={onClose} title={entity ? "Edit Promosi" : "Tambah Promosi"} subtitle={isSeller ? "Setiap pengajuan seller otomatis berstatus pending sampai disetujui admin." : "Promosi baru tetap pending dan harus melalui approval sebelum tampil di homepage."} size="max-w-3xl">
+    <CrudDialog open={open} onClose={onClose} title={entity ? "Edit Promosi" : "Tambah Promosi"} subtitle={isSeller ? "Promosi langsung aktif dan tampil setelah disimpan." : "Promosi baru langsung aktif dan tampil di homepage."} size="max-w-3xl">
       <form onSubmit={submit}>
         <FormEditorLayout
           actions={
-            <FormActionDock tone={isSeller ? "emerald" : "teal"} save={{ icon: isSeller ? "send" : "save", label: isSeller ? "Ajukan Promosi" : "Simpan Promosi" }} disabled={mutation.isPending || !dirty} onDelete={entity && onDelete ? () => onDelete(entity) : undefined} />
+            <FormActionDock tone={isSeller ? "emerald" : "teal"} save={{ icon: isSeller ? "save" : "save", label: isSeller ? "Simpan Promosi" : "Simpan Promosi" }} disabled={mutation.isPending || !dirty} onDelete={entity && onDelete ? () => onDelete(entity) : undefined} />
           }
         >
         <div className="grid gap-4 md:grid-cols-2">
@@ -178,7 +178,7 @@ export function PromotionFormDialog({ open, entity, portal, onClose, onSaved, on
             <div className="flex h-11 items-center justify-between rounded-xl border border-slate-200 bg-white px-3">
               <div>
                 <span className="block text-sm font-bold text-slate-700">Status aktif</span>
-                <span className="block text-[11px] text-slate-400">Promosi tetap tidak tampil ke buyer sebelum approval admin.</span>
+                <span className="block text-[11px] text-slate-400">Promosi tampil ke buyer sesuai status aktif.</span>
               </div>
               <InlineActiveSwitch checked={values.isActive} onChange={(isActive) => setField("isActive", isActive)} showLabel={false} />
             </div>
@@ -186,7 +186,7 @@ export function PromotionFormDialog({ open, entity, portal, onClose, onSaved, on
           {values.imageUrl ? <picture className="md:col-span-2"><source media="(max-width: 640px)" srcSet={values.mobileImageUrl || values.imageUrl} /><img src={values.imageUrl} alt="Preview promosi" className="aspect-[4/1] w-full rounded-2xl bg-slate-100 object-cover" /></picture> : null}
         </div>
         </FormEditorLayout>
-        <FormEditorFooter onCancel={onClose} submitLabel={isSeller ? "Ajukan Promosi" : "Simpan Promosi"} submitIcon={isSeller ? "send" : "save"} disabled={mutation.isPending || !dirty} tone={isSeller ? "emerald" : "teal"} onDelete={entity && onDelete ? () => onDelete(entity) : undefined} />
+        <FormEditorFooter onCancel={onClose} submitLabel={isSeller ? "Simpan Promosi" : "Simpan Promosi"} submitIcon={isSeller ? "send" : "save"} disabled={mutation.isPending || !dirty} tone={isSeller ? "emerald" : "teal"} onDelete={entity && onDelete ? () => onDelete(entity) : undefined} />
       </form>
     </CrudDialog>
   );

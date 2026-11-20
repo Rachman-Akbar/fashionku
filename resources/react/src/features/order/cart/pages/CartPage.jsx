@@ -52,6 +52,7 @@ const ORDER_STATUS_OPTIONS = [
   { value: "processing", label: "Diproses" },
   { value: "shipped", label: "Dikirim" },
   { value: "completed", label: "Selesai" },
+  { value: "rejected", label: "Ditolak" },
   { value: "cancelled", label: "Dibatalkan" },
 ];
 
@@ -645,7 +646,7 @@ export default function CartPage() {
   const wishlistItems = useMemo(() => sortByOption(wishlistSource, sortBy), [sortBy, wishlistSource]);
 
   const orderItems = useMemo(() => {
-    const labels = { pending: "Menunggu", processing: "Diproses", shipped: "Dikirim", completed: "Selesai", cancelled: "Dibatalkan" };
+    const labels = { pending: "Menunggu", processing: "Diproses", shipped: "Dikirim", received: "Diterima", completed: "Selesai", rejected: "Ditolak", cancelled: "Dibatalkan" };
     return (ordersQuery.data?.data || []).map((order) => {
       const firstItem = order.items[0] || order.subOrders[0]?.items?.[0] || {};
       return {

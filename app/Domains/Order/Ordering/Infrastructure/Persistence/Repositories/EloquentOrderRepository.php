@@ -88,11 +88,13 @@ class EloquentOrderRepository implements OrderRepositoryInterface
                 'midtrans_snap_token' => $order->snapToken,
             ]);
 
-            if (in_array($order->status, ['processing', 'shipped', 'received', 'completed', 'cancelled'], true)) {
+            if (in_array($order->status, ['processing', 'shipped', 'received', 'completed', 'cancelled', 'rejected'], true)) {
+                $closing = in_array($order->status, ['cancelled', 'rejected'], true);
+
                 SubOrderModel::query()
                     ->where('order_id', $model->id)
-                    ->when($order->status !== 'cancelled', fn ($query) => $query->whereNotIn('status', ['completed', 'cancelled']))
-                    ->when($order->status === 'cancelled', fn ($query) => $query->whereNotIn('status', ['received', 'completed', 'cancelled']))
+                    ->when(! $closing, fn ($query) => $query->whereNotIn('status', ['completed', 'cancelled', 'rejected']))
+                    ->when($closing, fn ($query) => $query->whereNotIn('status', ['received', 'completed', 'cancelled', 'rejected']))
                     ->update([
                         'status' => $order->status,
                         'updated_at' => now(),

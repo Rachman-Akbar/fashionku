@@ -38,6 +38,7 @@ final class User extends Authenticatable
         'is_email_verified',
         'is_active',
         'banned_at',
+        'violation_message',
         'created_by',
         'updated_by',
     ];
@@ -52,6 +53,7 @@ final class User extends Authenticatable
         'is_active' => 'boolean',
         'password' => 'hashed',
         'banned_at' => 'datetime',
+        'violation_message' => 'string',
         'deleted_at' => 'datetime',
     ];
 

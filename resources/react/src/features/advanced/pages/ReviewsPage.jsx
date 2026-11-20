@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
-import { useReviews } from "@/features/advanced/services/advancedMarketplaceService";
+import { useState } from "react";
+import { advancedError, useReviews, useUpdateReview } from "@/features/advanced/services/advancedMarketplaceService";
+import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { ModuleFrame } from "@/features/advanced/components/ModuleFrame";
 import { DataGrid } from "@/features/advanced/components/DataGrid";
 import { ReviewDetailForm } from "@/features/advanced/pages/ReviewDetailPage";
@@ -8,25 +9,53 @@ import { toolbarControlClassName } from "@/shared/components/crud/toolbarControl
 import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
 import { useEntityEditor, useRefreshOnListActivation, useViewMode } from "@/shared/hooks";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
+import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
+
+function normalizeMedia(media) {
+  if (!media) return null;
+  if (Array.isArray(media)) return media;
+  const list = media.urls || media.images || media.paths;
+  if (Array.isArray(list)) return list;
+  return typeof media === "string" ? [media] : null;
+}
 
 export default function ReviewsPage() {
   const [viewMode, setViewMode] = useViewMode("reviews");
   const [query, setQuery] = useState("");
   const [rating, setRating] = useState("");
   const listQuery = useReviews({ per_page: 20, ...(query.trim() ? { search: query.trim() } : {}), ...(rating ? { rating } : {}) });
+  const updateReview = useUpdateReview();
+  const [activeToggleId, setActiveToggleId] = useState(null);
+
+  const toggleReviewActive = async (row, next) => {
+    if (updateReview.isPending) return;
+    setActiveToggleId(row.id);
+    try {
+      await updateReview.mutateAsync({
+        id: row.id,
+        values: { rating: Number(row.rating || 0), review: row.review || null, media: normalizeMedia(row.media), is_active: next },
+      });
+      toastSuccess("Status Review", `Review ${row.product_name ? `untuk ${row.product_name}` : ""}ditandai ${next ? "aktif" : "nonaktif"}.`);
+    } catch (error) {
+      toastError("Status Review", advancedError(error));
+    } finally {
+      setActiveToggleId(null);
+    }
+  };
   const spreadsheet = useSpreadsheetWorkspace({ module: "review", label: "Review & Rating", allowImport: false, allowBulkDelete: false });
   const rows = listQuery.data?.rows || [];
   const total = useListTotalCount(listQuery.data?.meta, { fallbackTotal: rows.length, label: "Review" });
   const editor = useEntityEditor({ getEditLabel: (row) => row.product_name || `Review #${row.id}` });
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: listQuery.refetch });
-  const columns = useMemo(() => [
+  const columns = [
     { key: "product_name", label: "Produk" },
     { key: "order_number", label: "Order" },
     { key: "user_name", label: "Buyer" },
     { key: "rating", label: "Rating", render: (row) => `${"★".repeat(Number(row.rating || 0))}${"☆".repeat(Math.max(0, 5 - Number(row.rating || 0)))}` },
     { key: "review", label: "Review" },
+    { key: "is_active", label: "Status", filterable: false, render: (row) => <InlineActiveSwitch checked={row.is_active !== false} pending={activeToggleId === row.id} activeLabel="Aktif" inactiveLabel="Nonaktif" compact onChange={(next) => toggleReviewActive(row, next)} /> },
     { key: "created_at", label: "Tanggal", render: (row) => row.created_at ? new Date(row.created_at).toLocaleString("id-ID") : "-" },
-  ], []);
+  ];
 
   const reviewCard = {
     title: (row) => row.product_name || `Review #${row.id}`,

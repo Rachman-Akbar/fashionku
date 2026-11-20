@@ -86,10 +86,11 @@ export async function getSellerOrders(params = {}) {
   return normalizePage(response.data);
 }
 
-export async function updateOrderStatus(id, status, trackingNumber = "") {
+export async function updateOrderStatus(id, status, trackingNumber = "", reason = "") {
   const response = await apiClient.patch(`/api/v1/order/orderings/${id}/status`, {
     status,
     tracking_number: trackingNumber || null,
+    reason: reason || null,
   });
   return response.data;
 }
@@ -125,7 +126,7 @@ export function useSellerOrders(params = {}) {
 }
 
 export function useUpdateOrderStatus() {
-  return useMutation({ mutationFn: ({ id, status, trackingNumber }) => updateOrderStatus(id, status, trackingNumber) });
+  return useMutation({ mutationFn: ({ id, status, trackingNumber, reason }) => updateOrderStatus(id, status, trackingNumber, reason) });
 }
 
 export function useDeleteOrder() {

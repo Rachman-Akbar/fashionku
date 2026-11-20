@@ -17,8 +17,8 @@ class CancelOrderUseCase
             throw new DomainException('Order tidak ditemukan.');
         }
 
-        if (in_array($order->status, ['shipped', 'received', 'completed', 'cancelled'], true)) {
-            throw new DomainException('Order yang sudah dikirim, diterima, selesai, atau dibatalkan tidak dapat dibatalkan.');
+        if (in_array($order->status, ['shipped', 'received', 'completed', 'cancelled', 'rejected'], true)) {
+            throw new DomainException('Order yang sudah dikirim, diterima, selesai, ditolak, atau dibatalkan tidak dapat dibatalkan.');
         }
 
         if ($order->paymentStatus === 'paid') {

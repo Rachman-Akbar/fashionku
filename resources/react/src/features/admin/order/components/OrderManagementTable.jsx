@@ -17,6 +17,7 @@ const STATUS_OPTIONS = [
   { value: "shipped", label: "Shipped" },
   { value: "received", label: "Received" },
   { value: "completed", label: "Completed" },
+  { value: "rejected", label: "Rejected" },
   { value: "cancelled", label: "Cancelled" },
 ];
 
@@ -43,6 +44,7 @@ const STATUS_BUTTON_STYLES = {
   shipped: "border-violet-200 bg-violet-50 text-violet-800",
   received: "border-cyan-200 bg-cyan-50 text-cyan-800",
   completed: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  rejected: "border-red-200 bg-red-50 text-red-700",
   cancelled: "border-red-200 bg-red-50 text-red-700",
 };
 
@@ -52,6 +54,7 @@ const STATUS_DOT_STYLES = {
   shipped: "bg-violet-500",
   received: "bg-cyan-500",
   completed: "bg-emerald-500",
+  rejected: "bg-red-500",
   cancelled: "bg-red-500",
 };
 

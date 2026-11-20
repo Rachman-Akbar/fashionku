@@ -6,6 +6,7 @@ import { CrudDialog } from "@/shared/components/crud/CrudDialog";
 import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { useColumnVisibility, useTableSelection, useViewMode } from "@/shared/hooks";
+import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@/features/admin/users/services/usersService";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
@@ -231,7 +232,6 @@ export default function AdminUsersPage() {
   const handleActivate = (user, nextActive) => {
     updateMutation.mutate({ id: user.id, values: { ...user.raw, is_active: nextActive } });
   };
-
   const saveDetailUser = async (form) => {
     if (!detailUser) return;
     try {
@@ -258,7 +258,7 @@ export default function AdminUsersPage() {
       </button>
       <button
         type="button"
-        onClick={() => handleActivate(user, user.status === "Aktif")}
+        onClick={() => handleActivate(user, user.status !== "Aktif")}
         className="h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-slate-500 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
         aria-label={user.status === "Aktif" ? "Nonaktifkan" : "Aktifkan"}
       >
@@ -387,8 +387,15 @@ export default function AdminUsersPage() {
                                 {user.role === "admin" ? "Administrator" : user.role === "seller" ? "Penjual" : "Pembeli"}
                               </span>
                             ) : column.key === "status" ? (
-                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${user.status === "Aktif" ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
-                                {user.status}
+                              <span onClick={(event) => event.stopPropagation()} className="inline-flex items-center gap-2">
+                                <InlineActiveSwitch
+                                  checked={user.status === "Aktif"}
+                                  pending={updateMutation.isPending && updateMutation.variables?.id === user.id}
+                                  activeLabel="Aktif"
+                                  inactiveLabel="Nonaktif"
+                                  compact
+                                  onChange={(next) => handleActivate(user, next)}
+                                />
                               </span>
                             ) : column.key === "createdAt" ? (
                               formatDate(value)

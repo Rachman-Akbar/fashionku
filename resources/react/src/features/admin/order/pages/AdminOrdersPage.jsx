@@ -15,6 +15,7 @@ import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
 import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
 import OrderPrintSheet from "@/features/seller/order/components/OrderPrintSheet";
+import OrdersChartPanel from "@/features/admin/order/components/OrdersChartPanel";
 import OrderDetailForm from "@/features/seller/order/pages/OrderDetailPage";
 import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 
@@ -24,6 +25,11 @@ export default function AdminOrdersPage() {
   const [status, setStatus] = useState("");
   const [type, setType] = useState("");
   const [printRow, setPrintRow] = useState(null);
+  const viewModeOptions = [
+    { key: "list", icon: "view_list", label: "Tampilan list" },
+    { key: "grid", icon: "grid_view", label: "Tampilan kartu" },
+    { key: "chart", icon: "bar_chart", label: "Tampilan grafik" },
+  ];
   const notifications = useNotificationCenter();
   const deferredQuery = useDeferredValue(query.trim());
   const ordersQuery = useAdminOrders({ per_page: 20, ...(deferredQuery ? { search: deferredQuery } : {}), ...(status ? { status } : {}), ...(type ? { order_type: type } : {}) });
@@ -32,7 +38,9 @@ export default function AdminOrdersPage() {
   const total = useListTotalCount(ordersQuery.data?.meta, { label: "Pesanan" });
   const editor = useEntityEditor({ getEditLabel: (row) => row.orderNumber || row.order_number || row.subOrderNumber || `Order #${row.id}` });
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: ordersQuery.refetch });
-  const columns = useMemo(() => mergeColumns(ORDER_TABLE_COLUMNS, buildRawColumns(rows, ["id", "order_id", "order_number", "sub_order_number", "store_name", "grand_total", "total", "total_items_price", "shipping_cost", "status", "payment_status", "tracking_number"])), [rows]);
+  const columns = useMemo(() => [
+    ...mergeColumns(ORDER_TABLE_COLUMNS, buildRawColumns(rows, ["id", "order_id", "order_number", "sub_order_number", "store_name", "grand_total", "total", "total_items_price", "shipping_cost", "status", "payment_status", "tracking_number"]))
+  ], [rows]);
   const selection = useTableSelection(rows);
   const columnVisibility = useColumnVisibility(columns, "admin-orders");
   const orderCard = useMemo(() => orderCardDefinition({ onPrint: setPrintRow }), []);
@@ -49,16 +57,16 @@ export default function AdminOrdersPage() {
     },
   });
 
-  const bulkStatus = async (nextStatus) => {
-    if (!selection.selectedRows.length) return;
-    const task = notifications.startTask({ title: "Ubah Status Pesanan", message: `Memproses ${selection.selectedRows.length} pesanan ke status ${nextStatus}...` });
+  const bulkStatus = async (nextStatus, targetRows = selection.selectedRows, reason = "") => {
+    if (!targetRows.length) return;
+    const task = notifications.startTask({ title: "Ubah Status Pesanan", message: `Memproses ${targetRows.length} pesanan ke status ${nextStatus}...` });
     try {
-      for (const row of selection.selectedRows) {
-        await updateMutation.mutateAsync({ id: row.id, status: nextStatus, trackingNumber: row.trackingNumber });
+      for (const row of targetRows) {
+        await updateMutation.mutateAsync({ id: row.id, status: nextStatus, trackingNumber: row.trackingNumber, reason });
       }
       selection.clear();
       toastSuccess("Ubah Status Pesanan", `Status pesanan terpilih diubah menjadi ${nextStatus}.`);
-      task.success(`${selection.selectedRows.length} pesanan diubah menjadi ${nextStatus}.`);
+      task.success(`${targetRows.length} pesanan diubah menjadi ${nextStatus}.`);
       ordersQuery.refetch();
     } catch (error) {
       toastError("Ubah Status Pesanan", getOrderManagementError(error));
@@ -71,6 +79,7 @@ export default function AdminOrdersPage() {
     { key: "shipped", label: "Set Shipped", icon: "local_shipping", requiresSelection: true, onClick: () => bulkStatus("shipped") },
     { key: "received", label: "Set Received", icon: "inventory_2", requiresSelection: true, onClick: () => bulkStatus("received") },
     { key: "completed", label: "Set Completed", icon: "task_alt", requiresSelection: true, onClick: () => bulkStatus("completed") },
+    { key: "rejected", label: "Tolak Pesanan", icon: "block", requiresSelection: true, onClick: () => bulkStatus("rejected", selection.selectedRows, "Ditolak oleh admin") },
     ...spreadsheet.actions,
   ];
 
@@ -103,6 +112,7 @@ export default function AdminOrdersPage() {
             onApplyDefaultColumns={columnVisibility.applyAsDefault}
             viewMode={viewMode}
             onChangeViewMode={setViewMode}
+            viewModeOptions={viewModeOptions}
             filters={(
               <>
                 <SearchableSelect
@@ -126,6 +136,7 @@ export default function AdminOrdersPage() {
                     { value: "shipped", label: "Shipped" },
                     { value: "received", label: "Received" },
                     { value: "completed", label: "Completed" },
+                    { value: "rejected", label: "Rejected" },
                     { value: "cancelled", label: "Cancelled" },
                   ]}
                   placeholder="Semua status"
@@ -138,6 +149,9 @@ export default function AdminOrdersPage() {
           )}
         >
           <AsyncState loading={ordersQuery.isLoading} error={ordersQuery.error ? getOrderManagementError(ordersQuery.error) : ""} empty={!ordersQuery.isLoading && !rows.length} emptyText="Pesanan belum tersedia." />
+          {rows.length && viewMode === "chart" ? (
+            <OrdersChartPanel rows={rows} />
+          ) : null}
           {rows.length && viewMode === "grid" ? (
             <RecordCardGrid
               rows={rows}
@@ -150,7 +164,7 @@ export default function AdminOrdersPage() {
               rowKey={(row) => row.id}
             />
           ) : null}
-          {rows.length && viewMode !== "grid" ? (
+          {rows.length && viewMode !== "grid" && viewMode !== "chart" ? (
             <OrderManagementTable
               rows={rows}
               onFilterStateChange={total.onFilterStateChange}

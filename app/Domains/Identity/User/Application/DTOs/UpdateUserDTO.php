@@ -17,6 +17,7 @@ final class UpdateUserDTO
         public ?bool $isActive = null,
         public ?string $bannedAt = null,
         public bool $hasBannedAt = false,
+        public ?string $violationMessage = null,
     ) {}
 
     public static function fromArray(array $data): self
@@ -36,6 +37,7 @@ final class UpdateUserDTO
                 : null,
             bannedAt: $data['banned_at'] ?? null,
             hasBannedAt: array_key_exists('banned_at', $data),
+            violationMessage: $data['violation_message'] ?? null,
         );
     }
 }
