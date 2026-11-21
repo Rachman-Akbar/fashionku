@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, getApiMessage, unwrapApiData } from "@/core/utils/apiClient";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { useAuth } from "@/features/auth/context/AuthContext";
+import { useBuyerSurface } from "@/shared/hooks/useBuyerSurface";
 import {
   getProductById,
   getProductVariants,
@@ -211,6 +212,7 @@ async function clearRemoteCart() {
 export function CartProvider({ children }) {
   const queryClient = useQueryClient();
   const { isAuthenticated, initializing } = useAuth();
+  const isBuyerSurface = useBuyerSurface();
   const quantitySyncRef = useRef(new Map());
   const [syncingVariantIds, setSyncingVariantIds] = useState([]);
   const [syncError, setSyncError] = useState("");
@@ -218,7 +220,9 @@ export function CartProvider({ children }) {
   const cartQuery = useQuery({
     queryKey: CART_KEY,
     queryFn: fetchCart,
-    enabled: !initializing && isAuthenticated,
+    // Panel admin/seller tidak memakai keranjang; jangan buang bandwidth dan
+    // antrean request server untuk data yang tidak ditampilkan.
+    enabled: !initializing && isAuthenticated && isBuyerSurface,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
   });

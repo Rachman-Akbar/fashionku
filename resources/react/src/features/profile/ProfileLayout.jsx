@@ -154,7 +154,7 @@ export default function ProfileLayout() {
       className="profile-theme flex h-[100dvh] w-full max-w-full flex-col overflow-hidden bg-white text-slate-900"
     >
       <Navbar />
-      <PageTransitionLoader />
+      <PageTransitionLoader variant="below-header" />
       <div className="flex flex-1 min-w-0 overflow-hidden">
         <ProfileNavigation />
         <main className="relative min-w-0 max-w-full flex-1 overflow-hidden pb-16 md:pb-0">

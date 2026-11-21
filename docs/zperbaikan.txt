@@ -50,3 +50,18 @@ Lakukan perbaikan pada admin panel sebagai berikut:
         Namun, jika gagal mengubah status aktif maka berikan di notifiksi. atur agar notifikasi dapat dibuka. 
     5.  Btw ada banyak sekali kolom aksi yang duplikat dengan kolom lainnya yang mmpunyai fitur yang sama, jadi hapus saja kolom aksi yang duplikat tersebut agar lebih rapi dan efisien.
         oiya untuk menuju halaman detail data product, bahan baku, user, marketing, pesanan, keuangan, stok, dll bisa langsung klik pada nama data tersebut.
+    6. Categories masih belum menggunakan metode yang sama seperti product agar data kategori menjadi sebuah dropdown dan memunculkan anaknya
+
+=========================================================
+
+Admin panel mempunyai beberapa bug : 
+    1.  saat dijalankan sering mengalami gangguang silahkan muat ulang.
+    2.  saat berganti halaman atau berganti2 tab sering mengalami halaman nyandet atau tidak mau beralih dan tetap berada di halaman sebelumnya
+
+hapus switch tab karena Halaman yang kusebutkan hanya berupa tabel dan tidak mempunyai metode tab switch tampilan rows data 
+    1. keuangan
+    2. pesanan
+    3. stok
+    4. ulasan
+
+Atur dan perbaiki agar kategori, user, dan pelanggan mempunyai gambar di database nya

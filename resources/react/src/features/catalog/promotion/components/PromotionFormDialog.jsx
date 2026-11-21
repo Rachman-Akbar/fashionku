@@ -156,7 +156,7 @@ export function PromotionFormDialog({ open, entity, portal, onClose, onSaved, on
   };
 
   return (
-    <CrudDialog open={open} onClose={onClose} title={entity ? "Edit Promosi" : "Tambah Promosi"} subtitle={isSeller ? "Promosi langsung aktif dan tampil setelah disimpan." : "Promosi baru langsung aktif dan tampil di homepage."} size="max-w-3xl">
+    <CrudDialog presentation="page" open={open} onClose={onClose} title={entity ? "Edit Promosi" : "Tambah Promosi"} subtitle={isSeller ? "Promosi langsung aktif dan tampil setelah disimpan." : "Promosi baru langsung aktif dan tampil di homepage."} size="max-w-3xl">
       <form onSubmit={submit}>
         <FormEditorLayout
           actions={

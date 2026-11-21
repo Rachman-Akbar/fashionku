@@ -255,8 +255,8 @@ export function useDeleteCustomer() {
   return useMutationHelper((id) => remove(`/api/v1/seller/customers/${id}`), advancedKeys.customers);
 }
 
-export function useTickets(params = {}) {
-  return useInfiniteList({ queryKey: advancedKeys.tickets, queryFn: (queryParams) => getList("/api/v1/support/tickets", queryParams), params });
+export function useTickets(params = {}, options = {}) {
+  return useInfiniteList({ queryKey: advancedKeys.tickets, queryFn: (queryParams) => getList("/api/v1/support/tickets", queryParams), params, ...options });
 }
 
 export function useTicket(id, enabled = true) {
@@ -333,7 +333,14 @@ export function useConversations(params = {}, options = {}) {
   return useQuery({
     queryKey: [...advancedKeys.conversations, params],
     queryFn: () => communicationList("/conversations", params),
-    refetchInterval: () => getEchoStatus() === "connected" ? false : 15000,
+    // Jangan polling terus-menerus kalau endpoint memang menolak (mis. 403):
+    // request mahal ini menahan request lain di server dev single-thread dan
+    // membuat panel terasa "nyandet".
+    refetchInterval: (query) => {
+      const status = Number(query?.state?.error?.response?.status || 0);
+      if (status >= 400 && status < 500) return false;
+      return getEchoStatus() === "connected" ? false : 15000;
+    },
     refetchOnWindowFocus: true,
     ...options,
   });
@@ -344,7 +351,14 @@ export function useConversation(id, options = {}) {
     queryKey: [...advancedKeys.conversations, id],
     queryFn: () => communicationOne(`/conversations/${id}`),
     enabled: Boolean(id),
-    refetchInterval: () => getEchoStatus() === "connected" ? false : 15000,
+    // Jangan polling terus-menerus kalau endpoint memang menolak (mis. 403):
+    // request mahal ini menahan request lain di server dev single-thread dan
+    // membuat panel terasa "nyandet".
+    refetchInterval: (query) => {
+      const status = Number(query?.state?.error?.response?.status || 0);
+      if (status >= 400 && status < 500) return false;
+      return getEchoStatus() === "connected" ? false : 15000;
+    },
     refetchOnWindowFocus: true,
     ...options,
   });

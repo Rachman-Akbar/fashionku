@@ -26,6 +26,7 @@ export const ADMIN_NAV_ITEMS = [
 
   { href: "/admin/orders", label: "Pesanan dan Penjualan", icon: "receipt_long", group: "Operasional" },
   { href: "/admin/stock", label: "Stock", icon: "warehouse", group: "Operasional" },
+  { href: "/admin/hpp-report", label: "Laporan HPP", icon: "trending_up", group: "Operasional" },
   { href: "/admin/cashflow", label: "Keuangan", icon: "account_balance_wallet", group: "Operasional" },
 
   { href: "/admin/vouchers", label: "Voucher", icon: "confirmation_number", group: "Marketing" },
@@ -33,6 +34,11 @@ export const ADMIN_NAV_ITEMS = [
   { href: "/admin/reviews", label: "Ulasan", icon: "rate_review", group: "Marketing" },
 
   { href: "/admin/users", label: "Manajemen User", icon: "manage_accounts", group: "Manajemen User" },
+
+  // Halaman bantuan dibuka lewat tombol "?" pada PanelTabBar. Tanpa entri ini
+  // URL /admin/help tidak cocok dengan menu mana pun, sehingga tab induk tidak
+  // pernah terbuat dan halaman bantuan tampil kosong/gagal berpindah.
+  { href: "/admin/help", label: "Bantuan", icon: "help", group: "Bantuan", hiddenInSidebar: true },
 
   { href: "/admin/chat", label: "Chat", icon: "chat", group: "Chat", noChildTabs: true, bottom: true },
   { href: "/admin/planner", label: "Jadwal", icon: "event_note", group: "Jadwal", bottom: true },
@@ -86,10 +92,15 @@ export default function AdminShell({ children }) {
               mobileNavigation={<PanelMobileNavigation items={ADMIN_NAV_ITEMS} badges={badges} activeClassName="bg-[var(--color-primary-soft)] text-[var(--color-primary-strong)]" />}
               modeHeader={<AdminThemeControl />}
             />}
+            {isFocus ? null : <PageTransitionLoader variant="below-header" />}
             {isFocus ? null : <PanelTabBar />}
-            <PageTransitionLoader variant="below-tabs" />
             <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-white pt-0 pb-0">
-              <div id="panel-editor-root" className={cn("relative w-full min-w-0 pb-8 pt-0", isChatRoute ? "flex h-full min-h-0 flex-col" : "")}>
+              {/* `min-h-full` penting: halaman detail (CrudDialog
+                  presentation="page") diposisikan `absolute inset-0` di dalam
+                  container ini. Tanpa tinggi minimum, container ikut menciut
+                  setinggi konten yang tersisa sehingga detail hanya tampil
+                  sebagai strip tipis di bawah tab dan sisanya putih kosong. */}
+              <div id="panel-editor-root" className={cn("relative min-h-full w-full min-w-0 pb-8 pt-0", isChatRoute ? "flex h-full min-h-0 flex-col" : "")}>
                 <div key={pathname + search}>
                   {children || <RouteOutletBoundary className={cn("h-full w-full min-w-0 max-w-full", isChatRoute && "min-h-0 flex-1")} />}
                 </div>

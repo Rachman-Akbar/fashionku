@@ -41,7 +41,7 @@ export function SellerOrderTable({ rows = [] }) {
       <div className="max-h-[70vh] overflow-auto">
         <table className="table-fixed text-left text-sm" style={{ width: Math.max(layout.totalWidth, 900), minWidth: "100%" }}>
           <InteractiveColGroup columns={orderedColumns} getColumnStyle={layout.getColumnStyle} />
-          <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr>{orderedColumns.map((column) => <InteractiveTableHeader key={column.key} columnKey={column.key} headerProps={layout.getHeaderProps(column.key)} style={layout.getColumnStyle(column.key)} onResizeStart={layout.startResize} onResetWidth={layout.resetWidth} dragging={layout.dragKey === column.key} dropTarget={layout.dropKey === column.key} align={column.align}>{column.label}</InteractiveTableHeader>)}</tr></thead>
+          <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr>{orderedColumns.map((column) => <InteractiveTableHeader key={column.key} columnKey={column.key} headerProps={layout.getHeaderProps(column.key)} style={layout.getColumnStyle(column.key)} onResizeStart={layout.startResize} onResetWidth={layout.resetWidth} dragging={layout.dragKey === column.key} dropTarget={layout.dropKey === column.key} align={column.align}>{column.label}</InteractiveTableHeader>)}</tr></thead>
           <tbody className="divide-y divide-slate-100">{rows.map((row) => <tr key={row.id} className="transition hover:bg-slate-50/80">{orderedColumns.map((column) => renderCell(column, row))}</tr>)}</tbody>
         </table>
       </div>

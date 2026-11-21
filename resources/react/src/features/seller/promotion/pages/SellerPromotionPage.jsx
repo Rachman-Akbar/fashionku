@@ -5,6 +5,7 @@ import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
+import { useActiveToggle } from "@/shared/hooks/useActiveToggle";
 import { useEntityEditor } from "@/shared/hooks/useEntityEditor";
 import { useColumnVisibility, useTableSelection, useViewMode } from "@/shared/hooks";
 import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
@@ -83,16 +84,16 @@ export default function SellerPromotionPage() {
     ),
   };
 
-  const toggleActive = (row, isActive) => {
-    const task = notifications.startTask({ title: "Ubah Status Promosi", message: `Memproses promosi "${row.name}"...` });
-    quickUpdateMutation.mutate(
-      { id: row.id, values: { ...row, isActive } },
-      {
-        onSuccess: () => task.success(`Promosi "${row.name}" berhasil ${isActive ? "diaktifkan" : "dinonaktifkan"}.`),
-        onError: (error) => task.fail(getPromotionError(error)),
-      },
-    );
-  };
+  // Toggle aktif langsung berubah (optimistic); kegagalan masuk notifikasi.
+  const activeToggle = useActiveToggle({
+    mutate: (row, isActive) => quickUpdateMutation.mutateAsync({ id: row.id, values: { ...row, isActive } }),
+    errorMessage: getPromotionError,
+    activeOf: (row) => Boolean(row?.isActive),
+    labelOf: (row) => row?.name || `#${row?.id}`,
+    onSettled: () => promotionsQuery.refetch(),
+    openDetail: (row) => editor.edit(row),
+  });
+  const toggleActive = (row, isActive) => activeToggle.toggle(row, isActive);
 
   return (
     <SellerPanelShell>
@@ -152,6 +153,7 @@ export default function SellerPromotionPage() {
               onToggleRow={selection.toggleRow}
               onToggleAll={selection.toggleAll}
               onToggleActive={toggleActive}
+              isActiveOf={activeToggle.isActive}
               pendingId={quickUpdateMutation.variables?.id}
             />
           ) : null}

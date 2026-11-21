@@ -163,29 +163,8 @@ function VoucherCard({ voucher }) {
 export default function HomePromoSection() {
   const promotionsQuery = usePromotionHighlights();
   const categoriesQuery = useCategoriesMenu();
-  const voucherSectionRef = useRef(null);
-  const [vouchersEnabled, setVouchersEnabled] = useState(false);
 
-  useEffect(() => {
-    if (vouchersEnabled) return undefined;
-    const target = voucherSectionRef.current;
-    if (!target) return undefined;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setVouchersEnabled(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "240px 0px" },
-    );
-
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [vouchersEnabled]);
-
-  const vouchersQuery = useActiveVouchers({ enabled: vouchersEnabled });
+  const vouchersQuery = useActiveVouchers();
 
   const promos = promotionsQuery.data || [];
 
@@ -232,7 +211,7 @@ const categoryCards = useMemo(() => {
         ) : null}
       </div>
 
-      <div ref={voucherSectionRef}>
+      <div>
         <div className="mb-3 flex items-end justify-between gap-3">
           <div>
             <h3 className="text-base font-black text-slate-900 sm:text-lg">Voucher Spesial</h3>
@@ -242,7 +221,7 @@ const categoryCards = useMemo(() => {
             Lihat semua
           </Link>
         </div>
-        {!vouchersEnabled || vouchersQuery.isLoading ? (
+        {vouchersQuery.isLoading ? (
           <div className="flex gap-3 overflow-hidden">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="aspect-[16/9] w-64 shrink-0 animate-pulse rounded-2xl bg-slate-100 sm:w-72" />

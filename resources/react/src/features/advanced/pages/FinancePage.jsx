@@ -7,7 +7,6 @@ import FinanceChartPanel from "@/features/advanced/components/FinanceChartPanel"
 import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { Input } from "@/shared/components/ui/Input";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
-import { SpecialActionButton } from "@/shared/components/crud/SpecialActionButton";
 import { useEntityEditor, useRefreshOnListActivation, useTableSelection, useColumnVisibility } from "@/shared/hooks";
 import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
 import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
@@ -65,12 +64,6 @@ const TYPE_BADGE = {
 export default function FinancePage({ mode = "cashflow" }) {
   const allowedTypes = useMemo(() => (mode === "cashflow" ? ["income", "expense"] : ["receivable", "payable"]), [mode]);
   const isDebtMode = mode !== "cashflow";
-  const [viewMode, setViewMode] = useState("list");
-  const financeViewOptions = [
-    { key: "list", icon: "view_list", label: "Tampilan list" },
-    { key: "grid", icon: "grid_view", label: "Tampilan kartu" },
-    { key: "chart", icon: "bar_chart", label: "Tampilan grafik" },
-  ];
   const financeCard = {
     title: (row) => row.title || row.reference_number || "Data Keuangan",
     subtitle: (row) => [row.reference_number, row.occurred_at ? new Date(row.occurred_at).toLocaleDateString("id-ID") : null].filter(Boolean).join(" · ") || "-",
@@ -205,12 +198,12 @@ export default function FinancePage({ mode = "cashflow" }) {
   }, [allowedTypes, isDebtMode]);
 
   const tableColumns = useMemo(() => {
-    const specialActionsColumn = { key: "special_actions", label: "Aksi Khusus", width: 240 };
-    if (mode === "cashflow") return [...columns, specialActionsColumn];
+    // Tidak ada lagi tombol hijau "Bayar / Bayar Sebagian" di toolbar: aksi
+    // pembayaran hanya lewat kolom ini (satu aksi, satu tempat).
     const bayarColumn = {
       key: "bayar",
       label: "Bayar",
-      defaultVisible: false,
+      defaultVisible: true,
       render: (row) => {
         const canPay = Number(row.outstanding_amount) > 0 && !["paid", "cancelled"].includes(String(row.status || "").toLowerCase());
         return (
@@ -227,7 +220,7 @@ export default function FinancePage({ mode = "cashflow" }) {
         );
       },
     };
-    return [...columns, bayarColumn, specialActionsColumn];
+    return [...columns, bayarColumn];
   }, [columns, mode]);
 
   const columnVisibility = useColumnVisibility(tableColumns, `advanced.finance.${mode}-v2`);
@@ -339,16 +332,6 @@ export default function FinancePage({ mode = "cashflow" }) {
   }
 
   const title = mode === "cashflow" ? "Pemasukan-Pengeluaran" : "Hutang-Piutang";
-  const specialActionButton = (
-    <SpecialActionButton
-      icon="payments"
-      label="Bayar / Bayar Sebagian"
-      title={payOptions.length ? "Catat pembayaran penuh atau sebagian" : "Belum ada transaksi dengan sisa tagihan"}
-      disabled={!payOptions.length}
-      onClick={() => { setPayPickerTarget(""); setPayPickerOpen(true); }}
-    />
-  );
-
   return (
     <>
       {editor.isListActive ? (
@@ -365,14 +348,10 @@ export default function FinancePage({ mode = "cashflow" }) {
           onCreate={editor.create}
           createLabel="Tambah Data Keuangan"
           placeholder={isDebtMode ? "Cari hutang/piutang, referensi, pesanan, atau toko" : "Cari pemasukan/pengeluaran, referensi, pesanan, atau toko"}
-          viewMode={viewMode}
-          onChangeViewMode={setViewMode}
-          viewModeOptions={financeViewOptions}
           selectionEnabled={selection.enabled}
           selectedCount={selection.selectedCount}
           onToggleSelection={selection.toggleEnabled}
           bulkActions={spreadsheet.actions}
-          extraActions={viewMode === "chart" && columnVisibility.visibleSet.has("special_actions") ? specialActionButton : undefined}
           columns={tableColumns}
           visibleColumns={columnVisibility.visibleKeys}
           onToggleColumn={columnVisibility.toggleColumn}
@@ -380,12 +359,12 @@ export default function FinancePage({ mode = "cashflow" }) {
           onResetColumns={columnVisibility.reset}
           onApplyDefaultColumns={columnVisibility.applyAsDefault}
         >
-          {viewMode === "chart" ? <FinanceChartPanel mode={mode} /> : (
+          {(
             <DataGrid
-              viewMode={viewMode}
+              viewMode="list"
+              chart={viewMode === "chart" ? <FinanceChartPanel mode={mode} /> : null}
               card={cardView}
               onFilterStateChange={total.onFilterStateChange}
-              headerActions={specialActionButton}
               columns={tableColumns}
               rows={rows}
               storageKey={`advanced.finance.${mode}-v2`}
@@ -409,6 +388,7 @@ export default function FinancePage({ mode = "cashflow" }) {
 
 
       <FormModal
+        presentation="modal"
         open={payPickerOpen}
         title="Bayar / Bayar Sebagian"
         subtitle="Pilih transaksi yang masih memiliki sisa tagihan, lalu catat pembayarannya."
@@ -430,6 +410,7 @@ export default function FinancePage({ mode = "cashflow" }) {
       </FormModal>
 
       <FormModal
+        presentation="modal"
         open={paymentOpen}
         title="Catat Pembayaran"
         subtitle={paymentRow ? `${paymentRow.reference_number || paymentRow.title} · Sisa ${money(paymentRow.outstanding_amount)}` : "Masukkan nominal pembayaran."}
@@ -473,6 +454,7 @@ export default function FinancePage({ mode = "cashflow" }) {
       </FormModal>
 
       <FormModal
+        presentation="page"
         open={editor.open}
         title={editor.entity ? `Edit ${typeLabel(form.type)}` : `Tambah ${typeLabel(form.type)}`}
         subtitle="Form dibuka pada tab data tersendiri agar daftar tetap ringkas dan pekerjaan tidak tertutup modal."

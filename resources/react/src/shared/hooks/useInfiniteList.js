@@ -37,6 +37,9 @@ export function useInfiniteList({
   getNextPageParam,
   initialPage = 1,
   placeholderData,
+  retry,
+  retryOnMount,
+  refetchOnMount,
 }) {
   const page = Number(params?.page) || initialPage;
   const restParams = useMemo(() => {
@@ -62,6 +65,9 @@ export function useInfiniteList({
     staleTime,
     gcTime,
     placeholderData,
+    ...(retry === undefined ? {} : { retry }),
+    ...(retryOnMount === undefined ? {} : { retryOnMount }),
+    ...(refetchOnMount === undefined ? {} : { refetchOnMount }),
   });
 
   const data = useMemo(() => {

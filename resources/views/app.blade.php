@@ -45,6 +45,26 @@
     @endif
 </head>
 <body>
-    <div id="root"></div>
+    {{--
+      Splash statis: tampil segera dari HTML, lalu diganti React saat mount.
+      Tanpa ini, saat bundel masih diunduh/parse layar terlihat putih kosong
+      sehingga panel terasa "nyandet".
+    --}}
+    <div id="root">
+        <div id="boot-splash" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:#fff;font-family:system-ui,Segoe UI,Arial,sans-serif">
+            <div style="width:36px;height:36px;border-radius:9999px;border:4px solid #e0e3e7;border-top-color:#10B981;animation:boot-spin .8s linear infinite"></div>
+            <p style="margin:0;font-size:13px;font-weight:600;color:#5f5e5e">Memuat panel…</p>
+            <p id="boot-splash-hint" style="margin:0;max-width:320px;text-align:center;font-size:12px;color:#94a3b8"></p>
+        </div>
+        <style>@keyframes boot-spin{to{transform:rotate(360deg)}}</style>
+        <script>
+            // Jika aplikasi belum juga tampil, beri petunjuk agar pengguna bisa
+            // memulihkan sendiri tanpa menebak-nebak.
+            setTimeout(function () {
+                var hint = document.getElementById('boot-splash-hint');
+                if (hint) hint.textContent = 'Masih memuat… jika tidak berubah, muat ulang halaman ini.';
+            }, 8000);
+        </script>
+    </div>
 </body>
 </html>

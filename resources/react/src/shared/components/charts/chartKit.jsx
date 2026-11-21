@@ -9,6 +9,15 @@ ChartJS.register(...registerables);
 const AXIS_TICK = { font: { size: 11, weight: 700 }, color: "#64748b" };
 const TOOLTIP_STYLE = { borderRadius: 12, borderColor: "#e2e8f0", borderWidth: 1, font: { size: 12, weight: 600 }, titleColor: "#0f172a", bodyColor: "#0f172a" };
 
+const CHART_JS_TYPES = { horizontal: "bar", column: "bar", stacked: "bar", area: "bar" };
+
+// Tipe "horizontal/column/stacked/area" adalah varian tampilan kita, bukan
+// tipe chart.js. Tanpa pemetaan ini chart.js melempar
+// '"horizontal" is not a registered controller'.
+function chartJsType(type) {
+  return CHART_JS_TYPES[type] || type;
+}
+
 export function legendDot(color) {
   return <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: color }} />;
 }
@@ -174,7 +183,7 @@ export function SeriesBarList({
   ) : null;
 
   return (
-    <ReactChartFrame
+    <ChartFrame
       types={types}
       type={type}
       onTypeChange={setType}
@@ -187,13 +196,13 @@ export function SeriesBarList({
       <div style={{ width: "100%", height }}>
         {empty ? null : (
           <ReactChart
-            type={type === "area" ? "bar" : type}
+            type={chartJsType(type)}
             data={{ labels: data.map((row) => row.label), datasets }}
             options={options}
           />
         )}
       </div>
-    </ReactChartFrame>
+    </ChartFrame>
   );
 }
 
@@ -277,7 +286,7 @@ export function DailyCashflowBars({
   ) : null;
 
   return (
-    <ReactChartFrame
+    <ChartFrame
       types={types}
       type={type}
       onTypeChange={setType}
@@ -290,13 +299,13 @@ export function DailyCashflowBars({
       <div style={{ width: "100%", height }}>
         {empty ? null : (
           <ReactChart
-            type={type === "area" ? "line" : type === "stacked" ? "bar" : type}
+            type={chartJsType(type === "area" ? "line" : type)}
             data={chartData}
             options={options}
           />
         )}
       </div>
-    </ReactChartFrame>
+    </ChartFrame>
   );
 }
 
@@ -397,7 +406,7 @@ export function OrderRevenueBars({
   ) : null;
 
   return (
-    <ReactChartFrame
+    <ChartFrame
       types={types}
       type={type}
       onTypeChange={setType}
@@ -410,13 +419,13 @@ export function OrderRevenueBars({
       <div style={{ width: "100%", height }}>
         {empty ? null : (
           <ReactChart
-            type={type === "composed" ? "bar" : type === "area" ? "line" : type}
+            type={chartJsType(type === "composed" ? "bar" : type === "area" ? "line" : type)}
             data={{ labels: visible.map((p) => p.date), datasets }}
             options={options}
           />
         )}
       </div>
-    </ReactChartFrame>
+    </ChartFrame>
   );
 }
 
@@ -519,7 +528,7 @@ export function DonutChart({
 
   if (type === "barList") {
     return (
-      <ReactChartFrame
+      <ChartFrame
         types={types}
         type={type}
         onTypeChange={setType}
@@ -547,12 +556,12 @@ export function DonutChart({
             </div>
           ))}
         </div>
-      </ReactChartFrame>
+      </ChartFrame>
     );
   }
 
   return (
-    <ReactChartFrame
+    <ChartFrame
       types={types}
       type={type}
       onTypeChange={setType}
@@ -610,6 +619,6 @@ export function DonutChart({
           <p className="rounded-[10px] border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">Semua seri disembunyikan.</p>
         )}
       </div>
-    </ReactChartFrame>
+    </ChartFrame>
   );
 }

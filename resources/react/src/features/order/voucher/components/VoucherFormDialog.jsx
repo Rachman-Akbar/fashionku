@@ -231,6 +231,7 @@ export function VoucherFormDialog({ open, entity, portal, onClose, onSaved, onDe
 
   return (
     <CrudDialog
+      presentation="page"
       open={open}
       onClose={onClose}
       title={entity ? "Edit Voucher" : "Tambah Voucher"}

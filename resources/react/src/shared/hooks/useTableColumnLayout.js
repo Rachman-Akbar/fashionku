@@ -43,7 +43,22 @@ function normalizeColumns(columns) {
 }
 
 export function useTableColumnLayout({ storageKey, columns, preferredOrder = EMPTY_ORDER }) {
-  const normalizedColumns = useMemo(() => normalizeColumns(columns), [columns]);
+  // Halaman biasanya mengirim `columns` sebagai array baru tiap render
+  // (mis. `visibleColumns.map(...)`). Tanpa "sidik jari" ini, `normalizedColumns`
+  // ikut baru tiap render, effect sinkronisasi di bawah jalan terus-menerus dan
+  // menyetel state baru (array/objek baru) → render loop tak berujung yang
+  // membekukan halaman (halaman tidak bisa ditinggalkan / dimasuki).
+  const columnsSource = Array.isArray(columns) ? columns : [];
+  const columnsSignature = columnsSource
+    .filter((column) => column && column.key)
+    .map((column) => `${column.key}:${column.width ?? ""}:${column.minWidth ?? ""}:${column.maxWidth ?? ""}`)
+    .join("|");
+
+  const normalizedColumns = useMemo(
+    () => normalizeColumns(columnsSource),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [columnsSignature],
+  );
   const columnMap = useMemo(() => new Map(normalizedColumns.map((column) => [column.key, column])), [normalizedColumns]);
   const validKeys = useMemo(() => normalizedColumns.map((column) => column.key), [normalizedColumns]);
   const initialRef = useRef(null);
@@ -68,13 +83,22 @@ export function useTableColumnLayout({ storageKey, columns, preferredOrder = EMP
   const rafRef = useRef(0);
 
   useEffect(() => {
-    setOrder((current) => [...current.filter((key) => validKeys.includes(key)), ...validKeys.filter((key) => !current.includes(key))]);
+    setOrder((current) => {
+      const next = [...current.filter((key) => validKeys.includes(key)), ...validKeys.filter((key) => !current.includes(key))];
+      const unchanged = next.length === current.length && next.every((key, index) => key === current[index]);
+      return unchanged ? current : next;
+    });
     setWidths((current) => {
       const next = {};
       normalizedColumns.forEach((column) => {
         next[column.key] = clamp(current[column.key] ?? column.width, column.minWidth || MIN_WIDTH, column.maxWidth || MAX_WIDTH);
       });
-      return next;
+      const currentKeys = Object.keys(current);
+      const nextKeys = Object.keys(next);
+      const unchanged =
+        currentKeys.length === nextKeys.length &&
+        nextKeys.every((key) => current[key] === next[key]);
+      return unchanged ? current : next;
     });
   }, [normalizedColumns, validKeys]);
 

@@ -47,7 +47,7 @@ export function NotificationItem({ item, onRemove }) {
             </div>
           ) : null}
           {item.brief ? <BriefCountdown item={item} /> : null}
-          {item.status === "waiting" && (item.actionLabel || item.secondaryActionLabel) ? (
+          {["waiting", "failed"].includes(item.status) && (item.actionLabel || item.secondaryActionLabel) ? (
             <div className="mt-3 flex flex-wrap gap-[5px]">
               {item.secondaryActionLabel ? <button type="button" onClick={() => item.onSecondaryAction?.()} className="h-8 border border-slate-200 bg-white px-3 text-xs font-extrabold text-slate-700 hover:bg-slate-50">{item.secondaryActionLabel}</button> : null}
               {item.actionLabel ? <button type="button" onClick={() => item.onAction?.()} className="h-8 bg-emerald-600 px-3 text-xs font-extrabold text-white hover:bg-emerald-700">{item.actionLabel}</button> : null}

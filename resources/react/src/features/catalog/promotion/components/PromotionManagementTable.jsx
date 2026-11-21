@@ -31,6 +31,7 @@ export const PromotionManagementTable = memo(function PromotionManagementTable({
   portal,
   onEdit,
   onToggleActive,
+  isActiveOf,
   onApprove,
   onReject,
   pendingId,
@@ -95,7 +96,7 @@ export const PromotionManagementTable = memo(function PromotionManagementTable({
     if (column.key === "mobileImage") return <td key={column.key} className="px-4 py-3"><img src={row.mobileImageUrl} alt="" className="h-12 w-20 bg-slate-100 object-cover" loading="lazy" /></td>;
     if (column.key === "sortOrder") return <td key={column.key} className="px-4 py-3 text-right text-slate-600">{row.sortOrder}</td>;
     if (column.key === "approval") return <td key={column.key} className="px-4 py-3"><div className="flex flex-col items-start gap-1.5"><StatusBadge status={row.approvalStatus} />{row.rejectionReason ? <p className="max-w-[240px] text-xs text-red-600">{row.rejectionReason}</p> : null}{isAdmin && row.approvalStatus === "pending" ? <div className="flex gap-1" onClick={(event) => event.stopPropagation()}><button type="button" onClick={() => onApprove(row)} className="h-8 bg-emerald-50 px-2.5 text-xs font-extrabold text-emerald-700 hover:bg-emerald-100">Approve</button><button type="button" onClick={() => onReject(row)} className="h-8 bg-amber-50 px-2.5 text-xs font-extrabold text-amber-700 hover:bg-amber-100">Reject</button></div> : null}</div></td>;
-    if (column.key === "active") return <td key={column.key} className="px-4 py-3" onClick={(event) => event.stopPropagation()}><InlineActiveSwitch checked={row.isActive} pending={pendingId === row.id} onChange={(checked) => onToggleActive?.(row, checked)} compact /></td>;
+    if (column.key === "active") return <td key={column.key} className="px-4 py-3" onClick={(event) => event.stopPropagation()}><InlineActiveSwitch checked={isActiveOf ? isActiveOf(row) : row.isActive} pending={pendingId === row.id} onChange={(checked) => onToggleActive?.(row, checked)} compact /></td>;
     if (column.key === "submittedAt") return <td key={column.key} className="px-4 py-3 text-slate-500">{formatDateTime(row.submittedAt)}</td>;
     return <td key={column.key} className="px-4 py-3 text-slate-500">{formatDateTime(row.approvedAt)}</td>;
   };
@@ -104,7 +105,7 @@ export const PromotionManagementTable = memo(function PromotionManagementTable({
     <div className="overflow-x-clip bg-white ring-1 ring-slate-200">
       <table className="table-fixed text-left text-sm" style={{ width: Math.max(tableWidth, 900), minWidth: "100%" }}>
           <InteractiveColGroup columns={layout.orderedColumns} getColumnStyle={layout.getColumnStyle} leadingWidth={selectionEnabled ? 44 : 0} />
-          <thead className="sticky top-0 z-10 bg-slate-100 text-xs font-extrabold text-slate-600">
+          <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-100 text-xs font-extrabold text-slate-600">
             <tr>
               <TableSelectionHeader enabled={selectionEnabled} checked={allSelected} onToggle={onToggleAll} />
               {layout.orderedColumns.map(renderHeader)}

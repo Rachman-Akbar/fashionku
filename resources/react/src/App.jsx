@@ -47,6 +47,7 @@ const AppearancePage = lazyWithRetry(() => import("@/features/profile/appearance
 const FinancePage = lazyWithRetry(() => import("@/features/advanced/pages/FinancePage"));
 const StockPage = lazyWithRetry(() => import("@/features/advanced/pages/StockPage"));
 const BahanBakuPage = lazyWithRetry(() => import("@/features/advanced/pages/BahanBakuPage"));
+const HppReportPage = lazyWithRetry(() => import("@/features/advanced/pages/HppReportPage"));
 const SchedulePage = lazyWithRetry(() => import("@/features/advanced/pages/SchedulePage"));
 const CodePatternSettingsPage = lazyWithRetry(() => import("@/features/advanced/pages/CodePatternSettingsPage"));
 const CustomersPage = lazyWithRetry(() => import("@/features/advanced/pages/CustomersPage"));
@@ -163,6 +164,7 @@ function renderSellerRoutes() {
           <Route path="/seller" element={<SellerDashboardPage />} />
           <Route path="/seller/products" element={<SellerProductsPage />} />
           <Route path="/seller/stock" element={<StockPage />} />
+          <Route path="/seller/hpp-report" element={<HppReportPage />} />
           <Route path="/seller/vouchers" element={<SellerVoucherPage />} />
           <Route path="/seller/promotions" element={<SellerPromotionPage />} />
           <Route path="/seller/orders" element={<SellerOrdersPage />} />
@@ -188,6 +190,7 @@ function renderAdminRoutes() {
         <Route path="/admin/orders" element={<AdminOrdersPage />} />
         <Route path="/admin/products" element={<SellerProductsPage />} />
         <Route path="/admin/stock" element={<StockPage />} />
+        <Route path="/admin/hpp-report" element={<HppReportPage />} />
         <Route path="/admin/bahan-baku" element={<BahanBakuPage />} />
         <Route path="/admin/vouchers" element={<SellerVoucherPage />} />
         <Route path="/admin/promotions" element={<SellerPromotionPage />} />

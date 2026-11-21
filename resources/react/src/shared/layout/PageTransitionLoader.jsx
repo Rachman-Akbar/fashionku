@@ -5,6 +5,10 @@ import { cn } from "@/shared/utils/utils";
 
 const MIN_VISIBLE_MS = 650;
 
+// "fixed"  -> bar di paling atas viewport.
+// "below-header" -> bar ikut alur tepat di bawah header utama panel/halaman
+//   (dipakai admin, seller, dan buyer). Alias "below-tabs" dipertahankan agar
+//   pemakaian lama tidak rusak.
 export default function PageTransitionLoader({ variant = "fixed" }) {
   const { pathname, search } = useLocation();
   const [isLoading, setIsLoading] = useState(false);
@@ -42,7 +46,7 @@ export default function PageTransitionLoader({ variant = "fixed" }) {
     <div
       className={cn(
         "pointer-events-none inset-x-0 h-1 overflow-hidden bg-emerald-100",
-        variant === "below-tabs" ? "relative z-40 shrink-0" : "fixed top-0 z-[100]",
+        variant === "fixed" ? "fixed top-0 z-[100]" : "relative z-40 shrink-0",
       )}
       role="progressbar"
       aria-label="Memuat halaman"

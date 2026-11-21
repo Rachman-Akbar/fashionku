@@ -26,7 +26,11 @@ export default function OrderDetailPage() {
         backLabel="Riwayat Pesanan"
       />
 
-      <OrderDetailCard orderId={id} paymentNotice={paymentNotice} />
+      <OrderDetailCard
+        orderId={id}
+        paymentNotice={paymentNotice}
+        autoPay={Boolean(location.state?.autoPay)}
+      />
     </div>
   );
 }

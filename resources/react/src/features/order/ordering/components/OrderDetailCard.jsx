@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -33,7 +33,7 @@ function toNotice(value) {
  * Kartu detail satu pesanan. Dipakai halaman /orders/:id (langkah 3 alur
  * pesanan) supaya markup detail tidak lagi menumpang di halaman keranjang.
  */
-export default function OrderDetailCard({ orderId, onBack, paymentNotice = "" }) {
+export default function OrderDetailCard({ orderId, onBack, paymentNotice = "", autoPay = false }) {
   const orderQuery = useOrderDetail(orderId);
   const order = orderQuery.data;
   const [paying, setPaying] = useState(false);
@@ -41,6 +41,49 @@ export default function OrderDetailCard({ orderId, onBack, paymentNotice = "" })
   const [actionMessage, setActionMessage] = useState("");
   const confirmMutation = useConfirmOrderReceived();
   const notice = toNotice(paymentNotice);
+  const autoPayRef = useRef(false);
+
+  // Callback stabil dipakai tombol "Bayar Sekarang" sekaligus pembayaran
+  // otomatis setelah pesanan dibuat dari halaman review.
+  const handlePayNow = async () => {
+    const target = orderQuery.data;
+
+    if (!target) return;
+
+    try {
+      setPaying(true);
+      setPaymentMessage("");
+      await openMidtransPayment(target, {
+        onSuccess: () => orderQuery.refetch(),
+        onPending: () => orderQuery.refetch(),
+        onError: () => {
+          setPaymentMessage("Pembayaran gagal. Silakan coba kembali.");
+          orderQuery.refetch();
+        },
+        onClose: () => orderQuery.refetch(),
+      });
+    } catch (error) {
+      setPaymentMessage(error?.message || "Pembayaran tidak dapat dibuka.");
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  useEffect(() => {
+    const target = orderQuery.data;
+
+    if (!autoPay || autoPayRef.current || !target) return;
+
+    const paid = ["paid", "settlement", "success"].includes(
+      String(target.paymentStatus || "").toLowerCase(),
+    );
+
+    if (paid || !(target.snapToken || target.paymentUrl || target.redirectUrl)) return;
+
+    autoPayRef.current = true;
+    handlePayNow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPay, orderQuery.data?.id]);
 
   if (orderQuery.isLoading) {
     return (
@@ -108,26 +151,6 @@ export default function OrderDetailCard({ orderId, onBack, paymentNotice = "" })
       orderQuery.refetch();
     } catch (error) {
       setActionMessage(advancedError(error));
-    }
-  };
-
-  const handlePayNow = async () => {
-    try {
-      setPaying(true);
-      setPaymentMessage("");
-      await openMidtransPayment(order, {
-        onSuccess: () => orderQuery.refetch(),
-        onPending: () => orderQuery.refetch(),
-        onError: () => {
-          setPaymentMessage("Pembayaran gagal. Silakan coba kembali.");
-          orderQuery.refetch();
-        },
-        onClose: () => orderQuery.refetch(),
-      });
-    } catch (error) {
-      setPaymentMessage(error?.message || "Pembayaran tidak dapat dibuka.");
-    } finally {
-      setPaying(false);
     }
   };
 

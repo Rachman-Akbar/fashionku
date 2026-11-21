@@ -6,11 +6,15 @@ import { CrudDialog } from "@/shared/components/crud/CrudDialog";
 import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { useColumnVisibility, useTableSelection, useViewMode } from "@/shared/hooks";
+import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
+import { useActiveToggle } from "@/shared/hooks/useActiveToggle";
+import { InteractiveColGroup, InteractiveTableHeader } from "@/shared/components/table/InteractiveTableHeader";
+import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
 import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/features/admin/category/services/categoryService";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
-import { toastError } from "@/shared/utils/userFeedback";
+import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 
 function CategoryEditor({ open, category, onClose, onSave, saving, parents }) {
   const [form, setForm] = useState({
@@ -184,9 +188,19 @@ export default function AdminCategoryPage() {
   const [viewMode, setViewMode] = useViewMode("admin-categories");
   const [query, setQuery] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [editor, setEditor] = useState({ open: false, category: null });
-  const [detailCategory, setDetailCategory] = useState(null);
-  const [optimisticActiveStates, setOptimisticActiveStates] = useState({});
+  // Setiap tambah data / detail membuka tab anak sendiri di samping tab
+  // daftar (hijau), sehingga admin bisa berpindah antar entitas tanpa
+  // kehilangan isian yang sedang dikerjakan.
+  const editor = useEntityEditor({ getEditLabel: (row) => row.name || row.slug || "Kategori" });
+  const activeToggle = useActiveToggle({
+    mutate: (category, nextActive) => updateMutation.mutateAsync({ id: category.id, values: { is_active: nextActive } }),
+    errorMessage: () => "Status kategori gagal diubah.",
+    activeOf: (category) => category?.isActive !== false,
+    labelOf: (category) => category?.name || `#${category?.id}`,
+    onSettled: () => categoriesQuery.refetch(),
+    openDetail: (category) => editor.edit(category),
+  });
+  const [expandedIds, setExpandedIds] = useState(() => new Set());
   const deferredQuery = useDeferredValue(query.trim());
   const categoriesQuery = useCategories({ ...(deferredQuery ? { search: deferredQuery } : {}), per_page: 100 });
   const createMutation = useCreateCategory();
@@ -207,9 +221,10 @@ export default function AdminCategoryPage() {
   );
 
   const parentOptions = useMemo(
-    () => rows.filter((c) => !editor.category || c.id !== editor.category.id).map((c) => ({ id: c.id, name: c.name })),
-    [rows, editor.category],
+    () => rows.filter((c) => !editor.entity || c.id !== editor.entity.id).map((c) => ({ id: c.id, name: c.name })),
+    [rows, editor.entity],
   );
+  useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: categoriesQuery.refetch });
 
   const visibleColumns = useMemo(
     () =>
@@ -223,7 +238,71 @@ export default function AdminCategoryPage() {
     [columnVisibility.visibleSet],
   );
 
-  const closeEditor = () => setEditor({ open: false, category: null });
+  const closeEditor = editor.close;
+
+  // Header kategori bisa digeser (drag & drop) dan lebarnya ditarik, sama
+  // seperti tabel produk/pesanan. Urutan & lebar disimpan di localStorage.
+  const tableLayout = useTableColumnLayout({
+    storageKey: "admin-categories-table",
+    columns: visibleColumns.map((column) => ({ ...column, width: column.key === "name" ? 280 : 160 })),
+  });
+
+  // Susun hierarki kategori: level 1 sebagai induk utama, level 2 sebagai
+  // subinduk, dan level 3 sebagai anak. Baris anak hanya tampil ketika
+  // container induknya dibuka (pola yang sama dengan daftar variant produk).
+  const categoryTree = useMemo(() => {
+    const byId = new Map(rows.map((row) => [String(row.id), row]));
+    const childrenByParent = new Map();
+    const roots = [];
+    const sortRows = (list) => [...list].sort((a, b) => {
+      const orderDiff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+      if (orderDiff !== 0) return orderDiff;
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+
+    for (const row of rows) {
+      const parentId = row.parentId === null || row.parentId === undefined || row.parentId === "" ? null : String(row.parentId);
+      if (parentId && parentId !== String(row.id) && byId.has(parentId)) {
+        if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
+        childrenByParent.get(parentId).push(row);
+      } else {
+        roots.push(row);
+      }
+    }
+    for (const [parentId, children] of childrenByParent) childrenByParent.set(parentId, sortRows(children));
+    return { roots: sortRows(roots), childrenByParent };
+  }, [rows]);
+
+  const expandableIds = useMemo(() => new Set(categoryTree.childrenByParent.keys()), [categoryTree]);
+  const allExpanded = expandableIds.size > 0 && [...expandableIds].every((id) => expandedIds.has(id));
+
+  const toggleExpanded = (id) => {
+    const key = String(id);
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleAllExpanded = () => {
+    setExpandedIds(allExpanded ? new Set() : new Set(expandableIds));
+  };
+
+  const treeRows = useMemo(() => {
+    const flattened = [];
+    const walk = (list, depth) => {
+      for (const row of list) {
+        const children = categoryTree.childrenByParent.get(String(row.id)) || [];
+        const expanded = expandedIds.has(String(row.id));
+        flattened.push({ category: row, depth, hasChildren: children.length > 0, expanded, childrenCount: children.length });
+        if (children.length && expanded) walk(children, depth + 1);
+      }
+    };
+    walk(categoryTree.roots, 0);
+    return flattened;
+  }, [categoryTree, expandedIds]);
 
   const parentNameOf = (category) => {
     const parent = rows.find((row) => String(row.id) === String(category.parentId));
@@ -269,7 +348,7 @@ export default function AdminCategoryPage() {
     <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
       <button
         type="button"
-        onClick={() => setEditor({ open: true, category })}
+        onClick={() => editor.edit(category)}
         className="flex h-8 w-8 items-center justify-center rounded-[8px] text-slate-500 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
         aria-label="Edit kategori"
         title="Edit"
@@ -318,34 +397,24 @@ export default function AdminCategoryPage() {
       is_active: Boolean(form.is_active),
     };
     try {
-      if (editor.category?.id) {
-        await updateMutation.mutateAsync({ id: editor.category.id, values: payload });
+      if (editor.entity?.id) {
+        await updateMutation.mutateAsync({ id: editor.entity.id, values: payload });
       } else {
         await createMutation.mutateAsync(payload);
       }
-      closeEditor();
+      editor.completeSave();
       categoriesQuery.refetch();
     } catch {
       // handled by mutation hooks
     }
   };
 
-  const handleActivate = async (category, next = !category.isActive) => {
-    const id = String(category.id);
-    const previous = category.isActive !== false;
-    setOptimisticActiveStates((prev) => ({ ...prev, [id]: next }));
-    try {
-      await updateMutation.mutateAsync({ id: category.id, values: { is_active: next } });
-      setOptimisticActiveStates((prev) => { const { [id]: _removed, ...rest } = prev; return rest; });
-      categoriesQuery.refetch();
-    } catch (error) {
-      setOptimisticActiveStates((prev) => ({ ...prev, [id]: previous }));
-      toastError("Gagal Mengubah Status", `Gagal mengubah status ${category.name || ""}.`);
-    }
+  const handleActivate = (category, next = !category.isActive) => {
+    activeToggle.toggle(category, next);
   };
 
   const saveDetailCategory = async (form) => {
-    if (!detailCategory) return;
+    if (!editor.entity) return;
     const payload = {
       name: String(form.name || "").trim(),
       slug: String(form.slug || "").trim() || undefined,
@@ -354,15 +423,9 @@ export default function AdminCategoryPage() {
       is_active: Boolean(form.is_active),
     };
     try {
-      await updateMutation.mutateAsync({ id: detailCategory.id, values: payload });
-      setDetailCategory((current) => (current ? {
-        ...current,
-        name: payload.name,
-        slug: form.slug || current.slug,
-        parentId: payload.parent_id,
-        sortOrder: payload.sort_order,
-        isActive: payload.is_active,
-      } : current));
+      await updateMutation.mutateAsync({ id: editor.entity.id, values: payload });
+      toastSuccess("Simpan Kategori", "Perubahan kategori berhasil disimpan.");
+      editor.completeSave();
       categoriesQuery.refetch();
     } catch {
       // handled by mutation hook
@@ -374,7 +437,7 @@ export default function AdminCategoryPage() {
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
       setDeleteTarget(null);
-      setDetailCategory(null);
+      if (editor.entity && String(editor.entity.id) === String(deleteTarget.id)) editor.close();
       categoriesQuery.refetch();
     } catch {
       // handled by mutation hook
@@ -383,23 +446,24 @@ export default function AdminCategoryPage() {
 
   return (
     <>
-      {editor.open ? (
+      {editor.open && !editor.entity ? (
         <CategoryEditor
           open
-          key={editor.category?.id || "new"}
-          category={editor.category}
+          key="create"
+          category={null}
           onClose={closeEditor}
           onSave={handleSave}
           saving={updateMutation.isPending || createMutation.isPending}
           parents={parentOptions}
         />
-      ) : detailCategory ? (
+      ) : editor.open && editor.entity ? (
         <CategoryDetail
-          category={detailCategory}
+          key={editor.activeTab?.id || "detail"}
+          category={editor.entity}
           parents={rows}
-          onBack={() => setDetailCategory(null)}
+          onBack={closeEditor}
           onSave={(form) => saveDetailCategory(form)}
-          onDelete={() => setDeleteTarget(detailCategory)}
+          onDelete={() => setDeleteTarget(editor.entity)}
           saving={updateMutation.isPending}
         />
       ) : (
@@ -408,7 +472,7 @@ export default function AdminCategoryPage() {
             <EntityToolbar
               query={query}
               onQueryChange={setQuery}
-              onCreate={() => setEditor({ open: true, category: null })}
+              onCreate={() => editor.create()}
               onRefresh={() => categoriesQuery.refetch()}
               refreshing={categoriesQuery.isFetching}
               createLabel="Kategori"
@@ -443,89 +507,148 @@ export default function AdminCategoryPage() {
             empty={!categoriesQuery.isLoading && !categoriesQuery.error && !rows.length}
             emptyText="Kategori belum tersedia."
           />
-          {!categoriesQuery.isLoading && !categoriesQuery.error && rows.length && viewMode === "grid" ? (
-            <RecordCardGrid
-              rows={rows}
-              columns={visibleColumns}
-              card={categoryCard}
-              onRowClick={(category) => setDetailCategory(category)}
-              rowKey={(category) => category.id}
-              emptyText="Kategori belum tersedia."
-            />
-          ) : null}
-          {!categoriesQuery.isLoading && !categoriesQuery.error && rows.length && viewMode !== "grid" ? (
-            <div className="border border-slate-200 bg-white">
-              <table className="w-full border-collapse text-left text-sm">
-                <thead className="sticky top-0 z-10 bg-slate-50">
-                  <tr className="bg-slate-50">
-                    {visibleColumns.map((column) => (
-                      <th key={column.key} className="bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">
-                        {column.label}
-                      </th>
-                    ))}
-                    <th className="w-28 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((category) => (
-                    <tr key={category.id} onClick={() => setDetailCategory(category)} className="cursor-pointer border-b border-slate-100 hover:bg-slate-50">
-                      {visibleColumns.map((column) => {
-                        const value = category[column.key];
-                        if (column.key === "isActive") {
-                          return (
-                            <td key={column.key} className="px-4 py-3 text-slate-700">
-                              <span onClick={(event) => event.stopPropagation()}>
-                                <InlineActiveSwitch
-                                  checked={optimisticActiveStates[String(category.id)] ?? (category.isActive !== false)}
-                                  pending={updateMutation.isPending && updateMutation.variables?.id === category.id}
-                                  activeLabel="Aktif"
-                                  inactiveLabel="Nonaktif"
-                                  compact
-                                  onChange={(next) => handleActivate(category, next)}
-                                />
-                              </span>
-                            </td>
-                          );
-                        }
-                        if (column.key === "parentId") {
-                          const availableParents = selectableParentsFor(category);
-                          const pendingParent = updateMutation.isPending && updateMutation.variables?.id === category.id;
-                          const currentParentMissing = category.parentId != null && category.parentId !== "" && !availableParents.some((parent) => String(parent.id) === String(category.parentId));
-                          return (
-                            <td key={column.key} className="px-4 py-3 text-slate-700" onClick={(event) => event.stopPropagation()}>
-                              <select
-                                value={category.parentId ?? ""}
-                                disabled={pendingParent}
-                                onChange={(event) => handleParentChange(category, event.target.value)}
-                                aria-label={`Kategori induk ${category.name}`}
-                                title="Pilih kategori induk"
-                                className="h-8 w-full min-w-[150px] cursor-pointer rounded-[8px] border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:cursor-wait disabled:opacity-60"
+          {!categoriesQuery.isLoading && !categoriesQuery.error && rows.length ? (
+            <>
+              <div className={viewMode === "grid" ? "[&_tbody]:hidden" : ""}>
+                <div className="overflow-x-auto [overflow-y:clip] border border-slate-200 bg-white">
+                  <table className="table-fixed w-full border-collapse text-left text-sm" style={{ width: Math.max(tableLayout.totalWidth, 760), minWidth: "100%" }}>
+                    <InteractiveColGroup columns={tableLayout.orderedColumns} getColumnStyle={tableLayout.getColumnStyle} leadingWidth={40} trailingWidth={112} />
+                    <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-50">
+                      <tr className="bg-slate-50">
+                        <th className="w-10 bg-slate-50 px-2 py-3 shadow-[inset_0_-1px_0_0_#e2e8f0]">
+                          <button
+                            type="button"
+                            onClick={toggleAllExpanded}
+                            disabled={!expandableIds.size}
+                            aria-label={allExpanded ? "Tutup semua subkategori" : "Buka semua subkategori"}
+                            title={allExpanded ? "Tutup semua subkategori" : "Buka semua subkategori"}
+                            className="mx-auto flex h-7 w-7 items-center justify-center text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:cursor-default disabled:opacity-40"
+                          >
+                            <span className={`material-symbols-outlined text-[18px] leading-none transition-transform duration-200 ${allExpanded ? "rotate-180" : ""}`}>expand_more</span>
+                          </button>
+                        </th>
+                        {tableLayout.orderedColumns.map((column) => (
+                          <InteractiveTableHeader
+                            key={column.key}
+                            columnKey={column.key}
+                            headerProps={tableLayout.getHeaderProps(column.key)}
+                            style={tableLayout.getColumnStyle(column.key)}
+                            onResizeStart={tableLayout.startResize}
+                            onResetWidth={tableLayout.resetWidth}
+                            dragging={tableLayout.dragKey === column.key}
+                            dropTarget={tableLayout.dropKey === column.key}
+                            className="bg-slate-50 px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]"
+                          >
+                            {column.label}
+                          </InteractiveTableHeader>
+                        ))}
+                        <th className="w-28 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {treeRows.map(({ category, depth, hasChildren, expanded, childrenCount }) => (
+                        <tr
+                          key={category.id}
+                          onClick={() => editor.edit(category)}
+                          className={`cursor-pointer border-b border-slate-100 hover:bg-slate-50 ${depth === 1 ? "bg-slate-50/60" : depth >= 2 ? "bg-slate-50" : ""}`}
+                        >
+                          <td className="px-2 py-3 text-center" onClick={(event) => event.stopPropagation()}>
+                            {hasChildren ? (
+                              <button
+                                type="button"
+                                onClick={() => toggleExpanded(category.id)}
+                                aria-expanded={expanded}
+                                title={expanded ? "Tutup subkategori" : `Buka ${childrenCount} subkategori`}
+                                className="mx-auto flex h-7 w-7 items-center justify-center text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
                               >
-                                <option value="">Tidak ada (root)</option>
-                                {currentParentMissing ? (
-                                  <option value={category.parentId}>{parentNameOf(category)}</option>
-                                ) : null}
-                                {availableParents.map((parent) => (
-                                  <option key={parent.id} value={parent.id}>
-                                    {parent.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                          );
-                        }
-                        return (
-                          <td key={column.key} className="px-4 py-3 text-slate-700">
-                            {value ?? "-"}
+                                <span className={`material-symbols-outlined text-[20px] leading-none transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}>expand_more</span>
+                              </button>
+                            ) : null}
                           </td>
-                        );
-                      })}
-                      <td className="px-4 py-3">{rowActions(category)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          {tableLayout.orderedColumns.map((column) => {
+                            const value = category[column.key];
+                            if (column.key === "name") {
+                              return (
+                                <td key={column.key} className="px-4 py-3 text-slate-700">
+                                  <div className="flex min-w-0 items-center gap-1.5" style={{ paddingLeft: depth * 20 }}>
+                                    {depth > 0 ? <span className="material-symbols-outlined shrink-0 text-[16px] leading-none text-slate-400">subdirectory_arrow_right</span> : null}
+                                    <span className={`truncate ${depth === 0 ? "font-extrabold text-slate-900" : "font-semibold"}`}>{category.name}</span>
+                                    {depth > 0 ? (
+                                      <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                                        {depth === 1 ? "Subinduk" : "Anak"}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </td>
+                              );
+                            }
+                            if (column.key === "isActive") {
+                              return (
+                                <td key={column.key} className="px-4 py-3 text-slate-700">
+                                  <span onClick={(event) => event.stopPropagation()}>
+                                    <InlineActiveSwitch
+                                      checked={activeToggle.isActive(category)}
+                                      pending={activeToggle.pending(category)}
+                                      activeLabel="Aktif"
+                                      inactiveLabel="Nonaktif"
+                                      compact
+                                      onChange={(next) => handleActivate(category, next)}
+                                    />
+                                  </span>
+                                </td>
+                              );
+                            }
+                            if (column.key === "parentId") {
+                              const availableParents = selectableParentsFor(category);
+                              const pendingParent = updateMutation.isPending && updateMutation.variables?.id === category.id;
+                              const currentParentMissing = category.parentId != null && category.parentId !== "" && !availableParents.some((parent) => String(parent.id) === String(category.parentId));
+                              return (
+                                <td key={column.key} className="px-4 py-3 text-slate-700" onClick={(event) => event.stopPropagation()}>
+                                  <select
+                                    value={category.parentId ?? ""}
+                                    disabled={pendingParent}
+                                    onChange={(event) => handleParentChange(category, event.target.value)}
+                                    aria-label={`Kategori induk ${category.name}`}
+                                    title="Pilih kategori induk"
+                                    className="h-8 w-full min-w-[150px] cursor-pointer rounded-[8px] border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:cursor-wait disabled:opacity-60"
+                                  >
+                                    <option value="">Tidak ada (root)</option>
+                                    {currentParentMissing ? (
+                                      <option value={category.parentId}>{parentNameOf(category)}</option>
+                                    ) : null}
+                                    {availableParents.map((parent) => (
+                                      <option key={parent.id} value={parent.id}>
+                                        {parent.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+                              );
+                            }
+                            return (
+                              <td key={column.key} className="px-4 py-3 text-slate-700">
+                                {value ?? "-"}
+                              </td>
+                            );
+                          })}
+                          <td className="px-4 py-3">{rowActions(category)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {viewMode === "grid" ? (
+                <RecordCardGrid
+                  rows={rows}
+                  columns={visibleColumns}
+                  card={categoryCard}
+                  onRowClick={(category) => editor.edit(category)}
+                  rowKey={(category) => category.id}
+                  emptyText="Kategori belum tersedia."
+                />
+              ) : null}
+            </>
           ) : null}
         </ListPageFrame>
       )}

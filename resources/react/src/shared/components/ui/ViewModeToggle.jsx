@@ -17,7 +17,7 @@ export function ViewModeToggle({
       role="tablist"
       aria-label={label}
       className={cn(
-        "inline-flex shrink-0 items-center gap-0.5 rounded-[10px] border border-slate-200 bg-slate-100 p-0.5",
+        "inline-flex shrink-0 items-center gap-[1px] rounded-[10px] border border-slate-200 bg-slate-100 p-[1px] h-9",
         className,
       )}
     >
@@ -33,7 +33,7 @@ export function ViewModeToggle({
             title={option.label}
             onClick={() => onChange?.(option.key)}
             className={cn(
-              "flex h-full min-h-6 items-center justify-center gap-1 rounded-[8px] px-2 transition-colors",
+              "flex h-full items-center justify-center gap-0.5 rounded-[8px] px-1.5 transition-colors",
               active ? "bg-white text-emerald-700 shadow-sm" : "text-slate-400 hover:text-slate-700",
             )}
           >

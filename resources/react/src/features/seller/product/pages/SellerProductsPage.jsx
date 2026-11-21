@@ -10,6 +10,7 @@ import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { InfiniteScrollSentinel } from "@/shared/components/ui/InfiniteScrollSentinel";
+import { useActiveToggle } from "@/shared/hooks/useActiveToggle";
 import { useEntityEditor } from "@/shared/hooks/useEntityEditor";
 import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
 import { useColumnVisibility, useTableSelection } from "@/shared/hooks";
@@ -73,16 +74,15 @@ export default function SellerProductsPage() {
   const spreadsheetActions = [...spreadsheet.actions, ...hppSpreadsheet.actions];
   const activeSpreadsheet = spreadsheet.activeOperation?.payload?.module === "product-costing" ? hppSpreadsheet : spreadsheet;
 
-  const toggleActive = (product, isActive) => {
-    const task = notifications.startTask({ title: "Ubah Status Product", message: `Memproses product "${product.name}"...` });
-    quickUpdateMutation.mutate(
-      { id: product.id, values: { ...product, isActive } },
-      {
-        onSuccess: () => task.success(`Product "${product.name}" berhasil ${isActive ? "diaktifkan" : "dinonaktifkan"}.`),
-        onError: (error) => task.fail(getSellerProductError(error)),
-      },
-    );
-  };
+  // Toggle aktif langsung berubah (optimistic); kegagalan masuk notifikasi.
+  const activeToggle = useActiveToggle({
+    mutate: (product, isActive) => quickUpdateMutation.mutateAsync({ id: product.id, values: { ...product, isActive } }),
+    errorMessage: getSellerProductError,
+    activeOf: (product) => Boolean(product?.isActive),
+    onSettled: () => productsQuery.refetch(),
+    openDetail: (product) => editor.edit(product),
+  });
+  const toggleActive = (product, isActive) => activeToggle.toggle(product, isActive);
 
   const remove = async () => {
     if (!deleteTarget) return;
@@ -151,6 +151,7 @@ export default function SellerProductsPage() {
                   rows={rows}
                   onEdit={editor.edit}
                   onToggleActive={toggleActive}
+                  isActiveOf={activeToggle.isActive}
                   pendingId={quickUpdateMutation.variables?.id}
                   selectionEnabled={selection.enabled}
                   selectedIds={selection.selectedIds}
@@ -162,6 +163,7 @@ export default function SellerProductsPage() {
                 isLoading={Boolean(productsQuery.isPlaceholderData)}
                 onEdit={editor.edit}
                 onToggleActive={toggleActive}
+                  isActiveOf={activeToggle.isActive}
                 pendingId={quickUpdateMutation.variables?.id}
                 portal="seller"
                 columns={columns}

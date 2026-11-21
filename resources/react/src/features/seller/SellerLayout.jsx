@@ -18,6 +18,7 @@ export const SELLER_NAV_ITEMS = [
   { href: "/seller", label: "Ringkasan", icon: "dashboard", exact: true, hiddenInSidebar: true },
   { href: "/seller/products", label: "Produk", icon: "inventory_2", group: "Katalog" },
   { href: "/seller/stock", label: "Stok", icon: "warehouse", group: "Katalog" },
+  { href: "/seller/hpp-report", label: "Laporan HPP", icon: "trending_up", group: "Katalog" },
   { href: "/seller/orders", label: "Pesanan", icon: "receipt_long", group: "Penjualan" },
   { href: "/seller/customers", label: "Pelanggan", icon: "group", group: "Penjualan" },
   { href: "/seller/vouchers", label: "Voucher", icon: "confirmation_number", group: "Promo" },
@@ -55,7 +56,6 @@ export default function SellerLayout() {
       <FocusModeContext.Provider value={focusValue}>
       <NotificationFeedbackBridge />
       <div className="h-dvh bg-white text-slate-900">
-        <PageTransitionLoader />
         <div className={cn("grid h-full grid-cols-1", isFocus ? "" : "lg:grid-cols-[76px_minmax(0,1fr)]")}>
           {isFocus ? null : <PanelSidebar
             items={SELLER_NAV_ITEMS}
@@ -78,9 +78,10 @@ export default function SellerLayout() {
               notificationPanel={({ close }) => <NotificationCenterPanel onClose={close} />}
               mobileNavigation={<PanelMobileNavigation items={SELLER_NAV_ITEMS} badges={badges} activeClassName="bg-[var(--color-primary-soft)] text-[var(--color-primary-strong)]" />}
             />}
+            {isFocus ? null : <PageTransitionLoader variant="below-header" />}
             {isFocus ? null : <PanelTabBar />}
             <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-white pb-20 lg:pb-6">
-              <div id="panel-editor-root" className={cn("relative w-full px-4 py-6 sm:px-6 lg:px-8", isChatRoute ? "flex h-full min-h-0 flex-col" : "mx-auto max-w-6xl")}>
+              <div id="panel-editor-root" className={cn("relative min-h-full w-full px-4 py-6 sm:px-6 lg:px-8", isChatRoute ? "flex h-full min-h-0 flex-col" : "mx-auto max-w-6xl")}>
                 <RouteOutletBoundary className={cn("h-full w-full min-w-0 max-w-full", isChatRoute && "min-h-0 flex-1")} />
               </div>
             </main>

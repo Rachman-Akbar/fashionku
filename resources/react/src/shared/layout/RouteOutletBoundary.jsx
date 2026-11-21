@@ -1,6 +1,7 @@
 import { memo, Suspense } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import PageErrorBoundary from "@/shared/components/feedback/PageErrorBoundary";
+import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
 import { cn } from "@/shared/utils/utils";
 
 function RouteLoadingFallback() {
@@ -15,11 +16,17 @@ function RouteLoadingFallback() {
 }
 
 export const RouteOutletBoundary = memo(function RouteOutletBoundary({ className }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const tabs = usePanelTabs();
+
+  // Pindah tab anak (Daftar / Data Baru / detail) tidak mengubah URL. Tanpa
+  // id tab pada resetKey, layar "Halaman gagal dimuat" akan ikut terbawa ke
+  // tab berikutnya sehingga panel terlihat macet sampai halaman dimuat ulang.
+  const resetKey = `${pathname}${search}::${tabs?.activeTabId || ""}`;
 
   return (
     <div className={cn("min-w-0 max-w-full", className)}>
-      <PageErrorBoundary resetKey={pathname}>
+      <PageErrorBoundary resetKey={resetKey}>
         <Suspense fallback={<RouteLoadingFallback />}>
           <Outlet />
         </Suspense>

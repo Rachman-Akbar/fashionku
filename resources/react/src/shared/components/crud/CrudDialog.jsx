@@ -27,6 +27,7 @@ export const CrudDialog = memo(function CrudDialog({
   presentation = "page",
 }) {
   const modal = presentation === "modal";
+  const overlay = presentation === "overlay";
 
   useEffect(() => {
     if (!open) return undefined;
@@ -43,12 +44,26 @@ export const CrudDialog = memo(function CrudDialog({
 
   if (!open) return null;
 
-  if (!modal) {
+  if (!modal && !overlay) {
+    // Tab-based editor: tampil sebagai halaman biasa (bukan lapisan
+    // `absolute` di atas daftar). Setiap entitas punya tab sendiri di bar
+    // tab, jadi tidak ada lagi layar yang menimpa isi halaman detail.
+    return (
+      <section className="w-full min-w-0 animate-ziip-fade-in bg-white" aria-label={title}>
+        {title ? <DialogHeader title={title} subtitle={subtitle} onClose={onClose} closeLabel="Tutup halaman data" /> : null}
+        {children}
+      </section>
+    );
+  }
+
+  if (overlay) {
+    // Mode lama: menimpa daftar yang masih ter-mount (dipakai form cepat
+    // pada halaman yang belum memakai tab per entitas).
     const target = typeof document !== "undefined" ? document.getElementById("panel-editor-root") : null;
     const section = (
       <section
         className={target
-          ? "absolute inset-0 z-30 min-w-0 overflow-y-auto bg-white animate-ziip-fade-in"
+          ? "absolute inset-x-0 top-0 z-30 min-h-full min-w-0 bg-white animate-ziip-fade-in"
           : "w-full min-w-0 animate-ziip-fade-in bg-white"}
         aria-label={title}
       >

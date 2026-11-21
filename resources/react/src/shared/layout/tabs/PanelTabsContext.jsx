@@ -129,18 +129,12 @@ export function PanelTabsProvider({ children, items = [] }) {
           : { ...current, [parent.id]: [...childTabs, { id: createId, parentId: parent.id, type: "create", label: "Data Baru", closable: true, entity: null }] };
       });
       setActiveChildByParent((current) => ({ ...current, [parent.id]: createId }));
+    } else if (!item.exact && !item.noChildTabs) {
+      // Menu dari sidebar selalu membuka tab Daftar, bukan tab detail terakhir.
+      setActiveChildByParent((current) => ({ ...current, [parent.id]: `${parent.id}:list` }));
     }
     navigate(item.href);
   }, [ensureParent, navigate]);
-
-  const activateParent = useCallback((parentId) => {
-    const item = items.find((it) => it.href === parentId);
-    if (!item) return;
-    const parent = ensureParent(item);
-    if (!parent) return;
-    setActiveParentId(parentId);
-    navigate(parent.href);
-  }, [ensureParent, items, navigate]);
 
   const setTabDirty = useCallback((tabId, dirty) => {
     if (!tabId) return;
@@ -182,6 +176,43 @@ export function PanelTabsProvider({ children, items = [] }) {
     clearDirtyTabs(dirtyTargets.map((tab) => tab.id));
     return true;
   }, [clearDirtyTabs]);
+
+  /**
+   * Klik tab menu (tab induk): pindah menu sekaligus fokus ke tab Daftar.
+   *
+   * Tanpa ini, klik tab menu induk bisa terasa "tidak berpindah" karena tab
+   * anak yang terakhir aktif (mis. detail/data baru) yang ditampilkan lagi.
+   */
+  const activateParent = useCallback(async (parentId) => {
+    const item = items.find((it) => it.href === parentId);
+    if (!item) return;
+    const parent = ensureParent(item);
+    if (!parent) return;
+
+    const hasChildTabs = !parent.exact && !parent.noChildTabs;
+    const listTabId = `${parentId}:list`;
+    const targetChildId = activeChildByParent[parentId];
+
+    // Kumpulkan tab yang sedang punya perubahan belum disimpan: tab yang
+    // sedang terlihat (jika pindah menu) dan tab anak milik menu tujuan.
+    const dirtyCandidates = [];
+    if (activeParent && activeParent.id !== parentId) {
+      const visibleId = activeChildByParent[activeParent.id];
+      const visibleTab = (childrenByParent[activeParent.id] || []).find((tab) => tab.id === visibleId);
+      if (visibleTab) dirtyCandidates.push(visibleTab);
+    }
+    if (hasChildTabs && targetChildId && targetChildId !== listTabId) {
+      const targetChild = (childrenByParent[parentId] || []).find((tab) => tab.id === targetChildId);
+      if (targetChild) dirtyCandidates.push(targetChild);
+    }
+    if (dirtyCandidates.length && !(await confirmDirtyTabs(dirtyCandidates))) return;
+
+    setActiveParentId(parentId);
+    if (hasChildTabs) {
+      setActiveChildByParent((current) => ({ ...current, [parentId]: listTabId }));
+    }
+    navigate(parent.href);
+  }, [activeChildByParent, activeParent, childrenByParent, confirmDirtyTabs, ensureParent, items, navigate]);
 
   const closeParent = useCallback(async (parentId) => {
     const index = parentTabs.findIndex((tab) => tab.id === parentId);
@@ -296,15 +327,18 @@ export function PanelTabsProvider({ children, items = [] }) {
     const target = childTabs.find((tab) => tab.id === tabId);
     if (!target?.closable) return;
     if (!(await confirmDirtyTabs(childTabs.filter((tab) => tab.id === tabId)))) return;
-    setChildrenByParent((current) => {
-      const nextTabs = current[activeParent.id]?.filter((tab) => tab.id !== tabId) || [];
-      if (activeChildByParent[activeParent.id] === tabId) {
-        const index = childTabs.findIndex((tab) => tab.id === tabId);
-        const fallback = nextTabs[Math.max(0, index - 1)] || nextTabs[0];
-        setActiveChildByParent((active) => ({ ...active, [activeParent.id]: fallback?.id || `${activeParent.id}:list` }));
-      }
-      return { ...current, [activeParent.id]: nextTabs.length ? nextTabs : [createListTab(activeParent)] };
-    });
+    const index = childTabs.findIndex((tab) => tab.id === tabId);
+    const remaining = childTabs.filter((tab) => tab.id !== tabId);
+    const nextTabs = remaining.length ? remaining : [createListTab(activeParent)];
+    const fallback = nextTabs[Math.max(0, index - 1)] || nextTabs[0];
+
+    // Jangan panggil setState di dalam updater setState lain: React bisa
+    // menjalankan updater dua kali (StrictMode) dan hasilnya jadi tidak stabil
+    // (tab aktif menunjuk ke tab yang sudah ditutup → halaman tampak nyangkut).
+    setChildrenByParent((current) => ({ ...current, [activeParent.id]: nextTabs }));
+    if (activeChildByParent[activeParent.id] === tabId) {
+      setActiveChildByParent((active) => ({ ...active, [activeParent.id]: fallback?.id || `${activeParent.id}:list` }));
+    }
   }, [activeChildByParent, activeParent, childrenByParent, confirmDirtyTabs]);
 
   const closeActiveTab = useCallback(() => {

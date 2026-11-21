@@ -1,9 +1,9 @@
 import { CrudDialog, FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 
-export function FormModal({ open, title, subtitle, children, onClose, onSubmit, busy, dirty = true, submitLabel = "Simpan", onDelete, deleteLabel = "Hapus", tone = "emerald", saveIcon = "save", extraActions = [] }) {
+export function FormModal({ open, title, subtitle, children, onClose, onSubmit, busy, dirty = true, submitLabel = "Simpan", onDelete, deleteLabel = "Hapus", tone = "emerald", saveIcon = "save", extraActions = [], presentation = "overlay" }) {
   const disabled = Boolean(busy) || dirty === false;
   return (
-    <CrudDialog presentation="page" open={open} title={title} subtitle={subtitle} onClose={onClose}>
+    <CrudDialog presentation={presentation} open={open} title={title} subtitle={subtitle} onClose={onClose}>
       <form onSubmit={onSubmit}>
         <FormEditorLayout
           actions={<FormActionDock tone={tone} save={{ icon: saveIcon, label: submitLabel }} disabled={disabled} onDelete={onDelete} deleteLabel={deleteLabel} extraActions={extraActions} />}

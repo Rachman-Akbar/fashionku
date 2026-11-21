@@ -21,12 +21,12 @@ function valueText(value) {
 
 export const HEADER_ACTIONS_KEY = "special_actions";
 
-export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", onRowClick, selectionEnabled = false, selectedIds = new Set(), allSelected = false, onToggleRow, onToggleAll, isRowSelectable, storageKey, hasNextPage = false, isFetchingNextPage = false, onLoadMore, onFilterStateChange, viewMode = "list", card, headerActions, headerActionsLabel = "Aksi Khusus" }) {
+export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", onRowClick, selectionEnabled = false, selectedIds = new Set(), allSelected = false, onToggleRow, onToggleAll, isRowSelectable, storageKey, hasNextPage = false, isFetchingNextPage = false, onLoadMore, onFilterStateChange, viewMode = "list", card, chart = null, headerActions, renderSpecialActions, headerActionsLabel = "Aksi Khusus" }) {
   const { register, unregister } = useToolbarTableColumns();
   const tableColumns = useMemo(() => {
-    if (!headerActions || columns.some((column) => column.key === HEADER_ACTIONS_KEY)) return columns;
+    if ((!headerActions && !renderSpecialActions) || columns.some((column) => column.key === HEADER_ACTIONS_KEY)) return columns;
     return [...columns, { key: HEADER_ACTIONS_KEY, label: headerActionsLabel, width: 240, minWidth: 220, maxWidth: 340, filterable: false, align: "right" }];
-  }, [columns, headerActions, headerActionsLabel]);
+  }, [columns, headerActions, renderSpecialActions, headerActionsLabel]);
   const visibleState = useColumnVisibility(tableColumns, storageKey || `advanced.${tableColumns.map((column) => column.key).join(".")}`);
   const visibleColumns = useMemo(
     () => tableColumns.filter((column) => visibleState.visibleSet.has(column.key)),
@@ -121,27 +121,104 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
 
   const emptyMessage = rows.length && !activeFilterCount ? emptyText : activeFilterCount ? "Tidak ada data yang cocok dengan filter aktif." : emptyText;
 
+  // Header tabel (sekaligus baris filter) dibangun sekali lalu dipakai di
+  // semua mode tampilan: list, kartu, dan grafik. Jadi filter selalu
+  // tersedia walau mode tampilan data diganti.
+  const headerCells = (
+    <tr>
+      {selectionEnabled ? (
+        <th className="w-11 border-b border-slate-200 px-3 py-2.5 text-center">
+          <input type="checkbox" checked={allSelected} onChange={onToggleAll} aria-label="Pilih semua data" />
+        </th>
+      ) : null}
+      {layout.orderedColumns.map((column) => column.key === HEADER_ACTIONS_KEY ? (
+        <th key={column.key} className="border-b border-slate-200 px-3 py-2.5 text-right align-middle" style={layout.getColumnStyle(column.key)}>
+          {renderSpecialActions ? headerActionsLabel : headerActions}
+        </th>
+      ) : (
+        <TableHeaderFilter
+          key={column.key}
+          label={column.label}
+          sortKey={column.key}
+          sortBy={sortBy}
+          sortDirection={sortDirection}
+          onSortChange={(key, direction) => {
+            setSortBy(key);
+            setSortDirection(direction);
+          }}
+          filterable={column.filterable !== false}
+          filterType={column.filterable === false ? undefined : filterConfig[column.key]?.type}
+          filterValue={columnFilters[column.key]}
+          onFilterChange={(value) =>
+            setColumnFilters((current) => {
+              const next = { ...current };
+              if (hasFilterValue(filterConfig[column.key]?.type, value)) next[column.key] = value;
+              else delete next[column.key];
+              return next;
+            })
+          }
+          onClearAllFilters={() => { setColumnFilters({}); setSortBy(""); setSortDirection("asc"); }}
+          onResetSort={() => { setSortBy(""); setSortDirection("asc"); }}
+          options={selectOptions[column.key] || filterConfig[column.key]?.options || []}
+          headerProps={layout.getHeaderProps(column.key)}
+          columnKey={column.key}
+          columnStyle={layout.getColumnStyle(column.key)}
+          onResizeStart={layout.startResize}
+          onResetWidth={layout.resetWidth}
+          dragging={layout.dragKey === column.key}
+          dropTarget={layout.dropKey === column.key}
+          className="border-b border-slate-200 py-2.5"
+        />
+      ))}
+    </tr>
+  );
+
+  // Sticky di bawah toolbar daftar (`--list-toolbar-h` diisi ListPageFrame)
+  // dan di atas tabel kartu/grafik. Satu-satunya area scroll adalah <main>.
+  const headerTable = (
+    <div className="sticky top-[var(--list-toolbar-h,0px)] z-30 w-full min-w-0 max-w-full overflow-x-auto bg-slate-100">
+      <table className="table-fixed border-collapse text-left text-sm" style={{ width: Math.max(tableWidth, 760), minWidth: "100%" }}>
+        <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">{headerCells}</thead>
+      </table>
+    </div>
+  );
+
+  const headerActionsBar = headerActions && !renderSpecialActions && specialVisible ? (
+    <div className="mb-1 flex items-center justify-end bg-white px-1 py-1">{headerActions}</div>
+  ) : null;
+
+  if (viewMode === "chart" && chart) {
+    return (
+      <div className="w-full min-w-0 max-w-full">
+        {headerActionsBar}
+        {headerTable}
+        <div className="border-x border-b border-slate-200 bg-white">{chart}</div>
+      </div>
+    );
+  }
+
   if (viewMode === "grid") {
     return (
       <div className="w-full min-w-0 max-w-full">
-        {headerActions && specialVisible ? (
-          <div className="mb-1 flex items-center justify-end bg-white px-1 py-1">{headerActions}</div>
-        ) : null}
-        {sortedRows.length ? (
-          <RecordCardGrid
-            rows={sortedRows}
-            columns={layout.orderedColumns.filter((column) => column.key !== HEADER_ACTIONS_KEY)}
-            card={card}
-            onRowClick={onRowClick}
-            selectionEnabled={selectionEnabled}
-            selectedIds={selectedIds}
-            isRowSelectable={isRowSelectable}
-            onToggleRow={onToggleRow}
-            rowKey={(row) => row.id ?? row.orderId ?? row.order_id}
-          />
-        ) : (
-          <div className="border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">{emptyMessage}</div>
-        )}
+        {headerActionsBar}
+        {headerTable}
+        <div className="border-x border-b border-slate-200 bg-white p-2">
+          {sortedRows.length ? (
+            <RecordCardGrid
+              rows={sortedRows}
+              columns={layout.orderedColumns.filter((column) => column.key !== HEADER_ACTIONS_KEY)}
+              card={card}
+              onRowClick={onRowClick}
+              selectionEnabled={selectionEnabled}
+              selectedIds={selectedIds}
+              isRowSelectable={isRowSelectable}
+              onToggleRow={onToggleRow}
+              rowKey={(row) => row.id ?? row.orderId ?? row.order_id}
+            />
+          ) : (
+            <div className="p-8 text-center text-sm text-slate-500">{emptyMessage}</div>
+          )}
+        </div>
         {hasNextPage || isFetchingNextPage ? (
           <InfiniteScrollSentinel hasNextPage={hasNextPage} isFetchingNextPage={isFetchingNextPage} onLoadMore={onLoadMore} />
         ) : null}
@@ -151,62 +228,19 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
 
   return (
     <div className="w-full min-w-0 max-w-full">
-      {!sortedRows.length && headerActions && specialVisible ? (
-        <div className="mb-1 flex items-center justify-end bg-white px-1 py-1">{headerActions}</div>
+      {!sortedRows.length ? headerActionsBar : null}
+      {!sortedRows.length ? (
+        <>
+          {headerTable}
+          <div className="border-x border-b border-slate-200 bg-white p-8 text-center text-sm text-slate-500">{emptyMessage}</div>
+        </>
       ) : null}
-      {!sortedRows.length ? <div className="border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">{emptyMessage}</div> : null}
 
       {sortedRows.length ? (
-        <div className="w-full min-w-0 max-w-full max-h-[calc(100vh-285px)] overflow-auto border border-slate-200 bg-white">
-          <table className="table-fixed border-collapse text-left text-sm" style={{ width: Math.max(tableWidth, 760), minWidth: "100%" }}>
-            <thead className="sticky top-0 z-10 bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
-              <tr>
-                {selectionEnabled ? (
-                  <th className="w-11 border-b border-slate-200 px-3 py-2.5 text-center">
-                    <input type="checkbox" checked={allSelected} onChange={onToggleAll} aria-label="Pilih semua data" />
-                  </th>
-                ) : null}
-                {layout.orderedColumns.map((column) => column.key === HEADER_ACTIONS_KEY ? (
-                  <th key={column.key} className="border-b border-slate-200 px-3 py-2.5 text-right align-middle" style={layout.getColumnStyle(column.key)}>
-                    {headerActions}
-                  </th>
-                ) : (
-                  <TableHeaderFilter
-                    key={column.key}
-                    label={column.label}
-                    sortKey={column.key}
-                    sortBy={sortBy}
-                    sortDirection={sortDirection}
-                    onSortChange={(key, direction) => {
-                      setSortBy(key);
-                      setSortDirection(direction);
-                    }}
-                    filterable={column.filterable !== false}
-                    filterType={column.filterable === false ? undefined : filterConfig[column.key]?.type}
-                    filterValue={columnFilters[column.key]}
-                    onFilterChange={(value) =>
-                      setColumnFilters((current) => {
-                        const next = { ...current };
-                        if (hasFilterValue(filterConfig[column.key]?.type, value)) next[column.key] = value;
-                        else delete next[column.key];
-                        return next;
-                      })
-                    }
-                    onClearAllFilters={() => { setColumnFilters({}); setSortBy(""); setSortDirection("asc"); }}
-                    onResetSort={() => { setSortBy(""); setSortDirection("asc"); }}
-                    options={selectOptions[column.key] || filterConfig[column.key]?.options || []}
-                    headerProps={layout.getHeaderProps(column.key)}
-                    columnKey={column.key}
-                    columnStyle={layout.getColumnStyle(column.key)}
-                    onResizeStart={layout.startResize}
-                    onResetWidth={layout.resetWidth}
-                    dragging={layout.dragKey === column.key}
-                    dropTarget={layout.dropKey === column.key}
-                    className="border-b border-slate-200 py-2.5"
-                  />
-                ))}
-              </tr>
-            </thead>
+        <>
+          {headerTable}
+          <div className="w-full min-w-0 max-w-full overflow-x-auto border-x border-b border-slate-200 bg-white">
+            <table className="table-fixed border-collapse text-left text-sm" style={{ width: Math.max(tableWidth, 760), minWidth: "100%" }}>
             <tbody className="divide-y divide-slate-100">
               {sortedRows.map((row) => {
                 const inactive = isInactiveRow(row);
@@ -220,7 +254,13 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
                       </td>
                     ) : null}
                     {layout.orderedColumns.map((column) => {
-                      if (column.key === HEADER_ACTIONS_KEY) return <td key={column.key} className="px-3 py-2.5" />;
+                      if (column.key === HEADER_ACTIONS_KEY) {
+                        return (
+                          <td key={column.key} className="px-3 py-2.5 text-right" onClick={(event) => event.stopPropagation()}>
+                            {renderSpecialActions ? renderSpecialActions(row) : null}
+                          </td>
+                        );
+                      }
                       const content = column.render ? column.render(row) : formatTableValue(resolveTableValue(row, column.key));
                       return (
                         <td key={column.key} className={cn("overflow-hidden px-3 py-2.5 align-top text-slate-700", column.align === "right" && "text-right", column.align === "center" && "text-center")}>
@@ -236,7 +276,8 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
           {hasNextPage || isFetchingNextPage ? (
             <InfiniteScrollSentinel hasNextPage={hasNextPage} isFetchingNextPage={isFetchingNextPage} onLoadMore={onLoadMore} />
           ) : null}
-        </div>
+          </div>
+        </>
       ) : null}
     </div>
   );

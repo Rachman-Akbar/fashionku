@@ -10,6 +10,8 @@ export const ConfirmDialog = memo(function ConfirmDialog({
   onConfirm,
   onClose,
   snoozeable = true,
+  children,
+  confirmTone = "danger",
 }) {
   const [dontAskToday, setDontAskToday] = useState(false);
   const autoFired = useRef(false);
@@ -48,6 +50,7 @@ export const ConfirmDialog = memo(function ConfirmDialog({
       <div className="w-full max-w-md rounded-[10px] bg-white p-6 shadow-2xl">
         <h2 className="text-lg font-extrabold text-slate-950">{title}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">{message}</p>
+        {children ? <div className="mt-3">{children}</div> : null}
         {snoozeable ? (
           <label className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-[10px] bg-slate-50 px-3 py-2.5">
             <input
@@ -74,7 +77,9 @@ export const ConfirmDialog = memo(function ConfirmDialog({
             type="button"
             disabled={pending}
             onClick={handleConfirm}
-            className="h-10 rounded-[10px] bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-60"
+            className={confirmTone === "neutral"
+              ? "h-10 rounded-[10px] bg-slate-900 px-4 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60"
+              : "h-10 rounded-[10px] bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-60"}
           >
             {confirmLabel}
           </button>

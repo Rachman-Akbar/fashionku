@@ -26,13 +26,29 @@ function normalizeCategory(row) {
   };
 }
 
+// Endpoint kategori mengembalikan tree (induk + children), sedangkan tabel
+// admin butuh daftar datar agar semua level bisa dirender sebagai satu set
+// baris yang bisa dibuka/ditutup.
+function flattenCategoryTree(nodes, seen = new Set()) {
+  const flattened = [];
+  for (const node of nodes) {
+    const id = String(node?.id ?? node?.category_id ?? "");
+    if (id && seen.has(id)) continue;
+    if (id) seen.add(id);
+    flattened.push(node);
+    const children = Array.isArray(node?.children) ? node.children : [];
+    if (children.length) flattened.push(...flattenCategoryTree(children, seen));
+  }
+  return flattened;
+}
+
 export async function listCategories(params = {}) {
   try {
     const response = await apiClient.get(`${BASE_URL}/manage`, { params });
-    return unwrapCollection(response.data).map(normalizeCategory);
+    return flattenCategoryTree(unwrapCollection(response.data)).map(normalizeCategory);
   } catch {
     const response = await apiClient.get(BASE_URL, { params });
-    return unwrapCollection(response.data).map(normalizeCategory);
+    return flattenCategoryTree(unwrapCollection(response.data)).map(normalizeCategory);
   }
 }
 

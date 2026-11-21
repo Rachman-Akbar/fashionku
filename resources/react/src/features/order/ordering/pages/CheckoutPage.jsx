@@ -4,7 +4,6 @@ import {
   Banknote,
   CalendarClock,
   CreditCard,
-  Info,
   Landmark,
   MapPin,
   QrCode,
@@ -22,9 +21,7 @@ import {
   usePaymentConfig,
   useShippingOptions,
 } from "@/features/order/ordering/orderService";
-import { openMidtransPayment } from "@/features/order/ordering/midtransService";
-import { OrderFlowStepper } from "@/features/order/ordering/components/OrderFlowStepper";
-import VoucherSearchSelect from "@/features/order/voucher/components/VoucherSearchSelect";
+import { OrderFlowStepper } from "@/features/order/ordering/components/OrderFlowStepper";import VoucherSearchSelect from "@/features/order/voucher/components/VoucherSearchSelect";
 import {
   useCheckoutVouchers,
   useVoucherPreview,
@@ -35,7 +32,7 @@ import {
   getBestCheckoutVoucher,
 } from "@/features/order/voucher/utils/checkoutVoucher";
 import { Button } from "@/shared/components/ui/Button";
-import { showOrderCreatedAlert } from "@/shared/utils/userFeedback";
+import { toastSuccess } from "@/shared/utils/userFeedback";
 import { Separator } from "@/shared/components/ui/Separator";
 import { formatPrice } from "@/shared/utils/utils";
 
@@ -547,58 +544,19 @@ export default function CheckoutPage() {
     const orderRoute = getCreatedOrderRoute(order);
     const requiresPayment = payment === "midtrans";
 
-    await showOrderCreatedAlert({
-      orderNumber: order?.order_number || order?.orderNumber || "",
-      orderId: order?.id || "",
-      totalLabel: formatPrice(total),
-      requiresPayment,
+    // Langsung pindah ke langkah 3 (detail pesanan). Sebelumnya buyer harus
+    // menutup popup dulu dan halaman review berubah jadi "Keranjang kosong"
+    // karena keranjang sudah dikosongkan setelah order dibuat.
+    navigate(orderRoute, {
+      replace: true,
+      state: { orderCreated: true, autoPay: requiresPayment },
     });
-
-    if (payment !== "midtrans") {
-      navigate(orderRoute, {
-        replace: true,
-        state: { orderCreated: true },
-      });
-      return;
-    }
-
-    try {
-      setSubmitStage("payment");
-      await openMidtransPayment(order, {
-        onSuccess: () =>
-          navigate(orderRoute, {
-            replace: true,
-            state: { orderCreated: true },
-          }),
-        onPending: () =>
-          navigate(orderRoute, {
-            replace: true,
-            state: { orderCreated: true },
-          }),
-        onError: () =>
-          navigate(orderRoute, {
-            replace: true,
-            state: {
-              orderCreated: true,
-              paymentError:
-                "Pembayaran Midtrans belum berhasil. Pesanan tetap tersimpan.",
-            },
-          }),
-        onClose: () =>
-          navigate(orderRoute, {
-            replace: true,
-            state: { orderCreated: true },
-          }),
-      });
-    } catch (paymentError) {
-      navigate(orderRoute, {
-        replace: true,
-        state: {
-          orderCreated: true,
-          paymentError: paymentError.message,
-        },
-      });
-    }
+    toastSuccess(
+      "Pesanan berhasil dibuat",
+      requiresPayment
+        ? "Lanjutkan pembayaran untuk menyelesaikan pesanan."
+        : "Pesanan sedang diproses oleh toko.",
+    );
   };
 
   if (isPreviewPage) {

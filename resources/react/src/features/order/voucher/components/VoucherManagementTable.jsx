@@ -122,7 +122,7 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
     <div className="overflow-x-clip bg-white ring-1 ring-slate-200">
       <table className="table-fixed text-left text-sm" style={{ width: Math.max(tableWidth, 1000), minWidth: "100%" }}>
           <InteractiveColGroup columns={layout.orderedColumns} getColumnStyle={layout.getColumnStyle} leadingWidth={selectionEnabled ? 44 : 0} />
-          <thead className="sticky top-0 z-10 bg-slate-100 text-xs font-extrabold text-slate-600">
+          <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-100 text-xs font-extrabold text-slate-600">
             <tr>
               <TableSelectionHeader enabled={selectionEnabled} checked={allSelected} onToggle={onToggleAll} />
               {layout.orderedColumns.map(renderHeader)}

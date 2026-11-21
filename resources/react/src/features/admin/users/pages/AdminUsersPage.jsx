@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
@@ -6,11 +6,16 @@ import { CrudDialog } from "@/shared/components/crud/CrudDialog";
 import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { useColumnVisibility, useTableSelection, useViewMode } from "@/shared/hooks";
+import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
+import { useActiveToggle } from "@/shared/hooks/useActiveToggle";
+import { cn } from "@/shared/utils/utils";
+import { InteractiveColGroup, InteractiveTableHeader } from "@/shared/components/table/InteractiveTableHeader";
+import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
 import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@/features/admin/users/services/usersService";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
-import { toastError } from "@/shared/utils/userFeedback";
+import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 
 const ROLES = ["buyer", "seller", "admin"];
 
@@ -187,14 +192,35 @@ export default function AdminUsersPage() {
   const [viewMode, setViewMode] = useViewMode("admin-users");
   const [query, setQuery] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [editUser, setEditUser] = useState(null);
-  const [detailUser, setDetailUser] = useState(null);
-  const [optimisticActiveStates, setOptimisticActiveStates] = useState({});
+  // Dialog pesan pelanggaran: wajib diisi sebelum user dinonaktifkan.
+  const [violationTarget, setViolationTarget] = useState(null);
+  const [violationMessage, setViolationMessage] = useState("");
+  const violationRef = useRef("");
+  const activeToggle = useActiveToggle({
+    mutate: (user, nextActive) => updateMutation.mutateAsync({
+      id: user.id,
+      values: {
+        ...user.raw,
+        is_active: nextActive,
+        ...(nextActive ? {} : { violation_message: violationRef.current }),
+      },
+    }),
+    errorMessage: () => "Status pengguna gagal diubah. Periksa kembali data lalu coba lagi.",
+    activeOf: (user) => user?.status === "Aktif",
+    labelOf: (user) => user?.name || user?.email || `#${user?.id}`,
+    onSettled: () => usersQuery.refetch(),
+    openDetail: (user) => editor.edit(user),
+  });
+  // Tab per entitas: tambah/edit pengguna mendapat tab sendiri di samping
+  // tab daftar (hijau), jadi beberapa data bisa dibuka bergantian.
+  const editor = useEntityEditor({ getEditLabel: (row) => row.name || row.email || "Pengguna" });
+  const editUser = editor.entity;
   const deferredQuery = useDeferredValue(query.trim());
   const usersQuery = useUsers({ ...(deferredQuery ? { search: deferredQuery } : {}), per_page: 100 });
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
+  useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: usersQuery.refetch });
   const rows = usersQuery.data || [];
   const total = useListTotalCount(usersQuery.meta || {}, { label: "Pengguna" });
   const columnVisibility = useColumnVisibility(
@@ -217,6 +243,12 @@ export default function AdminUsersPage() {
     [columnVisibility.visibleSet],
   );
 
+  // Urutan & lebar kolom tabel pengguna bisa diatur (drag & drop + resize).
+  const tableLayout = useTableColumnLayout({
+    storageKey: "admin-users-table",
+    columns: visibleColumns.map((column) => ({ ...column, width: column.key === "name" ? 260 : 170 })),
+  });
+
   const handleSave = (form) => {
     if (!form.name.trim() || !form.email.trim()) {
       toastError("Pengguna", "Nama dan email wajib diisi.");
@@ -224,60 +256,51 @@ export default function AdminUsersPage() {
     }
     const payload = { name: form.name, email: form.email, role: form.role, is_active: form.is_active };
     if (editUser) {
-      updateMutation.mutate({ id: editUser.id, values: payload });
+      updateMutation.mutate({ id: editUser.id, values: payload }, { onSuccess: () => editor.completeSave() });
     } else {
-      createMutation.mutate(payload);
+      createMutation.mutate(payload, { onSuccess: () => editor.completeSave() });
     }
   };
 
   const handleActivate = (user, nextActive) => {
-    const id = String(user.id);
-    const previous = user.status === "Aktif";
-    setOptimisticActiveStates((prev) => ({ ...prev, [id]: nextActive }));
-    updateMutation.mutateAsync({ id: user.id, values: { ...user.raw, is_active: nextActive } })
-      .then(() => {
-        setOptimisticActiveStates((prev) => { const { [id]: _removed, ...rest } = prev; return rest; });
-        usersQuery.refetch();
-      })
-      .catch(() => {
-        setOptimisticActiveStates((prev) => ({ ...prev, [id]: previous }));
-        toastError("Gagal Mengubah Status", `Gagal mengubah status ${user.name || ""}.`);
-      });
+    if (!nextActive) {
+      // Nonaktifkan butuh alasan pelanggaran yang akan dibaca buyer.
+      setViolationTarget(user);
+      setViolationMessage("");
+      violationRef.current = "";
+      return;
+    }
+    activeToggle.toggle(user, true);
+  };
+
+  const confirmDeactivate = () => {
+    const message = violationMessage.trim();
+    if (!message) {
+      toastError("Nonaktifkan Pengguna", "Pesan pelanggaran wajib diisi agar buyer tahu alasannya.");
+      return;
+    }
+    if (!violationTarget) return;
+    violationRef.current = message;
+    activeToggle.toggle(violationTarget, false);
+    setViolationTarget(null);
+    setViolationMessage("");
   };
   const saveDetailUser = async (form) => {
-    if (!detailUser) return;
+    if (!editor.entity) return;
     try {
       await updateMutation.mutateAsync({
-        id: detailUser.id,
+        id: editor.entity.id,
         values: { name: form.name, email: form.email, role: form.role, is_active: form.is_active },
       });
-      setDetailUser((current) => (current ? { ...current, name: form.name, email: form.email, role: form.role, status: form.is_active ? "Aktif" : "Nonaktif" } : current));
+      toastSuccess("Simpan Pengguna", "Perubahan data pengguna berhasil disimpan.");
+      editor.completeSave();
       usersQuery.refetch();
     } catch {
       // handled by mutation hook
     }
   };
 
-  const rowActions = (user) => (
-    <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
-      <button
-        type="button"
-        onClick={() => setEditUser(user)}
-        className="h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-slate-500 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
-        aria-label="Edit pengguna"
-      >
-        <span className="material-symbols-outlined text-[16px]">edit</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => setDeleteTarget(user)}
-        className="h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-slate-500 hover:bg-red-50 hover:text-red-700 transition-colors"
-        aria-label="Hapus pengguna"
-      >
-        <span className="material-symbols-outlined text-[16px]">delete</span>
-      </button>
-    </div>
-  );
+
 
   const userCard = {
     title: (user) => user.name,
@@ -295,7 +318,7 @@ export default function AdminUsersPage() {
       ),
     ],
     fields: [{ label: "Terdaftar", render: (user) => formatDate(user.createdAt) }],
-    footer: (user) => rowActions(user),
+    footer: () => <span className="text-[11px] font-bold text-emerald-700">Klik untuk buka detail</span>,
   };
 
   const remove = async () => {
@@ -303,7 +326,7 @@ export default function AdminUsersPage() {
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
       setDeleteTarget(null);
-      setDetailUser(null);
+      if (editor.entity && String(editor.entity.id) === String(deleteTarget.id)) editor.close();
       usersQuery.refetch();
     } catch {
       // error handled by mutation
@@ -312,23 +335,24 @@ export default function AdminUsersPage() {
 
   return (
     <>
-      {editUser ? (
-        <UserEditor open user={editUser} onClose={() => setEditUser(null)} onSave={handleSave} saving={updateMutation.isPending || createMutation.isPending} />
-      ) : detailUser ? (
+      {editor.open && editor.entity ? (
         <UserDetail
-          user={detailUser}
-          onBack={() => setDetailUser(null)}
+          key={editor.activeTab?.id || "detail"}
+          user={editor.entity}
+          onBack={editor.close}
           onSave={(form) => saveDetailUser(form)}
-          onDelete={() => setDeleteTarget(detailUser)}
+          onDelete={() => setDeleteTarget(editor.entity)}
           saving={updateMutation.isPending}
         />
+      ) : editor.open ? (
+        <UserEditor open user={null} onClose={editor.close} onSave={handleSave} saving={updateMutation.isPending || createMutation.isPending} />
       ) : (
         <ListPageFrame
           toolbar={(
             <EntityToolbar
               query={query}
               onQueryChange={setQuery}
-              onCreate={() => setEditUser(null)}
+              onCreate={() => editor.create()}
               onRefresh={() => usersQuery.refetch()}
               refreshing={usersQuery.isFetching}
               createLabel="Pengguna"
@@ -358,66 +382,105 @@ export default function AdminUsersPage() {
           )}
         >
           <AsyncState loading={usersQuery.isLoading} error={usersQuery.error ? String(usersQuery.error) : ""} empty={!usersQuery.isLoading && !rows.length} emptyText="Pengguna belum tersedia." />
-          {rows.length && viewMode === "grid" ? (
-            <RecordCardGrid
-              rows={rows}
-              columns={visibleColumns}
-              card={userCard}
-              onRowClick={(user) => setDetailUser(user)}
-              rowKey={(user) => user.id}
-              emptyText="Pengguna belum tersedia."
-            />
-          ) : null}
-          {rows.length && viewMode !== "grid" ? (
-            <div className="border border-slate-200 bg-white">
-              <table className="w-full text-left text-sm border-collapse">
-                <thead className="sticky top-0 z-10 bg-slate-50">
-                  <tr className="bg-slate-50">
-                    {visibleColumns.map((column) => (
-                      <th key={column.key} className="bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">{column.label}</th>
-                    ))}
-                    <th className="w-24 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((user) => (
-                    <tr key={user.id} onClick={() => setDetailUser(user)} className="cursor-pointer border-b border-slate-100 hover:bg-slate-50 group">
-                      {visibleColumns.map((column) => {
-                        const value = user[column.key];
-                        return (
-                          <td key={column.key} className="px-4 py-3 text-slate-700">
-                            {column.key === "role" ? (
-                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${user.role === "admin" ? "bg-amber-50 text-amber-700" : user.role === "seller" ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
-                                {user.role === "admin" ? "Administrator" : user.role === "seller" ? "Penjual" : "Pembeli"}
-                              </span>
-                            ) : column.key === "status" ? (
-                              <span onClick={(event) => event.stopPropagation()} className="inline-flex items-center gap-2">
-                                <InlineActiveSwitch
-                                  checked={optimisticActiveStates[String(user.id)] ?? (user.status === "Aktif")}
-                                  pending={updateMutation.isPending && updateMutation.variables?.id === user.id}
-                                  activeLabel="Aktif"
-                                  inactiveLabel="Nonaktif"
-                                  compact
-                                  onChange={(next) => handleActivate(user, next)}
-                                />
-                              </span>
-                            ) : column.key === "createdAt" ? (
-                              formatDate(value)
-                            ) : (
-                              value || "-"
-                            )}
-                          </td>
-                        );
-                      })}
-                      <td className="px-4 py-3">{rowActions(user)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          {!usersQuery.isLoading && !usersQuery.error && rows.length ? (
+            <>
+              <div className={viewMode === "grid" ? "[&_tbody]:hidden" : ""}>
+                <div className="overflow-x-auto [overflow-y:clip] border border-slate-200 bg-white">
+                  <table className="table-fixed w-full text-left text-sm border-collapse" style={{ width: Math.max(tableLayout.totalWidth, 760), minWidth: "100%" }}>
+                    <InteractiveColGroup columns={tableLayout.orderedColumns} getColumnStyle={tableLayout.getColumnStyle} trailingWidth={0} />
+                    <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-50">
+                      <tr className="bg-slate-50">
+                        {tableLayout.orderedColumns.map((column) => (
+                          <InteractiveTableHeader
+                            key={column.key}
+                            columnKey={column.key}
+                            headerProps={tableLayout.getHeaderProps(column.key)}
+                            style={tableLayout.getColumnStyle(column.key)}
+                            onResizeStart={tableLayout.startResize}
+                            onResetWidth={tableLayout.resetWidth}
+                            dragging={tableLayout.dragKey === column.key}
+                            dropTarget={tableLayout.dropKey === column.key}
+                            className="bg-slate-50 px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]"
+                          >
+                            {column.label}
+                          </InteractiveTableHeader>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((user) => (
+                        <tr key={user.id} onClick={() => editor.edit(user)} className={cn("cursor-pointer border-b border-slate-100 hover:bg-slate-50 group", !activeToggle.isActive(user) && "bg-slate-50 text-slate-400 [&_td]:opacity-70")}>
+                          {tableLayout.orderedColumns.map((column) => {
+                            const value = user[column.key];
+                            return (
+                              <td key={column.key} className="px-4 py-3 text-slate-700">
+                                {column.key === "role" ? (
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${user.role === "admin" ? "bg-amber-50 text-amber-700" : user.role === "seller" ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
+                                    {user.role === "admin" ? "Administrator" : user.role === "seller" ? "Penjual" : "Pembeli"}
+                                  </span>
+                                ) : column.key === "status" ? (
+                                  <span onClick={(event) => event.stopPropagation()} className="inline-flex items-center gap-2">
+                                    <InlineActiveSwitch
+                                      checked={activeToggle.isActive(user)}
+                                      pending={updateMutation.isPending && updateMutation.variables?.id === user.id}
+                                      activeLabel="Aktif"
+                                      inactiveLabel="Nonaktif"
+                                      compact
+                                      onChange={(next) => handleActivate(user, next)}
+                                    />
+                                  </span>
+                                ) : column.key === "createdAt" ? (
+                                  formatDate(value)
+                                ) : (
+                                  value || "-"
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {viewMode === "grid" ? (
+                <RecordCardGrid
+                  rows={rows}
+                  columns={visibleColumns}
+                  card={userCard}
+                  onRowClick={(user) => editor.edit(user)}
+                  rowKey={(user) => user.id}
+                  emptyText="Pengguna belum tersedia."
+                />
+              ) : null}
+            </>
           ) : null}
         </ListPageFrame>
       )}
+      <ConfirmDialog
+        open={Boolean(violationTarget)}
+        title="Nonaktifkan Pengguna"
+        message={`Pengguna “${violationTarget?.name || ""}” akan dinonaktifkan. Pesan pelanggaran akan ditampilkan ke buyer saat membuka aplikasi.`}
+        confirmLabel="Nonaktifkan"
+        confirmTone="neutral"
+        snoozeable={false}
+        pending={false}
+        onClose={() => { setViolationTarget(null); setViolationMessage(""); }}
+        onConfirm={confirmDeactivate}
+      >
+        <label className="block text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500" htmlFor="violation-message">
+          Pesan Pelanggaran
+        </label>
+        <textarea
+          id="violation-message"
+          value={violationMessage}
+          onChange={(event) => setViolationMessage(event.target.value)}
+          rows={4}
+          placeholder="Contoh: Akun dinonaktifkan karena terbukti melakukan transaksi fiktif."
+          className="mt-1 w-full rounded-[10px] border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-emerald-500"
+        />
+        <p className="mt-1 text-[11px] text-slate-500">Pesan ini wajib diisi dan akan muncul sebagai modal di aplikasi buyer.</p>
+      </ConfirmDialog>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Hapus Pengguna"

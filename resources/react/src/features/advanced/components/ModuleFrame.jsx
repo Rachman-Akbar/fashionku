@@ -1,4 +1,5 @@
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
+import { useStickyToolbarHeight } from "@/shared/hooks/useStickyToolbarHeight";
 import { ToolbarTableColumnsProvider, useToolbarTableColumns } from "./ToolbarTableColumnsContext";
 
 function resolveColumnsProps(props, registration) {
@@ -43,6 +44,7 @@ function ModuleFrameInner({
   viewModeOptions,
 }) {
   const { registration } = useToolbarTableColumns();
+  const { connect, style, toolbarStyle, contentStyle } = useStickyToolbarHeight();
   const incomingProps = {
     columns,
     visibleColumns,
@@ -54,8 +56,8 @@ function ModuleFrameInner({
   const resolved = resolveColumnsProps(incomingProps, registration);
 
   return (
-    <section className="w-full min-w-0 max-w-full">
-      <div className="sticky top-0 z-20 -mx-px bg-white pb-2 pt-1">
+    <section className="relative w-full min-w-0 max-w-full" style={style}>
+      <div ref={connect} className="bg-white" style={toolbarStyle}>
         <EntityToolbar
         query={query}
         onQueryChange={onQueryChange}
@@ -85,7 +87,7 @@ function ModuleFrameInner({
         viewModeOptions={viewModeOptions}
         />
       </div>
-      <div className="space-y-0.5">{children}</div>
+      <div className="space-y-0.5" style={contentStyle}>{children}</div>
     </section>
   );
 }

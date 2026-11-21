@@ -38,7 +38,7 @@ function TabDropdown({ tabs, activeId, onActivate, onClose, onCloseAll, closeAll
         <span className="material-symbols-outlined text-[19px]">keyboard_arrow_down</span>
       </button>
       {open ? (
-        <div className="absolute right-0 top-full z-50 mt-1 w-72 overflow-hidden bg-white py-1 ring-1 ring-slate-200">
+        <div className="absolute right-0 top-full z-[100] mt-1 w-72 overflow-hidden bg-white py-1 ring-1 ring-slate-200">
           <div className="max-h-80 overflow-y-auto">
             {tabs.map((tab) => {
               const list = tab.type === "list";
@@ -154,7 +154,7 @@ export const PanelTabBar = memo(function PanelTabBar() {
   const showChildRow = context.tabs.length > 0;
 
   return (
-    <div className="sticky top-16 z-30">
+    <div className="sticky top-16 z-50">
       <div className="flex min-w-0 items-end gap-1 bg-slate-200 pl-0 pr-1 pt-1.5">
         <ScrollableTabs tabs={context.parentTabs} activeId={context.activeParentId} onActivate={context.activateParent} onClose={context.closeParent} variant="parent" dirtyTabIds={context.dirtyTabIds} />
         <TabDropdown tabs={context.parentTabs} activeId={context.activeParentId} onActivate={context.activateParent} onClose={context.closeParent} onCloseAll={context.closeAllParents} dirtyTabIds={context.dirtyTabIds} closeAllLabel="Tutup Semua Menu" label="Semua menu terbuka" accent="parent" />
@@ -186,7 +186,12 @@ export const PanelTabBar = memo(function PanelTabBar() {
             type="button"
             onClick={() => {
               const helpHref = context.activeParentId?.startsWith("/admin") ? "/admin/help" : "/seller/help";
-              context.navigate(helpHref);
+              const helpItem = context.items.find((item) => item.href === helpHref);
+              // Sama seperti klik menu sidebar: buka/aktifkan tab induk Bantuan
+              // lalu fokus ke tab Daftar. `navigate` saja tidak cukup karena tab
+              // induk tidak pernah terbuat sehingga halaman tidak berpindah.
+              if (helpItem) context.openParent(helpItem);
+              else context.navigate(helpHref);
             }}
             className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-800"
             title={helpUnread > 0 ? `Buka halaman bantuan (${helpUnread} belum dibaca)` : "Buka halaman bantuan"}

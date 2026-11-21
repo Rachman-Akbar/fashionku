@@ -59,7 +59,7 @@ export const ProductStockFields = memo(function ProductStockFields({
       <div className="overflow-x-clip rounded-[10px] border border-slate-200">
         <div className="max-h-[60vh] overflow-auto">
           <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-slate-100 text-xs font-extrabold text-slate-600">
+            <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-100 text-xs font-extrabold text-slate-600">
               <tr>
                 <th className="bg-slate-100 px-4 py-3 shadow-[inset_0_-1px_0_0_#e2e8f0]">Varian</th>
                 <th className="bg-slate-100 px-4 py-3 shadow-[inset_0_-1px_0_0_#e2e8f0]">SKU</th>

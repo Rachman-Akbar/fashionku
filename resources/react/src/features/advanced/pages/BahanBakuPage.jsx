@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import {
   advancedError,
   useAdjustRawMaterial,
@@ -19,6 +19,7 @@ import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch"
 import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
 import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
 import { useViewMode } from "@/shared/hooks/useViewMode";
+import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 
 const MATERIAL_EMPTY = { code: "", name: "", unit: "pcs", minimum_stock: 0, average_cost: 0, is_active: true };
@@ -39,6 +40,9 @@ export default function BahanBakuPage() {
   const deferred = useDeferredValue(query.trim());
   const [materialForm, setMaterialForm] = useState(null);
   const [materialInitial, setMaterialInitial] = useState(null);
+  // Sama seperti halaman Product: tambah/edit bahan baku membuka tab data
+  // sendiri di samping tab daftar (hijau), bukan lapisan di atas daftar.
+  const editor = useEntityEditor({ getEditLabel: (row) => row.name || row.code || "Bahan Baku" });
   const [materialAdjust, setMaterialAdjust] = useState(null);
   const [materialDelete, setMaterialDelete] = useState(null);
   const [materialSelected, setMaterialSelected] = useState(new Set());
@@ -58,6 +62,7 @@ export default function BahanBakuPage() {
   const adjustMaterial = useAdjustRawMaterial();
 
   const materialRows = useMemo(() => materials.data?.rows || [], [materials.data?.rows]);
+  useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: materials.refetch });
   const materialAllSelected = materialRows.length > 0 && materialSelected.size === materialRows.length;
   const unitOptions = useMemo(() => {
     const seen = new Set();
@@ -100,10 +105,21 @@ export default function BahanBakuPage() {
   const activeTotal = tab === "materials" ? totalMaterials : tab === "material-history" ? totalMaterialHistory : totalCostImpact;
 
   const openMaterial = (row) => {
-    const draft = row ? { ...row } : { ...MATERIAL_EMPTY };
+    if (row?.id) editor.edit(row);
+    else editor.create();
+  };
+
+  // Isi form disemai ulang setiap tab entitas aktif berubah (create/edit).
+  useEffect(() => {
+    if (!editor.open) {
+      setMaterialForm(null);
+      setMaterialInitial(null);
+      return;
+    }
+    const draft = editor.entity ? { ...editor.entity } : { ...MATERIAL_EMPTY };
     setMaterialInitial({ ...draft });
     setMaterialForm(draft);
-  };
+  }, [editor.open, editor.activeTab?.id]);
 
   const openStock = (row) => {
     setMaterialAdjust(row);
@@ -217,6 +233,7 @@ export default function BahanBakuPage() {
       setMaterialForm(null);
       setMaterialInitial(null);
       toastSuccess("Simpan Bahan Baku", "Bahan baku berhasil disimpan.");
+      editor.completeSave();
       materials.refetch();
     } catch (error) {
       toastError("Simpan Bahan Baku", advancedError(error));
@@ -229,6 +246,7 @@ export default function BahanBakuPage() {
       await deleteMaterial.mutateAsync(materialDelete.id);
       setMaterialDelete(null);
       setMaterialSelected(new Set());
+      if (editor.entity && String(editor.entity.id) === String(materialDelete.id)) editor.close();
       toastSuccess("Hapus Bahan Baku", `Bahan baku ${materialDelete.name || materialDelete.code} berhasil dihapus.`);
       materials.refetch();
     } catch (error) {
@@ -254,7 +272,7 @@ export default function BahanBakuPage() {
 
   return (
     <>
-      <ModuleFrame
+      {editor.isListActive ? <ModuleFrame
         title="Bahan Baku (Master Data)"
         subtitle="Kelola master data bahan baku yang digunakan oleh produk. Stok berkurang otomatis saat produk dengan resep bahan baku diproduksi."
         query={query}
@@ -286,11 +304,11 @@ export default function BahanBakuPage() {
             <DataGrid viewMode={viewMode} storageKey="inventory.cost-impact" onFilterStateChange={totalCostImpact.onFilterStateChange} columns={impactColumns} rows={costImpacts.data?.rows || []} emptyText="Belum ada kenaikan biaya bahan baku yang memengaruhi HPP." />
           </>
         ) : null}
-      </ModuleFrame>
+      </ModuleFrame> : null}
 
       <SpreadsheetOperationPanel workspace={materialSpreadsheet} />
 
-      <FormModal open={Boolean(materialForm)} title={materialForm?.id ? "Edit Bahan Baku" : "Data Baru Bahan Baku"} onClose={() => { setMaterialForm(null); setMaterialInitial(null); }} onSubmit={submitMaterial} busy={saveMaterial.isPending} dirty={materialDirty} submitLabel="Simpan" onDelete={materialForm?.id ? () => { setMaterialDelete(materialForm); setMaterialForm(null); setMaterialInitial(null); } : undefined} extraActions={materialForm?.id ? [{ icon: "add_box", label: "Stock / Restock", tone: "teal", onClick: () => { openStock(materialForm); setMaterialForm(null); setMaterialInitial(null); } }] : []}>
+      <FormModal presentation="page" open={Boolean(materialForm)} title={materialForm?.id ? "Edit Bahan Baku" : "Data Baru Bahan Baku"} onClose={() => { setMaterialForm(null); setMaterialInitial(null); }} onSubmit={submitMaterial} busy={saveMaterial.isPending} dirty={materialDirty} submitLabel="Simpan" onDelete={materialForm?.id ? () => { setMaterialDelete(materialForm); setMaterialForm(null); setMaterialInitial(null); } : undefined} extraActions={materialForm?.id ? [{ icon: "add_box", label: "Stock / Restock", tone: "teal", onClick: () => { const row = materialForm; setMaterialForm(null); setMaterialInitial(null); editor.close(); openStock(row); } }] : []}>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Kode" hint="Kosongkan agar dibuat otomatis oleh sistem (mis. RM-GULA), atau isi kode manual."><Input value={materialForm?.code || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, code: event.target.value }))} placeholder="Otomatis bila dikosongkan" /></Field>
           <Field label="Nama" required><Input value={materialForm?.name || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, name: event.target.value }))} required /></Field>
@@ -300,7 +318,7 @@ export default function BahanBakuPage() {
         </div>
       </FormModal>
 
-      <FormModal open={Boolean(materialAdjust)} title="Stock / Restock Bahan Baku" onClose={() => setMaterialAdjust(null)} onSubmit={submitMaterialStock} busy={adjustMaterial.isPending} dirty={stockDirty} submitLabel="Simpan">
+      <FormModal presentation="modal" open={Boolean(materialAdjust)} title="Stock / Restock Bahan Baku" onClose={() => setMaterialAdjust(null)} onSubmit={submitMaterialStock} busy={adjustMaterial.isPending} dirty={stockDirty} submitLabel="Simpan">
         <Field label="Perubahan Stok" required hint="Positif untuk restock, negatif untuk pemakaian."><Input type="number" step="0.0001" value={delta} onChange={(event) => setDelta(event.target.value)} required /></Field>
         <Field label="Biaya per Satuan" hint="Saat restock, nilai ini dipakai untuk average cost tertimbang."><Input type="number" step="0.0001" min="0" value={unitCost} onChange={(event) => setUnitCost(event.target.value)} /></Field>
         <Field label="No. Referensi Stok" hint="Boleh diisi manual, atau kosongkan agar sistem membuat nomor otomatis."><Input value={stockReference} onChange={(event) => setStockReference(event.target.value)} placeholder="Kosongkan untuk nomor otomatis" /></Field>

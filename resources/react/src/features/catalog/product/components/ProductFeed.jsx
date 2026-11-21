@@ -11,7 +11,11 @@ export function ProductFeed() {
   const rootCategories = useMemo(
     () =>
       (categoriesQuery.data?.data || [])
-        .filter((c) => Number(c.level || 1) === 1)
+        .filter((c) => {
+          const level = Number(c.level || 1);
+          const isRoot = level === 1 || !c.parent_id || c.parent_id === 0 || c.parent_id === "0";
+          return isRoot && c.is_active !== false && c.is_visible_in_menu !== false;
+        })
         .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || String(a.name).localeCompare(String(b.name))),
     [categoriesQuery.data],
   );

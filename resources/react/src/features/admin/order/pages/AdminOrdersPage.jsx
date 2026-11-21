@@ -1,10 +1,13 @@
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
-import { ORDER_TABLE_COLUMNS, OrderManagementTable, orderCardDefinition } from "@/features/admin/order/components/OrderManagementTable";
+import { ADMIN_ORDER_STATUS_OPTIONS, ORDER_TABLE_COLUMNS, OrderManagementTable, orderCardDefinition } from "@/features/admin/order/components/OrderManagementTable";
 import { getOrderManagementError, useAdminOrders, useUpdateOrderStatus } from "@/features/admin/order/services/orderManagementService";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
+import { SpecialActionButton } from "@/shared/components/crud/SpecialActionButton";
+import { FormModal } from "@/features/advanced/components/FormModal";
+import { Input } from "@/shared/components/ui/Input";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { InfiniteScrollSentinel } from "@/shared/components/ui/InfiniteScrollSentinel";
 import { useColumnVisibility, useTableSelection, useViewMode } from "@/shared/hooks";
@@ -20,16 +23,19 @@ import OrderDetailForm from "@/features/seller/order/pages/OrderDetailPage";
 import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 
 export default function AdminOrdersPage() {
-  const [viewMode, setViewMode] = useViewMode("admin-orders");
+  const viewMode = "list";
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [type, setType] = useState("");
   const [printRow, setPrintRow] = useState(null);
-  const viewModeOptions = [
-    { key: "list", icon: "view_list", label: "Tampilan list" },
-    { key: "grid", icon: "grid_view", label: "Tampilan kartu" },
-    { key: "chart", icon: "bar_chart", label: "Tampilan grafik" },
-  ];
+  // Baris hasil filter header tabel, dipakai agar mode grafik tetap
+  // menghormati filter yang sama dengan mode list.
+  const [filteredOrders, setFilteredOrders] = useState([]);
+  // Aksi Khusus "Ubah Status Pesanan": satu tombol untuk massal, sementara
+  // perubahan cepat per pesanan tetap lewat kolom status di tabel.
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [statusDraft, setStatusDraft] = useState("");
+  const [statusReason, setStatusReason] = useState("");
   const notifications = useNotificationCenter();
   const deferredQuery = useDeferredValue(query.trim());
   const ordersQuery = useAdminOrders({ per_page: 20, ...(deferredQuery ? { search: deferredQuery } : {}), ...(status ? { status } : {}), ...(type ? { order_type: type } : {}) });
@@ -74,14 +80,20 @@ export default function AdminOrdersPage() {
     }
   };
 
-  const bulkActions = [
-    { key: "processing", label: "Set Processing", icon: "pending_actions", requiresSelection: true, onClick: () => bulkStatus("processing") },
-    { key: "shipped", label: "Set Shipped", icon: "local_shipping", requiresSelection: true, onClick: () => bulkStatus("shipped") },
-    { key: "received", label: "Set Received", icon: "inventory_2", requiresSelection: true, onClick: () => bulkStatus("received") },
-    { key: "completed", label: "Set Completed", icon: "task_alt", requiresSelection: true, onClick: () => bulkStatus("completed") },
-    { key: "rejected", label: "Tolak Pesanan", icon: "block", requiresSelection: true, onClick: () => bulkStatus("rejected", selection.selectedRows, "Ditolak oleh admin") },
-    ...spreadsheet.actions,
-  ];
+  // Status tidak lagi punya menu sendiri: semua lewat satu Aksi Khusus.
+  const bulkActions = [...spreadsheet.actions];
+
+  const submitStatusDialog = async (event) => {
+    event?.preventDefault?.();
+    if (!statusDraft) {
+      toastError("Ubah Status Pesanan", "Pilih status baru terlebih dahulu.");
+      return;
+    }
+    await bulkStatus(statusDraft, selection.selectedRows, statusReason.trim());
+    setStatusDialogOpen(false);
+    setStatusDraft("");
+    setStatusReason("");
+  };
 
   return (
     <>
@@ -94,6 +106,23 @@ export default function AdminOrdersPage() {
             query={query}
             onQueryChange={setQuery}
             hideCreate
+            extraActions={(
+              <SpecialActionButton
+                icon="swap_horiz"
+                label="Ubah Status Pesanan"
+                title={selection.selectedCount ? `Ubah status ${selection.selectedCount} pesanan terpilih` : "Aktifkan pilih baris, centang pesanan, lalu ubah statusnya"}
+                onClick={() => {
+                  setStatusDraft("");
+                  setStatusReason("");
+                  if (!selection.selectedCount && !selection.enabled) {
+                    selection.toggleEnabled();
+                    toastError("Ubah Status Pesanan", "Mode pilih baris diaktifkan. Centang pesanan yang ingin diubah statusnya.");
+                    return;
+                  }
+                  setStatusDialogOpen(true);
+                }}
+              />
+            )}
             onRefresh={() => ordersQuery.refetch()}
             refreshing={ordersQuery.isFetching}
             placeholder="Cari nomor order lalu tekan Enter"
@@ -110,9 +139,6 @@ export default function AdminOrdersPage() {
             onShowAllColumns={columnVisibility.showAll}
             onResetColumns={columnVisibility.reset}
             onApplyDefaultColumns={columnVisibility.applyAsDefault}
-            viewMode={viewMode}
-            onChangeViewMode={setViewMode}
-            viewModeOptions={viewModeOptions}
             filters={(
               <>
                 <SearchableSelect
@@ -130,15 +156,7 @@ export default function AdminOrdersPage() {
                 <SearchableSelect
                   value={status}
                   onChange={setStatus}
-                  options={[
-                    { value: "pending", label: "Pending" },
-                    { value: "processing", label: "Processing" },
-                    { value: "shipped", label: "Shipped" },
-                    { value: "received", label: "Received" },
-                    { value: "completed", label: "Completed" },
-                    { value: "rejected", label: "Rejected" },
-                    { value: "cancelled", label: "Cancelled" },
-                  ]}
+                  options={ADMIN_ORDER_STATUS_OPTIONS}
                   placeholder="Semua status"
                   className="w-44"
                   buttonClassName="h-9"
@@ -150,7 +168,22 @@ export default function AdminOrdersPage() {
         >
           <AsyncState loading={ordersQuery.isLoading} error={ordersQuery.error ? getOrderManagementError(ordersQuery.error) : ""} empty={!ordersQuery.isLoading && !rows.length} emptyText="Pesanan belum tersedia." />
           {rows.length && viewMode === "chart" ? (
-            <OrdersChartPanel rows={rows} />
+            <>
+              {/* Header + filter tetap tampil di mode grafik (body tabel disembunyikan). */}
+              <div className="[&_tbody]:hidden">
+                <OrderManagementTable
+                  rows={rows}
+                  columns={columns}
+                  portal="admin"
+                  pendingId={updateMutation.variables?.id}
+                  visibleSet={columnVisibility.visibleSet}
+                  onFilterStateChange={(state) => setFilteredOrders(state?.filteredRows || [])}
+                  onEdit={editor.edit}
+                  onPrint={setPrintRow}
+                />
+              </div>
+              <OrdersChartPanel rows={filteredOrders.length ? filteredOrders : rows} />
+            </>
           ) : null}
           {rows.length && viewMode === "grid" ? (
             <RecordCardGrid
@@ -167,7 +200,7 @@ export default function AdminOrdersPage() {
           {rows.length && viewMode !== "grid" && viewMode !== "chart" ? (
             <OrderManagementTable
               rows={rows}
-              onFilterStateChange={total.onFilterStateChange}
+              onFilterStateChange={(state) => { total.onFilterStateChange(state); setFilteredOrders(state?.filteredRows || []); }}
               columns={columns}
               portal="admin"
               pendingId={updateMutation.variables?.id}
@@ -196,6 +229,38 @@ export default function AdminOrdersPage() {
           <InfiniteScrollSentinel hasNextPage={ordersQuery.hasNextPage} isFetchingNextPage={ordersQuery.isFetchingNextPage} onLoadMore={() => ordersQuery.fetchNextPage()} />
         </ListPageFrame>
       ) : null}
+      <FormModal
+        presentation="modal"
+        open={statusDialogOpen}
+        title="Ubah Status Pesanan"
+        subtitle={selection.selectedCount ? `${selection.selectedCount} pesanan terpilih akan diubah. Buyer otomatis menerima notifikasi untuk status diterima, ditolak, dibatalkan, dan selesai.` : "Pilih pesanan pada tabel terlebih dahulu."}
+        onClose={() => setStatusDialogOpen(false)}
+        onSubmit={submitStatusDialog}
+        busy={updateMutation.isPending}
+        submitLabel="Simpan Status"
+      >
+        <label className="block text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500" htmlFor="order-status">
+          Status Baru
+        </label>
+        <SearchableSelect
+          value={statusDraft}
+          onChange={setStatusDraft}
+          options={ADMIN_ORDER_STATUS_OPTIONS}
+          placeholder="Pilih status"
+          clearable={false}
+          className="mt-1 w-full"
+        />
+        <label className="mt-4 block text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500" htmlFor="order-status-reason">
+          Alasan (opsional)
+        </label>
+        <Input
+          id="order-status-reason"
+          value={statusReason}
+          onChange={(event) => setStatusReason(event.target.value)}
+          placeholder="Contoh: stok habis / permintaan buyer"
+          className="mt-1"
+        />
+      </FormModal>
       <SpreadsheetOperationPanel workspace={spreadsheet} />
       {printRow ? <OrderPrintSheet row={printRow} onClose={() => setPrintRow(null)} /> : null}
     </>

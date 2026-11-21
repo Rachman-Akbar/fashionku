@@ -231,7 +231,7 @@ function OrderDetailForm({ row, onDeleted, onSaved }) {
             <div className="mt-3 overflow-x-clip rounded-[10px] ring-1 ring-slate-200">
               <div className="overflow-x-auto lg:overflow-x-clip">
                 <table className="w-full border-collapse text-left text-sm">
-                  <thead className="sticky top-0 z-10 bg-slate-50 text-xs font-extrabold uppercase text-slate-500">
+                  <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-50 text-xs font-extrabold uppercase text-slate-500">
                     <tr>
                       <th className="bg-slate-50 px-4 py-2.5 shadow-[inset_0_-1px_0_0_#e2e8f0]">Produk</th>
                       <th className="bg-slate-50 px-4 py-2.5 text-center shadow-[inset_0_-1px_0_0_#e2e8f0]">Qty</th>

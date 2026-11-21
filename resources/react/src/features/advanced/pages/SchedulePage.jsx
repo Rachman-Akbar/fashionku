@@ -2,10 +2,10 @@ import { useDeferredValue, useMemo, useState } from "react";
 import { SellerPanelShell } from "@/features/seller/dashboard/components/SellerPanelShell";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
+import { useEntityEditor } from "@/shared/hooks/useEntityEditor";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { CrudDialog } from "@/shared/components/crud/CrudDialog";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
-import { ViewModeToggle } from "@/shared/components/ui/ViewModeToggle";
 import { useFocusMode } from "@/shared/layout/FocusModeContext";
 import { useColumnVisibility, useTableSelection } from "@/shared/hooks";
 import { cn } from "@/shared/utils/utils";
@@ -284,7 +284,7 @@ function KanbanView({ rows, onEdit, onDelete, onMove }) {
   );
 }
 
-function CalendarView({ rows, onEdit, onDelete }) {
+function CalendarView({ rows, onEdit }) {
   const [monthOffset, setMonthOffset] = useState(0);
   const base = useMemo(() => {
     const d = new Date();
@@ -377,7 +377,9 @@ export default function SchedulePage() {
   const [viewMode, setViewMode] = useState("kanban");
   const [query, setQuery] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [editor, setEditor] = useState({ open: false, schedule: null });
+  // Tab per entitas: tambah/edit jadwal mendapat tab sendiri di samping tab
+  // daftar (hijau), jadi daftar tidak tertimpa lapisan editor.
+  const editor = useEntityEditor({ getEditLabel: (row) => row.title || "Jadwal" });
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
   const schedulesQuery = useSchedules({ per_page: 200 });
   const createMutation = useCreateSchedule();
@@ -406,9 +408,9 @@ export default function SchedulePage() {
 
   const saving = createMutation.isPending || updateMutation.isPending;
 
-  const openCreate = () => setEditor({ open: true, schedule: null });
-  const openEdit = (schedule) => setEditor({ open: true, schedule });
-  const closeEditor = () => setEditor({ open: false, schedule: null });
+  const openCreate = () => editor.create();
+  const openEdit = (schedule) => editor.edit(schedule);
+  const closeEditor = () => editor.close();
 
   const handleSave = async (form) => {
     const payload = {
@@ -427,8 +429,8 @@ export default function SchedulePage() {
       color: form.color || "#10B981",
     };
     try {
-      if (editor.schedule?.id) {
-        await updateMutation.mutateAsync({ id: editor.schedule.id, values: payload });
+      if (editor.entity?.id) {
+        await updateMutation.mutateAsync({ id: editor.entity.id, values: payload });
       } else {
         await createMutation.mutateAsync(payload);
       }
@@ -466,7 +468,7 @@ export default function SchedulePage() {
 
   return (
     <SellerPanelShell>
-      <ListPageFrame
+      {editor.isListActive ? <ListPageFrame
         toolbar={(
           <div className="space-y-[2px]">
             <EntityToolbar
@@ -489,14 +491,16 @@ export default function SchedulePage() {
               onShowAllColumns={columnVisibility.showAll}
               onResetColumns={columnVisibility.reset}
               onApplyDefaultColumns={columnVisibility.applyAsDefault}
+              viewMode={viewMode}
+              onChangeViewMode={setViewMode}
+              viewModeOptions={VIEW_OPTIONS}
+              extraActions={(
+                <button type="button" onClick={toggleFocus} className={cn("inline-flex h-7 items-center gap-1 rounded-[8px] border px-2 text-[11px] font-bold transition-colors", isFocus ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50")}>
+                  <span className="material-symbols-outlined text-[15px]">{isFocus ? "close_fullscreen" : "center_focus_strong"}</span>
+                  {isFocus ? "Keluar fokus" : "Fokus"}
+                </button>
+              )}
             />
-            <div className="flex items-center justify-end gap-2 px-2">
-              <button type="button" onClick={toggleFocus} className={cn("inline-flex h-7 items-center gap-1 rounded-[8px] border px-2 text-[11px] font-bold transition-colors", isFocus ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50")}>
-                <span className="material-symbols-outlined text-[15px]">{isFocus ? "close_fullscreen" : "center_focus_strong"}</span>
-                {isFocus ? "Keluar fokus" : "Fokus"}
-              </button>
-              <ViewModeToggle value={viewMode} onChange={setViewMode} options={VIEW_OPTIONS} />
-            </div>
           </div>
         )}
       >
@@ -514,7 +518,7 @@ export default function SchedulePage() {
             {viewMode === "list" ? (
               <div className="border border-slate-200 bg-white">
                 <table className="w-full border-collapse text-left text-sm">
-                  <thead className="sticky top-0 z-10 bg-slate-50">
+                  <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-50">
                     <tr className="bg-slate-50">
                       {visibleColumns.map((column) => (
                         <th key={column.key} className="bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">{column.label}</th>
@@ -576,12 +580,12 @@ export default function SchedulePage() {
             {viewMode === "kalender" ? <CalendarView rows={[]} onEdit={openEdit} onDelete={setDeleteTarget} /> : null}
           </>
         ) : null}
-      </ListPageFrame>
+      </ListPageFrame> : null}
 
       <ScheduleEditor
         open={editor.open}
-        key={editor.schedule?.id || "new"}
-        schedule={editor.schedule}
+        key={editor.activeTab?.id || "new"}
+        schedule={editor.entity}
         onClose={closeEditor}
         onSave={handleSave}
         saving={saving}

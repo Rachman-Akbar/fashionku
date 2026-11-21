@@ -189,72 +189,51 @@ export function CategoryDropdown({
                   return (
                     <div
                       key={levelOne.key || levelOne.id || levelOne.slug}
-                      className="space-y-4"
+                      className="grid grid-cols-2 items-start gap-x-6 gap-y-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
                     >
-                      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                        {levelTwoChildren.map((levelTwo) => {
-                          const levelThreeChildren = Array.isArray(levelTwo.children) ? levelTwo.children : [];
+                      {levelTwoChildren.map((levelTwo) => {
+                        const levelThreeChildren = Array.isArray(levelTwo.children) ? levelTwo.children : [];
+                        if (!levelThreeChildren.length) return null;
 
-                          return (
-                            <div
-                              key={levelTwo.key || levelTwo.id || levelTwo.slug}
-                              className="space-y-2"
-                            >
-                              <Link
-                                to={getCategoryHref(levelTwo)}
-                                onClick={handleClose}
-                                className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 transition-colors duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#10B981]"
-                              >
-                                {levelTwo.image_url && (
-                                  <img
-                                    src={resolveMediaUrl(levelTwo.image_url)}
-                                    alt=""
-                                    className="h-4 w-4 flex-shrink-0 rounded object-cover"
-                                    loading="lazy"
-                                    onError={(e) => {
-                                      e.currentTarget.src = placeholderSvg;
-                                    }}
-                                  />
-                                )}
-                                {levelTwo.name}
-                              </Link>
+                        return (
+                          <div
+                            key={levelTwo.key || levelTwo.id || levelTwo.slug}
+                            className="min-w-0"
+                          >
+                            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-gray-900">
+                              {toTitleCase(levelTwo.name)}
+                            </h3>
 
-                              {levelThreeChildren.length > 0 && (
-                                <ul className="space-y-1.5 pl-2">
-                                  {levelThreeChildren.map((levelThree) => (
-                                    <li
-                                      key={
-                                        levelThree.key ||
-                                        levelThree.id ||
-                                        levelThree.slug
-                                      }
-                                    >
-                                      <Link
-                                        to={getCategoryHref(levelThree)}
-                                        onClick={handleClose}
-                                        className="flex items-center gap-1.5 text-xs text-gray-500 transition-colors duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#10B981]"
-                                      >
-                                        {levelThree.image_url && (
-                                          <img
-                                            src={resolveMediaUrl(levelThree.image_url)}
-                                            alt=""
-                                            className="h-3 w-3 flex-shrink-0 rounded object-cover"
-                                            loading="lazy"
-                                            onError={(e) => {
-                                              e.currentTarget.src = placeholderSvg;
-                                            }}
-                                          />
-                                        )}
-                                        {levelThree.name}
-                                      </Link>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                            <ul className="space-y-1.5">
+                              {levelThreeChildren.map((levelThree) => (
+                                <li
+                                  key={levelThree.key || levelThree.id || levelThree.slug}
+                                  className="min-w-0"
+                                >
+                                  <Link
+                                    to={getCategoryHref(levelThree)}
+                                    onClick={handleClose}
+                                    className="flex items-center gap-1.5 text-xs text-gray-600 transition-colors duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#10B981] hover:underline"
+                                  >
+                                    {levelThree.image_url && (
+                                      <img
+                                        src={resolveMediaUrl(levelThree.image_url)}
+                                        alt=""
+                                        className="h-3 w-3 flex-shrink-0 rounded object-cover"
+                                        loading="lazy"
+                                        onError={(e) => {
+                                          e.currentTarget.src = placeholderSvg;
+                                        }}
+                                      />
+                                    )}
+                                    <span className="truncate">{levelThree.name}</span>
+                                  </Link>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}

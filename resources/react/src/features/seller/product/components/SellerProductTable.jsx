@@ -28,6 +28,7 @@ export const SellerProductTable = memo(function SellerProductTable({
   rows,
   onEdit,
   onToggleActive,
+  isActiveOf,
   onStatusChange,
   pendingId,
   portal = "seller",
@@ -167,7 +168,7 @@ export const SellerProductTable = memo(function SellerProductTable({
     if (column.key === "price") return <td key={column.key} className="px-4 py-3 font-bold text-slate-800">{formatPrice(product.price)}</td>;
     if (column.key === "stock") return <td key={column.key} className="px-4 py-3"><div className="flex items-center gap-[5px]"><p className="text-sm font-extrabold text-slate-800">{product.stock.toLocaleString("id-ID")}</p>{product.minStock > 0 && Number(product.stock) <= Number(product.minStock) ? <span title={`Di bawah minimal stok ${product.minStock.toLocaleString("id-ID")}`} className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-700"><span className="material-symbols-outlined text-[12px]">priority_high</span>Restock</span> : null}</div>{product.poStock > 0 ? <p className="text-[11px] font-bold text-amber-600">PO {product.poStock.toLocaleString("id-ID")}</p> : null}<p className="text-[11px] text-slate-400">Total {product.totalStock.toLocaleString("id-ID")}{product.minStock > 0 ? ` · Min ${product.minStock.toLocaleString("id-ID")}` : ""}</p></td>;
     if (column.key === "status") return <td key={column.key} className="px-4 py-3"><div onClick={(event) => event.stopPropagation()} className="w-full"><SearchableSelect value={product.status} disabled={pendingId === product.id} onChange={(nextValue) => onStatusChange?.(product, nextValue)} options={[{ value: "draft", label: "Draft" }, { value: "published", label: "Published" }, { value: "archived", label: "Archived" }]} clearable={false} buttonClassName="h-8 px-2 text-xs" /></div></td>;
-    return <td key={column.key} className="px-4 py-3" onClick={(event) => event.stopPropagation()}><InlineActiveSwitch checked={product.isActive} onChange={(checked) => onToggleActive?.(product, checked)} compact />{!admin ? <div className="mt-1"><StatusBadge status={product.status} /></div> : null}</td>;
+    return <td key={column.key} className="px-4 py-3" onClick={(event) => event.stopPropagation()}><InlineActiveSwitch checked={isActiveOf ? isActiveOf(product) : product.isActive} onChange={(checked) => onToggleActive?.(product, checked)} compact />{!admin ? <div className="mt-1"><StatusBadge status={product.status} /></div> : null}</td>;
   };
 
   const renderVariantCell = (column, variant) => {
@@ -203,7 +204,7 @@ export const SellerProductTable = memo(function SellerProductTable({
     <div className="relative bg-white ring-1 ring-slate-200">
       <table className="table-fixed text-left text-sm" style={{ width: Math.max(tableWidth, 840), minWidth: "100%" }}>
         <InteractiveColGroup columns={layout.orderedColumns} getColumnStyle={layout.getColumnStyle} leadingWidth={selectionEnabled ? 44 : 0} />
-        <thead className="sticky top-0 z-30 bg-slate-100 text-xs font-extrabold text-slate-600"><tr><TableSelectionHeader enabled={selectionEnabled} checked={allSelected} onToggle={onToggleAll} />{layout.orderedColumns.map(renderHeader)}</tr></thead>
+        <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-100 text-xs font-extrabold text-slate-600"><tr><TableSelectionHeader enabled={selectionEnabled} checked={allSelected} onToggle={onToggleAll} />{layout.orderedColumns.map(renderHeader)}</tr></thead>
           <tbody className="divide-y divide-slate-100">{rows.map((product) => {
             const inactive = isInactiveRow(product);
             const expanded = isExpanded(product);

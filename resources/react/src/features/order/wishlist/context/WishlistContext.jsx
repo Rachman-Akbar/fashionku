@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/core/utils/apiClient";
 import { useAuth } from "@/features/auth/context/AuthContext";
+import { useBuyerSurface } from "@/shared/hooks/useBuyerSurface";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 
 const WishlistContext = createContext(null);
@@ -85,11 +86,12 @@ async function removeWishlistItem(productId) {
 export function WishlistProvider({ children }) {
   const queryClient = useQueryClient();
   const { isAuthenticated, initializing } = useAuth();
+  const isBuyerSurface = useBuyerSurface();
 
   const wishlistQuery = useQuery({
     queryKey: WISHLIST_KEY,
     queryFn: fetchWishlist,
-    enabled: !initializing && isAuthenticated,
+    enabled: !initializing && isAuthenticated && isBuyerSurface,
     staleTime: 60 * 1000,
     refetchOnMount: false,
     refetchOnWindowFocus: true,
