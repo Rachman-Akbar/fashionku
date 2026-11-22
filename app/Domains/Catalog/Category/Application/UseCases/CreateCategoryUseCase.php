@@ -37,9 +37,8 @@ final class CreateCategoryUseCase
             throw new InvalidArgumentException('Nama kategori sudah digunakan pada parent yang sama.');
         }
 
-        $level = $parent ? $parent->level() + 1 : 1;
-        $imageUrl = $level === 3 ? $payload['image_url'] : null;
-        $iconUrl = $level === 3 ? $payload['icon_url'] : null;
+        $imageUrl = $payload['image_url'];
+        $iconUrl = $payload['icon_url'];
 
         $category = Category::createNew(
             parent: $parent,

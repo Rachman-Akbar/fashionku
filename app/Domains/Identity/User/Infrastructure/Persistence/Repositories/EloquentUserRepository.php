@@ -120,7 +120,7 @@ final class EloquentUserRepository implements UserRepositoryInterface
                 $updateData['firebase_uid'] = trim($dto->firebaseUid);
             }
 
-            if ($dto->avatar !== null) {
+            if ($dto->hasAvatar) {
                 $updateData['avatar'] = $dto->avatar;
             }
 

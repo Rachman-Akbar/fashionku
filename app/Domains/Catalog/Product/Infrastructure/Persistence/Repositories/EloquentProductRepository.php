@@ -322,7 +322,28 @@ final class EloquentProductRepository implements ProductRepositoryInterface
                 ->orderBy('sort_order')
                 ->orderBy('id'),
             'variants' => fn ($query) => $query
-                ->select(['id', 'product_id', 'sku', 'name', 'price', 'price_original', 'stock', 'is_default', 'created_at', 'updated_at'])
+                ->select([
+                    'id',
+                    'product_id',
+                    'sku',
+                    'name',
+                    'price',
+                    'price_original',
+                    'stock',
+                    'po_stock',
+                    'stock_reserved',
+                    'stock_booked',
+                    'stock_preorder',
+                    'max_order_qty',
+                    'min_stock',
+                    'is_default',
+                    'created_at',
+                    'updated_at',
+                ])
+                // ProductVariantMapper::toEntity() membaca $model->product untuk
+                // 'allows_preorder'. Tanpa eager load, relasi ini di-query ulang
+                // sekali per varian (72 query tambahan untuk 20 produk).
+                ->with('product:id,allows_preorder')
                 ->orderByDesc('is_default')
                 ->orderBy('id'),
         ];

@@ -5,6 +5,8 @@ import { TableSelectionCell, TableSelectionHeader } from "@/shared/components/cr
 import { TableHeaderFilter } from "@/shared/components/crud/TableHeaderFilter";
 import { InteractiveColGroup, InteractiveTableHeader } from "@/shared/components/table/InteractiveTableHeader";
 import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
+import { useHorizontalScroll } from "@/shared/hooks/useHorizontalScroll";
+import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
 import { useColumnFilterState } from "@/shared/hooks";
 import { formatDateTime } from "@/core/utils/dateTime";
 import { formatPrice } from "@/shared/utils/utils";
@@ -45,9 +47,13 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
   allSelected = false,
   onToggleRow,
   onToggleAll,
+  columnOrder,
+  onOrderChange,
+  headerOnly = false,
 }) {
   const activeColumns = useMemo(() => columns.filter((column) => !visibleSet || visibleSet.has(column.key)).map((column) => ({ ...column, width: widths[column.key] || 180 })), [columns, visibleSet]);
-  const layout = useTableColumnLayout({ storageKey: "order.vouchers", columns: activeColumns });
+  const layout = useTableColumnLayout({ storageKey: "order.vouchers", columns: activeColumns, preferredOrder: columnOrder, onOrderChange });
+  const hScroll = useHorizontalScroll();
   const tableWidth = layout.totalWidth + (selectionEnabled ? 44 : 0);
 
   const getValue = useCallback((row, key) => {
@@ -119,15 +125,18 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
   };
 
   return (
-    <div className="overflow-x-clip bg-white ring-1 ring-slate-200">
+    <div className={headerOnly ? "mb-3" : undefined}>
+      <TopScrollbar {...hScroll} visible={hScroll.hasOverflow} width={hScroll.metrics.scrollWidth} />
+      <div ref={hScroll.scrollRef} onScroll={hScroll.handleTableScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] bg-white ring-1 ring-slate-200">
       <table className="table-fixed text-left text-sm" style={{ width: Math.max(tableWidth, 1000), minWidth: "100%" }}>
           <InteractiveColGroup columns={layout.orderedColumns} getColumnStyle={layout.getColumnStyle} leadingWidth={selectionEnabled ? 44 : 0} />
-          <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-100 text-xs font-extrabold text-slate-600">
+          <thead className={headerOnly ? "bg-slate-100 text-xs font-extrabold text-slate-600" : "sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-100 text-xs font-extrabold text-slate-600"}>
             <tr>
               <TableSelectionHeader enabled={selectionEnabled} checked={allSelected} onToggle={onToggleAll} />
               {layout.orderedColumns.map(renderHeader)}
             </tr>
           </thead>
+          {headerOnly ? null : (
           <tbody className="divide-y divide-slate-100">
             {tableRows.map((row) => {
               const inactive = isInactiveRow(row);
@@ -139,7 +148,9 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
               );
             })}
           </tbody>
+          )}
         </table>
+      </div>
     </div>
   );
 });

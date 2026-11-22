@@ -29,13 +29,13 @@ function TabDropdown({ tabs, activeId, onActivate, onClose, onCloseAll, closeAll
         type="button"
         onClick={() => setOpen((current) => !current)}
         className={cn(
-          "flex h-9 min-w-12 items-center justify-center gap-0.5 px-2 text-slate-600 transition-colors",
+          "flex h-10 min-w-14 items-center justify-center gap-1 px-3 text-slate-600 transition-colors",
           accent === "parent" ? "bg-slate-300 hover:bg-slate-400/70" : "bg-slate-200 hover:bg-slate-300",
         )}
         aria-label={label}
       >
         <span className="text-[11px] font-extrabold tabular-nums">{tabs.length}</span>
-        <span className="material-symbols-outlined text-[19px]">keyboard_arrow_down</span>
+        <span className="material-symbols-outlined text-[20px]">keyboard_arrow_down</span>
       </button>
       {open ? (
         <div className="absolute right-0 top-full z-[100] mt-1 w-72 overflow-hidden bg-white py-1 ring-1 ring-slate-200">
@@ -157,6 +157,25 @@ export const PanelTabBar = memo(function PanelTabBar() {
     <div className="sticky top-16 z-50">
       <div className="flex min-w-0 items-end gap-1 bg-slate-200 pl-0 pr-1 pt-1.5">
         <ScrollableTabs tabs={context.parentTabs} activeId={context.activeParentId} onActivate={context.activateParent} onClose={context.closeParent} variant="parent" dirtyTabIds={context.dirtyTabIds} />
+        <button
+          type="button"
+          onClick={() => {
+            const helpHref = context.activeParentId?.startsWith("/admin") ? "/admin/help" : "/seller/help";
+            const helpItem = context.items.find((item) => item.href === helpHref);
+            if (helpItem) context.openParent(helpItem);
+            else context.navigate(helpHref);
+          }}
+          className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-800"
+          title={helpUnread > 0 ? `Buka halaman bantuan (${helpUnread} belum dibaca)` : "Buka halaman bantuan"}
+          aria-label={helpUnread > 0 ? `Buka halaman bantuan, ${helpUnread} belum dibaca` : "Buka halaman bantuan"}
+        >
+          <span className="material-symbols-outlined text-[20px]">help</span>
+          {helpUnread > 0 ? (
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white ring-2 ring-white">
+              {helpUnread > 99 ? "99+" : helpUnread}
+            </span>
+          ) : null}
+        </button>
         <TabDropdown tabs={context.parentTabs} activeId={context.activeParentId} onActivate={context.activateParent} onClose={context.closeParent} onCloseAll={context.closeAllParents} dirtyTabIds={context.dirtyTabIds} closeAllLabel="Tutup Semua Menu" label="Semua menu terbuka" accent="parent" />
       </div>
       {showChildRow ? (
@@ -166,14 +185,14 @@ export const PanelTabBar = memo(function PanelTabBar() {
               type="button"
               onClick={() => context.activateTab(listTab.id)}
               className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-sm transition-colors",
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-sm transition-colors",
                 context.activeTabId === listTab.id ? "bg-emerald-600 text-white" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200",
               )}
               title="Buka daftar data"
               aria-label="Buka daftar data"
               aria-current={context.activeTabId === listTab.id ? "page" : undefined}
             >
-              <span className="material-symbols-outlined text-[18px]">list_alt</span>
+              <span className="material-symbols-outlined text-[20px]">list_alt</span>
             </button>
           ) : null}
           {childTabs.length ? (
@@ -182,28 +201,6 @@ export const PanelTabBar = memo(function PanelTabBar() {
             <div className="min-w-0 flex-1" />
           )}
           <TabDropdown tabs={context.tabs} activeId={context.activeTabId} onActivate={context.activateTab} onClose={context.closeTab} onCloseAll={context.closeAllChildren} dirtyTabIds={context.dirtyTabIds} closeAllLabel="Tutup Semua Halaman" label="Semua halaman data" accent="child" />
-          <button
-            type="button"
-            onClick={() => {
-              const helpHref = context.activeParentId?.startsWith("/admin") ? "/admin/help" : "/seller/help";
-              const helpItem = context.items.find((item) => item.href === helpHref);
-              // Sama seperti klik menu sidebar: buka/aktifkan tab induk Bantuan
-              // lalu fokus ke tab Daftar. `navigate` saja tidak cukup karena tab
-              // induk tidak pernah terbuat sehingga halaman tidak berpindah.
-              if (helpItem) context.openParent(helpItem);
-              else context.navigate(helpHref);
-            }}
-            className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-800"
-            title={helpUnread > 0 ? `Buka halaman bantuan (${helpUnread} belum dibaca)` : "Buka halaman bantuan"}
-            aria-label={helpUnread > 0 ? `Buka halaman bantuan, ${helpUnread} belum dibaca` : "Buka halaman bantuan"}
-          >
-            <span className="material-symbols-outlined text-[18px]">help</span>
-            {helpUnread > 0 ? (
-              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white ring-2 ring-white">
-                {helpUnread > 99 ? "99+" : helpUnread}
-              </span>
-            ) : null}
-          </button>
         </div>
       ) : null}
     </div>

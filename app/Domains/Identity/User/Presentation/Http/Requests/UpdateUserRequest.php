@@ -39,7 +39,10 @@ final class UpdateUserRequest extends FormRequest
     public function rules(): array
     {
         $userId = (string) $this->route('id');
-        $isActive = $this->boolean('is_active') ?? true;
+        // boolean() mengembalikan false saat field tidak dikirim, sehingga
+        // pengecekan harus memakai has() agar update profil biasa tidak
+        // diwajibkan mengisi violation_message.
+        $isActive = $this->has('is_active') ? $this->boolean('is_active') : true;
 
         return [
             'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($userId)],

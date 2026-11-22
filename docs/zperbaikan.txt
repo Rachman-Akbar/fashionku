@@ -64,4 +64,12 @@ hapus switch tab karena Halaman yang kusebutkan hanya berupa tabel dan tidak mem
     3. stok
     4. ulasan
 
-Atur dan perbaiki agar kategori, user, dan pelanggan mempunyai gambar di database nya
+Tambahkan metode switch tab grafik untuk Halaman Keuangan, Pesanan, dan stok dalam bentuk grafik menggunakan chartz.js atau recharts.js
+
+Perbaikibug pada admin panel ku di route http://127.0.0.1:8000/admin/products mengalami error sebagai berikut
+1. tombol aksi tambah, pilih kolom, refresh hover saat kursor mendekat tertutup
+2. ketika mengganti ke grid mode header table malah menghilang seharusnya dipertahankan sebagai filter
+3. jika mode tble atau list aku tidak dapat menggeser atau scroll secara horizontal
+lakukan perbaikannya bedasarkan error diatas
+
+Atur dan perbaiki agar bahan baku, kategori, user, dan pelanggan mempunyai gambar di dalam database nya. lalu perbaiki frontend (pada admin panel) dan backendnya bisa menampilka gambar dengan benar

@@ -83,7 +83,15 @@ final class RawMaterialService
                 'minimum_stock' => max(0, (float) ($data['minimum_stock'] ?? 0)),
                 'average_cost' => $newAverageCost,
                 'is_active' => $data['is_active'] ?? true,
-            ])->save();
+            ]);
+
+            // Gambar hanya ditimpa bila dikirimkan, agar pembaruan parsial
+            // (mis. sekadar mengubah status) tidak menghapus foto yang ada.
+            if (array_key_exists('image', $data)) {
+                $model->image = self::normalizeImage($data['image']);
+            }
+
+            $model->save();
 
             if ($wasExisting && abs($newAverageCost - $oldAverageCost) >= 0.0001) {
                 $history = $this->recordCostHistory(
@@ -207,6 +215,21 @@ final class RawMaterialService
 
             return $material->refresh();
         });
+    }
+
+    /**
+     * Simpan URL gambar apa adanya; nilai kosong diubah menjadi NULL agar
+     * kolom gambar tidak pernah berisi string kosong.
+     */
+    private static function normalizeImage(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 
     private function generateCode(string $name): string

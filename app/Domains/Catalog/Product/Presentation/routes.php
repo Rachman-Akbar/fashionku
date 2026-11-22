@@ -21,6 +21,13 @@ Route::middleware('cache.headers:public;max_age=60;etag')
     });
 
 Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:seller,admin'])
+    ->prefix('products/sku')
+    ->name('products.sku.')
+    ->group(function (): void {
+        Route::post('/generate', [ProductController::class, 'generateSku'])->name('generate');
+    });
+
+Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:seller,admin'])
     ->prefix('products/attributes')
     ->name('product-attributes.')
     ->group(function (): void {

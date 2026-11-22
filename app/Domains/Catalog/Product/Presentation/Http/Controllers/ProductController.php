@@ -12,11 +12,17 @@ use App\Domains\Catalog\Product\Application\UseCases\Product\CreateProductUseCas
 use App\Domains\Catalog\Product\Application\UseCases\Product\DeleteProductUseCase;
 use App\Domains\Catalog\Product\Application\UseCases\Product\UpdateProductUseCase;
 use App\Domains\Catalog\Product\Domain\Repositories\ProductRepositoryInterface;
+use App\Domains\Catalog\Product\Infrastructure\Persistence\Models\ProductVariantModel;
 use App\Domains\Catalog\Product\Presentation\Http\Requests\StoreProductRequest;
 use App\Domains\Catalog\Product\Presentation\Http\Requests\UpdateProductRequest;
 use App\Domains\Catalog\Product\Presentation\Http\Resources\ProductResource;
+use App\Domains\Shared\Codes\Application\Services\CodePatternFormatter;
+use App\Domains\Shared\Codes\Application\Services\CodePatternService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 final class ProductController extends Controller
 {
@@ -159,6 +165,71 @@ final class ProductController extends Controller
         $updated = $useCase->execute($id, $payload);
 
         return new ProductResource($updated);
+    }
+
+    /**
+     * Membuat SKU custom dari rumus, mis. {BRAND}-{NAME:6}-{ATTR}-{SEQ:3}.
+     * Dipakai frontend admin/seller untuk mengisi SKU produk maupun varian.
+     */
+    public function generateSku(Request $request, CodePatternService $patterns): JsonResponse
+    {
+        $validated = $request->validate([
+            'pattern' => ['nullable', 'string', 'max:120'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'brand' => ['nullable', 'string', 'max:255'],
+            'category' => ['nullable', 'string', 'max:255'],
+            'attributes' => ['nullable', 'array'],
+            'attributes.*' => ['nullable', 'string', 'max:255'],
+            'variant_id' => ['nullable', 'integer'],
+        ]);
+
+        $pattern = CodePatternFormatter::sanitize((string) ($validated['pattern'] ?? ''));
+        if ($pattern === '') {
+            $pattern = $patterns->patternFor('sku');
+        }
+
+        $attributes = array_values(array_filter(array_map(
+            fn ($value): string => trim((string) $value),
+            $validated['attributes'] ?? []
+        ), fn (string $value): bool => $value !== ''));
+
+        $context = [
+            'type' => 'SKU',
+            'name' => (string) ($validated['name'] ?? ''),
+            'brand' => (string) ($validated['brand'] ?? ''),
+            'category' => (string) ($validated['category'] ?? ''),
+            'attr' => implode('-', $attributes),
+            'seq' => (int) DB::table('product_variants')->count() + 1,
+        ];
+
+        $isTaken = function (string $sku) use ($validated): bool {
+            return ProductVariantModel::query()
+                ->whereRaw('LOWER(TRIM(sku)) = ?', [Str::lower($sku)])
+                ->when(! empty($validated['variant_id']), fn ($query) => $query->where('id', '!=', (int) $validated['variant_id']))
+                ->exists();
+        };
+
+        $sku = CodePatternFormatter::render($pattern, $context);
+
+        if ($isTaken($sku)) {
+            $sequence = $context['seq'];
+
+            for ($attempt = 0; $attempt < 50; $attempt++) {
+                $candidate = CodePatternFormatter::render($pattern, array_merge($context, ['seq' => $sequence + $attempt + 1]));
+                if (! $isTaken($candidate)) {
+                    $sku = $candidate;
+                    break;
+                }
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'sku' => $sku,
+                'pattern' => $pattern,
+            ],
+        ]);
     }
 
     public function destroy(Request $request, int $id, GetProductQuery $query, DeleteProductUseCase $useCase)

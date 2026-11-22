@@ -19,9 +19,8 @@ import { PROMOTION_TABLE_COLUMNS, PromotionManagementTable } from "@/features/ca
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { buildRawColumns, mergeColumns } from "@/shared/utils/tableData";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
-import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
-import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
 import { getPromotionError, useDeleteSellerPromotion, useSellerPromotions, useUpdateSellerPromotion } from "@/features/catalog/promotion/services/promotionManagementService";
+import { ExcelActionButtons } from "@/shared/excel";
 
 export default function SellerPromotionPage() {
   const [viewMode, setViewMode] = useViewMode("promotions");
@@ -39,7 +38,6 @@ export default function SellerPromotionPage() {
   const columns = useMemo(() => mergeColumns(PROMOTION_TABLE_COLUMNS.filter((column) => column.key !== "store"), buildRawColumns(rows, ["id", "name", "image_url", "mobile_image_url", "click_action", "target_id", "target_url", "sort_order", "is_active", "approval_status", "rejection_reason", "submitted_at", "approved_at", "approved_by"])), [rows]);
   const selection = useTableSelection(filteredRows);
   const columnVisibility = useColumnVisibility(columns, "seller-promotions");
-  const spreadsheet = useSpreadsheetWorkspace({ module: "promotion", label: "Promotion", selectedRows: selection.selectedRows, onCompleted: () => { selection.clear(); promotionsQuery.refetch(); } });
 
   const remove = async () => {
     if (!deleteTarget) return;
@@ -114,21 +112,47 @@ export default function SellerPromotionPage() {
             selectionEnabled={selection.enabled}
             selectedCount={selection.selectedCount}
             onToggleSelection={selection.toggleEnabled}
-            bulkActions={spreadsheet.actions}
-            columns={columns}
+            bulkActions={[]}
+            columns={columnVisibility.allColumns}
             visibleColumns={columnVisibility.visibleKeys}
             onToggleColumn={columnVisibility.toggleColumn}
+            onMoveColumn={columnVisibility.moveColumn}
             onShowAllColumns={columnVisibility.showAll}
             onResetColumns={columnVisibility.reset}
             onApplyDefaultColumns={columnVisibility.applyAsDefault}
             viewMode={viewMode}
             onChangeViewMode={setViewMode}
             filters={<SearchableSelect value={approvalStatus} onChange={setApprovalStatus} options={[{ value: "pending", label: "Pending" }, { value: "approved", label: "Approved" }, { value: "rejected", label: "Rejected" }]} placeholder="Semua approval" className="w-44" buttonClassName="h-9" />}
+            extraActions={
+              <ExcelActionButtons
+                module="promotion"
+                label="Promosi"
+                selection={selection}
+                rows={filteredRows}
+                onRefresh={() => promotionsQuery.refetch()}
+                onCompleted={() => {}}
+                getRowId={(row) => row.id}
+                allowImport={true}
+                allowExport={true}
+                allowDelete={true}
+              />
+            }
           />
           )}
         >
           <AsyncState loading={promotionsQuery.isLoading} error={promotionsQuery.error ? getPromotionError(promotionsQuery.error) : ""} empty={!promotionsQuery.isLoading && !filteredRows.length} emptyText="Belum ada pengajuan promosi." />
           {filteredRows.length && viewMode === "grid" ? (
+            <>
+            {/* Header tabel tetap tampil di mode kartu sebagai filter & sort. */}
+            <PromotionManagementTable
+              rows={[]}
+              columns={columns}
+              portal="seller"
+              headerOnly
+              visibleSet={columnVisibility.visibleSet}
+              columnOrder={columnVisibility.visibleKeys}
+              onOrderChange={columnVisibility.syncVisibleOrder}
+            />
             <RecordCardGrid
               rows={filteredRows}
               columns={columns}
@@ -139,6 +163,7 @@ export default function SellerPromotionPage() {
               onToggleRow={selection.toggleRow}
               rowKey={(row) => row.id}
             />
+            </>
           ) : null}
           {filteredRows.length && viewMode !== "grid" ? (
             <PromotionManagementTable
@@ -147,6 +172,8 @@ export default function SellerPromotionPage() {
               portal="seller"
               onEdit={editor.edit}
               visibleSet={columnVisibility.visibleSet}
+              columnOrder={columnVisibility.visibleKeys}
+              onOrderChange={columnVisibility.syncVisibleOrder}
               selectionEnabled={selection.enabled}
               selectedIds={selection.selectedIds}
               allSelected={selection.allSelected}
@@ -160,8 +187,6 @@ export default function SellerPromotionPage() {
         </ListPageFrame>
       ) : null}
 
-      <SpreadsheetOperationPanel workspace={spreadsheet} />
-
       <PromotionFormDialog
         open={editor.open}
         entity={editor.entity}
@@ -170,8 +195,8 @@ export default function SellerPromotionPage() {
         onClose={editor.close}
         onSaved={() => {
           editor.markListDirty();
-const task = notifications.startTask({ title: editor.entity ? "Perbarui Promosi" : "Tambah Promosi", message: editor.entity ? "Menyimpan perubahan promosi..." : "Menyimpan promosi..." });
-           task.success(editor.entity ? "Promosi berhasil diperbarui." : "Promosi berhasil dibuat dan langsung aktif.");
+          const task = notifications.startTask({ title: editor.entity ? "Perbarui Promosi" : "Tambah Promosi", message: editor.entity ? "Menyimpan perubahan promosi..." : "Menyimpan promosi..." });
+             task.success(editor.entity ? "Promosi berhasil diperbarui." : "Promosi berhasil dibuat dan langsung aktif.");
           editor.completeSave();
         }}
       />

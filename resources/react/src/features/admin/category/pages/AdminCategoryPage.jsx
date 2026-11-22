@@ -11,10 +11,15 @@ import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch"
 import { useActiveToggle } from "@/shared/hooks/useActiveToggle";
 import { InteractiveColGroup, InteractiveTableHeader } from "@/shared/components/table/InteractiveTableHeader";
 import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
+import { useHorizontalScroll } from "@/shared/hooks/useHorizontalScroll";
+import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
 import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
+import { ImageFilePicker } from "@/shared/components/form/ImageFilePicker";
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/features/admin/category/services/categoryService";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
+import { resolveMediaUrl } from "@/core/utils/mediaUrl";
+import { ExcelActionButtons } from "@/shared/excel";
 
 function CategoryEditor({ open, category, onClose, onSave, saving, parents }) {
   const [form, setForm] = useState({
@@ -24,6 +29,8 @@ function CategoryEditor({ open, category, onClose, onSave, saving, parents }) {
     sort_order: category?.sortOrder ?? 0,
     is_active: category?.isActive !== false,
     description: category?.description || "",
+    image_url: category?.imageUrl || "",
+    icon_url: category?.iconUrl || "",
   });
 
   return (
@@ -95,6 +102,16 @@ function CategoryEditor({ open, category, onClose, onSave, saving, parents }) {
             </label>
           </div>
         </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Gambar Kategori (image_url)</label>
+            <ImageFilePicker value={form.image_url} onChange={(url) => setForm((current) => ({ ...current, image_url: url }))} scope="categories" label="Unggah gambar kategori" aspectClassName="aspect-square" disabled={saving} />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Ikon Kategori (icon_url)</label>
+            <ImageFilePicker value={form.icon_url} onChange={(url) => setForm((current) => ({ ...current, icon_url: url }))} scope="categories" label="Unggah ikon kategori" aspectClassName="aspect-square" disabled={saving} />
+          </div>
+        </div>
         <div className="flex justify-end gap-3 pt-2">
           <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-[10px] border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60">
             Batal
@@ -115,6 +132,8 @@ function CategoryDetail({ category, parents, onBack, onSave, onDelete, saving })
     parent_id: category?.parentId ?? "",
     sort_order: category?.sortOrder ?? 0,
     is_active: category?.isActive !== false,
+    image_url: category?.imageUrl || "",
+    icon_url: category?.iconUrl || "",
   }), [category]);
   const [form, setForm] = useState(initial);
   useEffect(() => { setForm(initial); }, [initial]);
@@ -177,6 +196,16 @@ function CategoryDetail({ category, parents, onBack, onSave, onDelete, saving })
                 <p className="mt-1 text-sm font-semibold text-slate-800">{category?.productsCount ?? 0}</p>
               </div>
             </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Gambar Kategori (image_url)</label>
+                <ImageFilePicker value={form.image_url} onChange={(url) => setForm((current) => ({ ...current, image_url: url }))} scope="categories" label="Unggah gambar kategori" aspectClassName="aspect-square" disabled={saving} />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Ikon Kategori (icon_url)</label>
+                <ImageFilePicker value={form.icon_url} onChange={(url) => setForm((current) => ({ ...current, icon_url: url }))} scope="categories" label="Unggah ikon kategori" aspectClassName="aspect-square" disabled={saving} />
+              </div>
+            </div>
           </div>
         </FormEditorLayout>
         <FormEditorFooter onCancel={onBack} onSave={() => { if (dirty && !saving) onSave(form); }} submitLabel="Simpan" submitIcon="save" disabled={!dirty || saving} onDelete={onDelete} deleteLabel="Hapus" tone="emerald" />
@@ -216,6 +245,8 @@ export default function AdminCategoryPage() {
       { key: "parentId", label: "Induk" },
       { key: "sortOrder", label: "Urutan" },
       { key: "isActive", label: "Aktif" },
+      { key: "imageUrl", label: "Gambar" },
+      { key: "iconUrl", label: "Ikon" },
     ],
     "admin-categories",
   );
@@ -234,6 +265,8 @@ export default function AdminCategoryPage() {
         { key: "parentId", label: "Induk" },
         { key: "sortOrder", label: "Urutan" },
         { key: "isActive", label: "Aktif" },
+        { key: "imageUrl", label: "Gambar" },
+        { key: "iconUrl", label: "Ikon" },
       ].filter((column) => columnVisibility.visibleSet.has(column.key)),
     [columnVisibility.visibleSet],
   );
@@ -245,7 +278,10 @@ export default function AdminCategoryPage() {
   const tableLayout = useTableColumnLayout({
     storageKey: "admin-categories-table",
     columns: visibleColumns.map((column) => ({ ...column, width: column.key === "name" ? 280 : 160 })),
+    preferredOrder: columnVisibility.visibleKeys,
+    onOrderChange: columnVisibility.syncVisibleOrder,
   });
+  const hScroll = useHorizontalScroll();
 
   // Susun hierarki kategori: level 1 sebagai induk utama, level 2 sebagai
   // subinduk, dan level 3 sebagai anak. Baris anak hanya tampil ketika
@@ -378,6 +414,8 @@ export default function AdminCategoryPage() {
       ),
     ],
     fields: [
+      { label: "Gambar", render: (category) => category.imageUrl ? <img src={resolveMediaUrl(category.imageUrl)} alt="" className="h-12 w-12 rounded object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span> },
+      { label: "Ikon", render: (category) => category.iconUrl ? <img src={resolveMediaUrl(category.iconUrl)} alt="" className="h-12 w-12 rounded object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span> },
       { label: "Induk", render: (category) => parentNameOf(category) },
       { label: "Urutan", render: (category) => category.sortOrder ?? 0 },
     ],
@@ -395,6 +433,8 @@ export default function AdminCategoryPage() {
       parent_id: form.parent_id ? Number(form.parent_id) : null,
       sort_order: Number(form.sort_order) || 0,
       is_active: Boolean(form.is_active),
+      image_url: form.image_url || null,
+      icon_url: form.icon_url || null,
     };
     try {
       if (editor.entity?.id) {
@@ -421,6 +461,8 @@ export default function AdminCategoryPage() {
       parent_id: form.parent_id ? Number(form.parent_id) : null,
       sort_order: Number(form.sort_order) || 0,
       is_active: Boolean(form.is_active),
+      image_url: form.image_url || null,
+      icon_url: form.icon_url || null,
     };
     try {
       await updateMutation.mutateAsync({ id: editor.entity.id, values: payload });
@@ -469,36 +511,45 @@ export default function AdminCategoryPage() {
       ) : (
         <ListPageFrame
           toolbar={(
-            <EntityToolbar
-              query={query}
-              onQueryChange={setQuery}
-              onCreate={() => editor.create()}
-              onRefresh={() => categoriesQuery.refetch()}
-              refreshing={categoriesQuery.isFetching}
-              createLabel="Kategori"
-              placeholder="Cari nama atau slug kategori"
-              totalCount={total.totalCount}
-              totalLabel={total.totalLabel}
-              totalTitle={total.totalTitle}
-              selectionEnabled={selection.enabled}
-              selectedCount={selection.selectedCount}
-              onToggleSelection={selection.toggleEnabled}
-              bulkActions={[]}
-              columns={[
-                { key: "name", label: "Nama" },
-                { key: "slug", label: "Slug" },
-                { key: "parentId", label: "Induk" },
-                { key: "sortOrder", label: "Urutan" },
-                { key: "isActive", label: "Aktif" },
-              ]}
-              visibleColumns={columnVisibility.visibleKeys}
-              onToggleColumn={columnVisibility.toggleColumn}
-              onShowAllColumns={columnVisibility.showAll}
-              onResetColumns={columnVisibility.reset}
-              onApplyDefaultColumns={columnVisibility.applyAsDefault}
-              viewMode={viewMode}
-              onChangeViewMode={setViewMode}
-            />
+<EntityToolbar
+            query={query}
+            onQueryChange={setQuery}
+            onCreate={() => editor.create()}
+            onRefresh={() => categoriesQuery.refetch()}
+            refreshing={categoriesQuery.isFetching}
+            createLabel="Kategori"
+            placeholder="Cari nama atau slug kategori"
+            totalCount={total.totalCount}
+            totalLabel={total.totalLabel}
+            totalTitle={total.totalTitle}
+            selectionEnabled={selection.enabled}
+            selectedCount={selection.selectedCount}
+            onToggleSelection={selection.toggleEnabled}
+            bulkActions={[]}
+            columns={columnVisibility.allColumns}
+            visibleColumns={columnVisibility.visibleKeys}
+            onToggleColumn={columnVisibility.toggleColumn}
+            onMoveColumn={columnVisibility.moveColumn}
+            onShowAllColumns={columnVisibility.showAll}
+            onResetColumns={columnVisibility.reset}
+            onApplyDefaultColumns={columnVisibility.applyAsDefault}
+            viewMode={viewMode}
+            onChangeViewMode={setViewMode}
+            extraActions={
+              <ExcelActionButtons
+                module="category"
+                label="Kategori"
+                selection={selection}
+                rows={rows}
+                onRefresh={() => categoriesQuery.refetch()}
+                onCompleted={() => {}}
+                getRowId={(row) => row.id}
+                allowImport={true}
+                allowExport={true}
+                allowDelete={true}
+              />
+            }
+          />
           )}
         >
           <AsyncState
@@ -510,8 +561,9 @@ export default function AdminCategoryPage() {
           {!categoriesQuery.isLoading && !categoriesQuery.error && rows.length ? (
             <>
               <div className={viewMode === "grid" ? "[&_tbody]:hidden" : ""}>
-                <div className="overflow-x-auto [overflow-y:clip] border border-slate-200 bg-white">
-                  <table className="table-fixed w-full border-collapse text-left text-sm" style={{ width: Math.max(tableLayout.totalWidth, 760), minWidth: "100%" }}>
+              <TopScrollbar {...hScroll} visible={hScroll.hasOverflow} width={hScroll.metrics.scrollWidth} />
+                <div ref={hScroll.scrollRef} onScroll={hScroll.handleTableScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] border border-slate-200 bg-white">
+                  <table className="table-fixed border-collapse text-left text-sm" style={{ width: Math.max(tableLayout.totalWidth, 760), minWidth: "100%" }}>
                     <InteractiveColGroup columns={tableLayout.orderedColumns} getColumnStyle={tableLayout.getColumnStyle} leadingWidth={40} trailingWidth={112} />
                     <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-50">
                       <tr className="bg-slate-50">
@@ -622,6 +674,20 @@ export default function AdminCategoryPage() {
                                       </option>
                                     ))}
                                   </select>
+                                </td>
+                              );
+                            }
+                            if (column.key === "imageUrl") {
+                              return (
+                                <td key={column.key} className="px-4 py-3 text-slate-700">
+                                  {category.imageUrl ? <img src={resolveMediaUrl(category.imageUrl)} alt="" className="h-10 w-10 rounded object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span>}
+                                </td>
+                              );
+                            }
+                            if (column.key === "iconUrl") {
+                              return (
+                                <td key={column.key} className="px-4 py-3 text-slate-700">
+                                  {category.iconUrl ? <img src={resolveMediaUrl(category.iconUrl)} alt="" className="h-10 w-10 rounded object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span>}
                                 </td>
                               );
                             }

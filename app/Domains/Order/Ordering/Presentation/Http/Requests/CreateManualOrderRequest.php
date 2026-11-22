@@ -18,7 +18,8 @@ class CreateManualOrderRequest extends FormRequest
     {
         return [
             'order_number' => ['nullable', 'string', 'max:60', 'regex:/^[A-Za-z0-9._\-\/]+$/', Rule::unique('orders', 'order_number')],
-            'customer_name' => ['nullable', 'string', 'max:150'],
+            'customer_id' => ['nullable', 'uuid', 'exists:users,id'],
+            'customer_name' => ['required_without:customer_id', 'nullable', 'string', 'max:150'],
             'customer_phone' => ['nullable', 'string', 'max:30'],
             'customer_email' => ['nullable', 'email', 'max:150'],
             'address' => ['nullable', 'string', 'max:1000'],

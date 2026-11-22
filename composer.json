@@ -13,6 +13,7 @@
         "laravel/reverb": "^1.11",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
+        "maatwebsite/excel": "^4.0",
         "midtrans/midtrans-php": "^2.6",
         "phpoffice/phpspreadsheet": "^5.9",
         "spatie/laravel-permission": "^7.3",

@@ -4,6 +4,7 @@ import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { CrudDialog } from "@/shared/components/crud/CrudDialog";
 import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
+import { FormPageLayout } from "@/shared/components/crud/FormPageLayout";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { useColumnVisibility, useTableSelection, useViewMode } from "@/shared/hooks";
 import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
@@ -12,10 +13,17 @@ import { useActiveToggle } from "@/shared/hooks/useActiveToggle";
 import { cn } from "@/shared/utils/utils";
 import { InteractiveColGroup, InteractiveTableHeader } from "@/shared/components/table/InteractiveTableHeader";
 import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
+import { useHorizontalScroll } from "@/shared/hooks/useHorizontalScroll";
+import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
 import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
+import { ImageFilePicker } from "@/shared/components/form/ImageFilePicker";
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@/features/admin/users/services/usersService";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
+import { resolveMediaUrl } from "@/core/utils/mediaUrl";
+import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
+import { Input } from "@/shared/components/ui/Input";
+import { ExcelActionButtons } from "@/shared/excel";
 
 const ROLES = ["buyer", "seller", "admin"];
 
@@ -23,6 +31,12 @@ function roleLabel(role) {
   if (role === "admin") return "Administrator";
   if (role === "seller") return "Penjual";
   return "Pembeli";
+}
+
+function roleBadgeClass(role) {
+  if (role === "admin") return "bg-amber-50 text-amber-700";
+  if (role === "seller") return "bg-emerald-50 text-emerald-700";
+  return "bg-slate-100 text-slate-600";
 }
 
 function formatDate(value) {
@@ -40,6 +54,7 @@ function UserEditor({ open, user, onClose, onSave, saving }) {
     email: user?.email || "",
     role: user?.role || "buyer",
     is_active: user?.status !== "Nonaktif",
+    avatar: user?.avatar || "",
   });
 
   return (
@@ -87,6 +102,10 @@ function UserEditor({ open, user, onClose, onSave, saving }) {
             ))}
           </select>
         </div>
+        <div className="space-y-2">
+          <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Avatar</label>
+          <ImageFilePicker value={form.avatar} onChange={(url) => setForm((current) => ({ ...current, avatar: url }))} scope="profiles" label="Unggah avatar" aspectClassName="aspect-square" disabled={saving} />
+        </div>
         <div className="flex items-center gap-3">
           <input
             id="user-is-active"
@@ -119,12 +138,15 @@ function UserDetail({ user, onBack, onSave, onDelete, saving }) {
     email: user?.email || "",
     role: user?.role || "buyer",
     is_active: user?.status !== "Nonaktif",
+    avatar: user?.avatar || "",
   }), [user]);
   const [form, setForm] = useState(initial);
   useEffect(() => { setForm(initial); }, [initial]);
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
-  const badgeClass = user.role === "admin" ? "bg-amber-50 text-amber-700" : user.role === "seller" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600";
+  const badgeClass = roleBadgeClass(user.role);
   const fieldClass = "h-10 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60";
+
+  const avatarUrl = resolveMediaUrl(user?.avatar || "");
 
   return (
     <CrudDialog open presentation="page" title={user?.name || "Detail Pengguna"} subtitle="Lihat dan ubah data pengguna langsung pada halaman ini." onClose={onBack}>
@@ -132,67 +154,89 @@ function UserDetail({ user, onBack, onSave, onDelete, saving }) {
         <FormEditorLayout
           actions={<FormActionDock tone="emerald" save={{ icon: "save", label: "Simpan" }} disabled={!dirty || saving} onDelete={onDelete} deleteLabel="Hapus" />}
         >
-          <div className="grid gap-4">
-            <div className="flex flex-wrap items-center gap-4 border-b border-slate-100 pb-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-xl font-black text-white">
-                {(form.name || "?").slice(0, 1).toUpperCase()}
+          <FormPageLayout
+            header={
+              <div className="sticky top-0 z-30 -mx-3 -mt-px bg-slate-50 sm:-mx-4">
+                <div className="px-3 pt-2 sm:px-4">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-slate-400">person</span>
+                    <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-500">Detail Pengguna</h2>
+                  </div>
+                </div>
               </div>
-              <div className="min-w-0">
-                <h2 className="truncate text-lg font-extrabold text-slate-900">{form.name || "-"}</h2>
-                <p className="truncate text-sm text-slate-500">{form.email || "-"}</p>
+            }
+          >
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center gap-4 border-b border-slate-100 pb-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-xl font-black text-white">
+                  {avatarUrl ? <img src={avatarUrl} alt={user.name || "User"} className="h-14 w-14 rounded-full object-cover" /> : (form.name || "?").slice(0, 1).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <h2 className="truncate text-lg font-extrabold text-slate-900">{form.name || "-"}</h2>
+                  <p className="truncate text-sm text-slate-500">{form.email || "-"}</p>
+                </div>
+                <div className="ml-auto flex flex-wrap items-center gap-2">
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${badgeClass}`}>{roleLabel(form.role)}</span>
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${form.is_active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{form.is_active ? "Aktif" : "Nonaktif"}</span>
+                </div>
               </div>
-              <div className="ml-auto flex flex-wrap items-center gap-2">
-                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${badgeClass}`}>{roleLabel(form.role)}</span>
-                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${form.is_active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{form.is_active ? "Aktif" : "Nonaktif"}</span>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+                  <span>Nama Lengkap<span className="ml-1 text-red-500">*</span></span>
+                  <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className={fieldClass} required />
+                </label>
+                <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+                  <span>Email<span className="ml-1 text-red-500">*</span></span>
+                  <input type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} className={fieldClass} required />
+                </label>
+                <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+                  <span>Role</span>
+                  <select value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))} className={fieldClass}>
+                    {ROLES.map((role) => (
+                      <option key={role} value={role}>{role === "admin" ? "Administrator" : role === "seller" ? "Penjual" : "Pembeli"}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+                  <span>Status</span>
+                  <span className="flex h-10 items-center gap-2 rounded-[10px] border border-slate-200 px-3 text-sm font-semibold text-slate-700">
+                    <input type="checkbox" checked={form.is_active} onChange={(event) => setForm((current) => ({ ...current, is_active: event.target.checked }))} className="h-4 w-4 accent-emerald-600" />
+                    Aktif
+                  </span>
+                </label>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Avatar</label>
+                  <ImageFilePicker value={form.avatar} onChange={(url) => setForm((current) => ({ ...current, avatar: url }))} scope="profiles" label="Unggah avatar" aspectClassName="aspect-square" disabled={saving} />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-[10px] border border-slate-100 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Terdaftar</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{formatDate(user.createdAt)}</p>
+                </div>
+                <div className="rounded-[10px] border border-slate-100 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">ID Pengguna</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{user.id || "-"}</p>
+                </div>
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-1.5 text-sm font-bold text-slate-700">
-                <span>Nama Lengkap<span className="ml-1 text-red-500">*</span></span>
-                <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className={fieldClass} required />
-              </label>
-              <label className="grid gap-1.5 text-sm font-bold text-slate-700">
-                <span>Email<span className="ml-1 text-red-500">*</span></span>
-                <input type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} className={fieldClass} required />
-              </label>
-              <label className="grid gap-1.5 text-sm font-bold text-slate-700">
-                <span>Role</span>
-                <select value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))} className={fieldClass}>
-                  {ROLES.map((role) => (
-                    <option key={role} value={role}>{role === "admin" ? "Administrator" : role === "seller" ? "Penjual" : "Pembeli"}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1.5 text-sm font-bold text-slate-700">
-                <span>Status</span>
-                <span className="flex h-10 items-center gap-2 rounded-[10px] border border-slate-200 px-3 text-sm font-semibold text-slate-700">
-                  <input type="checkbox" checked={form.is_active} onChange={(event) => setForm((current) => ({ ...current, is_active: event.target.checked }))} className="h-4 w-4 accent-emerald-600" />
-                  Aktif
-                </span>
-              </label>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[10px] border border-slate-100 px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Terdaftar</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{formatDate(user.createdAt)}</p>
-              </div>
-              <div className="rounded-[10px] border border-slate-100 px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">ID Pengguna</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{user.id || "-"}</p>
-              </div>
-            </div>
-          </div>
+          </FormPageLayout>
         </FormEditorLayout>
         <FormEditorFooter onCancel={onBack} onSave={() => { if (dirty && !saving) onSave(form); }} submitLabel="Simpan" submitIcon="save" disabled={!dirty || saving} onDelete={onDelete} deleteLabel="Hapus" tone="emerald" />
       </form>
     </CrudDialog>
   );
 }
+
 export default function AdminUsersPage() {
   const [viewMode, setViewMode] = useViewMode("admin-users");
   const [query, setQuery] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
-  // Dialog pesan pelanggaran: wajib diisi sebelum user dinonaktifkan.
   const [violationTarget, setViolationTarget] = useState(null);
   const [violationMessage, setViolationMessage] = useState("");
   const violationRef = useRef("");
@@ -211,8 +255,6 @@ export default function AdminUsersPage() {
     onSettled: () => usersQuery.refetch(),
     openDetail: (user) => editor.edit(user),
   });
-  // Tab per entitas: tambah/edit pengguna mendapat tab sendiri di samping
-  // tab daftar (hijau), jadi beberapa data bisa dibuka bergantian.
   const editor = useEntityEditor({ getEditLabel: (row) => row.name || row.email || "Pengguna" });
   const editUser = editor.entity;
   const deferredQuery = useDeferredValue(query.trim());
@@ -230,6 +272,7 @@ export default function AdminUsersPage() {
       { key: "role", label: "Role", filterable: true },
       { key: "status", label: "Status", filterable: true },
       { key: "createdAt", label: "Daftar", filterable: false },
+      { key: "avatar", label: "Avatar", filterable: false },
     ],
     "admin-users",
   );
@@ -237,24 +280,26 @@ export default function AdminUsersPage() {
 
   const visibleColumns = useMemo(
     () =>
-      [{ key: "name", label: "Nama" }, { key: "email", label: "Email" }, { key: "role", label: "Role" }, { key: "status", label: "Status" }, { key: "createdAt", label: "Daftar" }].filter(
+      [{ key: "name", label: "Nama" }, { key: "email", label: "Email" }, { key: "role", label: "Role" }, { key: "status", label: "Status" }, { key: "createdAt", label: "Daftar" }, { key: "avatar", label: "Avatar" }].filter(
         (column) => columnVisibility.visibleSet.has(column.key),
       ),
     [columnVisibility.visibleSet],
   );
 
-  // Urutan & lebar kolom tabel pengguna bisa diatur (drag & drop + resize).
   const tableLayout = useTableColumnLayout({
     storageKey: "admin-users-table",
     columns: visibleColumns.map((column) => ({ ...column, width: column.key === "name" ? 260 : 170 })),
+    preferredOrder: columnVisibility.visibleKeys,
+    onOrderChange: columnVisibility.syncVisibleOrder,
   });
+  const hScroll = useHorizontalScroll();
 
   const handleSave = (form) => {
     if (!form.name.trim() || !form.email.trim()) {
       toastError("Pengguna", "Nama dan email wajib diisi.");
       return;
     }
-    const payload = { name: form.name, email: form.email, role: form.role, is_active: form.is_active };
+    const payload = { name: form.name, email: form.email, role: form.role, is_active: form.is_active, avatar: form.avatar || null };
     if (editUser) {
       updateMutation.mutate({ id: editUser.id, values: payload }, { onSuccess: () => editor.completeSave() });
     } else {
@@ -264,7 +309,6 @@ export default function AdminUsersPage() {
 
   const handleActivate = (user, nextActive) => {
     if (!nextActive) {
-      // Nonaktifkan butuh alasan pelanggaran yang akan dibaca buyer.
       setViolationTarget(user);
       setViolationMessage("");
       violationRef.current = "";
@@ -285,12 +329,13 @@ export default function AdminUsersPage() {
     setViolationTarget(null);
     setViolationMessage("");
   };
+
   const saveDetailUser = async (form) => {
     if (!editor.entity) return;
     try {
       await updateMutation.mutateAsync({
         id: editor.entity.id,
-        values: { name: form.name, email: form.email, role: form.role, is_active: form.is_active },
+        values: { name: form.name, email: form.email, role: form.role, is_active: form.is_active, avatar: form.avatar || null },
       });
       toastSuccess("Simpan Pengguna", "Perubahan data pengguna berhasil disimpan.");
       editor.completeSave();
@@ -300,14 +345,12 @@ export default function AdminUsersPage() {
     }
   };
 
-
-
   const userCard = {
     title: (user) => user.name,
     subtitle: (user) => user.email,
     badges: [
       (user) => (
-        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${user.role === "admin" ? "bg-amber-50 text-amber-700" : user.role === "seller" ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${roleBadgeClass(user.role)}`}>
           {roleLabel(user.role)}
         </span>
       ),
@@ -317,7 +360,10 @@ export default function AdminUsersPage() {
         </span>
       ),
     ],
-    fields: [{ label: "Terdaftar", render: (user) => formatDate(user.createdAt) }],
+    fields: [
+      { label: "Avatar", render: (user) => user.avatar ? <img src={resolveMediaUrl(user.avatar)} alt="" className="h-12 w-12 rounded-full object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span> },
+      { label: "Terdaftar", render: (user) => formatDate(user.createdAt) },
+    ],
     footer: () => <span className="text-[11px] font-bold text-emerald-700">Klik untuk buka detail</span>,
   };
 
@@ -364,20 +410,29 @@ export default function AdminUsersPage() {
               selectedCount={selection.selectedCount}
               onToggleSelection={selection.toggleEnabled}
               bulkActions={[]}
-              columns={[
-                { key: "name", label: "Nama" },
-                { key: "email", label: "Email" },
-                { key: "role", label: "Role" },
-                { key: "status", label: "Status" },
-                { key: "createdAt", label: "Daftar" },
-              ]}
+              columns={columnVisibility.allColumns}
               visibleColumns={columnVisibility.visibleKeys}
               onToggleColumn={columnVisibility.toggleColumn}
+              onMoveColumn={columnVisibility.moveColumn}
               onShowAllColumns={columnVisibility.showAll}
               onResetColumns={columnVisibility.reset}
               onApplyDefaultColumns={columnVisibility.applyAsDefault}
               viewMode={viewMode}
               onChangeViewMode={setViewMode}
+              extraActions={
+                <ExcelActionButtons
+                  module="user"
+                  label="Pengguna"
+                  selection={selection}
+                  rows={rows}
+                  onRefresh={() => usersQuery.refetch()}
+                  onCompleted={() => {}}
+                  getRowId={(row) => row.id}
+                  allowImport={true}
+                  allowExport={true}
+                  allowDelete={true}
+                />
+              }
             />
           )}
         >
@@ -385,8 +440,9 @@ export default function AdminUsersPage() {
           {!usersQuery.isLoading && !usersQuery.error && rows.length ? (
             <>
               <div className={viewMode === "grid" ? "[&_tbody]:hidden" : ""}>
-                <div className="overflow-x-auto [overflow-y:clip] border border-slate-200 bg-white">
-                  <table className="table-fixed w-full text-left text-sm border-collapse" style={{ width: Math.max(tableLayout.totalWidth, 760), minWidth: "100%" }}>
+              <TopScrollbar {...hScroll} visible={hScroll.hasOverflow} width={hScroll.metrics.scrollWidth} />
+                <div ref={hScroll.scrollRef} onScroll={hScroll.handleTableScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] border border-slate-200 bg-white">
+                  <table className="table-fixed text-left text-sm border-collapse" style={{ width: Math.max(tableLayout.totalWidth, 760), minWidth: "100%" }}>
                     <InteractiveColGroup columns={tableLayout.orderedColumns} getColumnStyle={tableLayout.getColumnStyle} trailingWidth={0} />
                     <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-50">
                       <tr className="bg-slate-50">
@@ -415,8 +471,8 @@ export default function AdminUsersPage() {
                             return (
                               <td key={column.key} className="px-4 py-3 text-slate-700">
                                 {column.key === "role" ? (
-                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${user.role === "admin" ? "bg-amber-50 text-amber-700" : user.role === "seller" ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
-                                    {user.role === "admin" ? "Administrator" : user.role === "seller" ? "Penjual" : "Pembeli"}
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${roleBadgeClass(user.role)}`}>
+                                    {roleLabel(user.role)}
                                   </span>
                                 ) : column.key === "status" ? (
                                   <span onClick={(event) => event.stopPropagation()} className="inline-flex items-center gap-2">
@@ -431,6 +487,8 @@ export default function AdminUsersPage() {
                                   </span>
                                 ) : column.key === "createdAt" ? (
                                   formatDate(value)
+                                ) : column.key === "avatar" ? (
+                                  value ? <img src={resolveMediaUrl(value)} alt="" className="h-8 w-8 rounded-full object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span>
                                 ) : (
                                   value || "-"
                                 )}

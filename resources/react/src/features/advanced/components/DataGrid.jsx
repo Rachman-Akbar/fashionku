@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { TableHeaderFilter } from "@/shared/components/crud/TableHeaderFilter";
 import { InfiniteScrollSentinel } from "@/shared/components/ui/InfiniteScrollSentinel";
 import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
+import { useHorizontalScroll } from "@/shared/hooks/useHorizontalScroll";
+import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
 import { useColumnVisibility } from "@/shared/hooks/useColumnVisibility";
 import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { cn } from "@/shared/utils/utils";
@@ -64,7 +66,8 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
   const [columnFilters, setColumnFilters] = useState({});
   const [sortBy, setSortBy] = useState("");
   const [sortDirection, setSortDirection] = useState("asc");
-  const layout = useTableColumnLayout({ storageKey: tableKey, columns: layoutColumns });
+  const layout = useTableColumnLayout({ storageKey: tableKey, columns: layoutColumns, preferredOrder: visibleState.visibleKeys, onOrderChange: visibleState.syncVisibleOrder });
+  const hScroll = useHorizontalScroll();
 
   const sortedRows = useMemo(() => {
     let next = rows;
@@ -109,15 +112,16 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
       return undefined;
     }
     register({
-      columns: tableColumns,
+      columns: visibleState.allColumns?.length ? visibleState.allColumns : tableColumns,
       visibleKeys: visibleState.visibleKeys,
+      onMoveColumn: visibleState.moveColumn,
       onToggle: visibleState.toggleColumn,
       onShowAll: visibleState.showAll,
       onReset: visibleState.reset,
       onApplyDefault: visibleState.applyAsDefault,
     });
     return () => unregister();
-  }, [tableColumns, layoutColumns, register, unregister, visibleState.applyAsDefault, visibleState.reset, visibleState.showAll, visibleState.toggleColumn, visibleState.visibleKeys]);
+  }, [tableColumns, layoutColumns, register, unregister, visibleState.allColumns, visibleState.applyAsDefault, visibleState.moveColumn, visibleState.reset, visibleState.showAll, visibleState.toggleColumn, visibleState.visibleKeys]);
 
   const emptyMessage = rows.length && !activeFilterCount ? emptyText : activeFilterCount ? "Tidak ada data yang cocok dengan filter aktif." : emptyText;
 
@@ -175,12 +179,21 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
 
   // Sticky di bawah toolbar daftar (`--list-toolbar-h` diisi ListPageFrame)
   // dan di atas tabel kartu/grafik. Satu-satunya area scroll adalah <main>.
-  const headerTable = (
-    <div className="sticky top-[var(--list-toolbar-h,0px)] z-30 w-full min-w-0 max-w-full overflow-x-auto bg-slate-100">
+  // Baris header saja: dipakai di dalam satu kontainer scroll bersama tabel
+  // body (mode list) agar header dan isi bergeser bersamaan saat di-scroll
+  // ke samping. `sticky` tetap bekerja karena kontainer memakai
+  // `overflow-y: clip` (bukan scroll container vertikal).
+  const headerRow = (
+    <div className="sticky top-[var(--list-toolbar-h,0px)] z-30 bg-slate-100">
       <table className="table-fixed border-collapse text-left text-sm" style={{ width: Math.max(tableWidth, 760), minWidth: "100%" }}>
         <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">{headerCells}</thead>
       </table>
     </div>
+  );
+
+  // Untuk mode kartu/grafik header butuh scroll horizontal sendiri.
+  const headerTable = (
+    <div className="w-full min-w-0 max-w-full overflow-x-auto bg-slate-100">{headerRow}</div>
   );
 
   const headerActionsBar = headerActions && !renderSpecialActions && specialVisible ? (
@@ -231,15 +244,24 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
       {!sortedRows.length ? headerActionsBar : null}
       {!sortedRows.length ? (
         <>
-          {headerTable}
-          <div className="border-x border-b border-slate-200 bg-white p-8 text-center text-sm text-slate-500">{emptyMessage}</div>
+          <TopScrollbar {...hScroll} visible={hScroll.hasOverflow} width={hScroll.metrics.scrollWidth} />
+          <div ref={hScroll.scrollRef} onScroll={hScroll.handleTableScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] border-x border-b border-slate-200 bg-white">
+            {headerRow}
+            <div className="p-8 text-center text-sm text-slate-500">{emptyMessage}</div>
+          </div>
         </>
       ) : null}
 
       {sortedRows.length ? (
         <>
-          {headerTable}
-          <div className="w-full min-w-0 max-w-full overflow-x-auto border-x border-b border-slate-200 bg-white">
+          {/* Satu kontainer scroll horizontal untuk header + body: sebelumnya
+              dua kontainer terpisah sehingga geseran ke samping tidak sinkron
+              (header diam, isi bergeser) dan terasa "tidak bisa digeser". */}
+          {/* Scrollbar horizontal di atas header supaya tetap terjangkau walau
+              daftar sudah panjang (infinite scroll). */}
+          <TopScrollbar {...hScroll} visible={hScroll.hasOverflow} width={hScroll.metrics.scrollWidth} />
+          <div ref={hScroll.scrollRef} onScroll={hScroll.handleTableScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] border-x border-b border-slate-200 bg-white">
+            {headerRow}
             <table className="table-fixed border-collapse text-left text-sm" style={{ width: Math.max(tableWidth, 760), minWidth: "100%" }}>
             <tbody className="divide-y divide-slate-100">
               {sortedRows.map((row) => {

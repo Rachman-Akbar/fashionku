@@ -39,7 +39,7 @@ final class CreateManualOrderUseCase
 
     /**
      * @param  array<int, array{variant_id: int, quantity: int}>  $itemInputs
-     * @param  array{name?: string, phone?: string, email?: ?string, address?: string}  $customer
+     * @param  array{id?: string, name?: string, phone?: string, email?: ?string, address?: string}  $customer
      */
     public function execute(
         array $itemInputs,
@@ -140,7 +140,8 @@ final class CreateManualOrderUseCase
             $itemsTotal += (float) $details->getPrice()->getAmount() * $quantity;
         }
 
-        $userId = $this->resolveCustomerUserId($customer);
+        // Resolve customer: if customer_id provided, fetch profile data from user
+        [$userId, $resolvedCustomer] = $this->resolveCustomerUserId($customer);
 
         $providedOrderNumber = strtoupper(trim((string) $orderNumber));
         $orderNumber = $providedOrderNumber !== ''
@@ -150,7 +151,7 @@ final class CreateManualOrderUseCase
                 'store' => (string) $this->settings->storeProfile()['name'],
                 'seq' => $this->codePatterns->sequenceFor('orders', 'created_at'),
             ], fn (string $candidate): bool => DB::table('orders')->where('order_number', $candidate)->exists());
-        $shippingAddress = $this->shippingAddress($customer, $courier);
+        $shippingAddress = $this->shippingAddress($resolvedCustomer, $courier);
         $grossAmount = max(0.0, $itemsTotal + $shippingCost);
         $paid = $paymentStatus === 'paid';
 
@@ -233,14 +234,57 @@ final class CreateManualOrderUseCase
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
-    private function resolveCustomerUserId(array $customer): string
+    /**
+     * @return array{0: string, 1: array{name: string, phone: string, email: ?string, address: string}}
+     */
+    private function resolveCustomerUserId(array $customer): array
     {
+        // If customer_id is provided, use that existing user and fetch their profile
+        if (isset($customer['id']) && $customer['id'] !== '') {
+            $user = DB::table('users')
+                ->where('id', $customer['id'])
+                ->whereNull('deleted_at')
+                ->first(['id', 'name', 'email', 'phone']);
+
+            if ($user) {
+                $sellerCustomer = DB::table('seller_customers')
+                    ->where('user_id', $user->id)
+                    ->whereNull('deleted_at')
+                    ->first(['address', 'phone as customer_phone']);
+
+                $userId = (string) $user->id;
+                $resolvedCustomer = [
+                    'name' => $user->name,
+                    'phone' => $sellerCustomer?->customer_phone ?? $user->phone ?? '',
+                    'email' => $user->email,
+                    'address' => $sellerCustomer?->address ?? '',
+                ];
+                return [$userId, $resolvedCustomer];
+            }
+        }
+
         $email = strtolower(trim((string) ($customer['email'] ?? '')));
 
         if ($email !== '') {
-            $existing = DB::table('users')->where('email', $email)->whereNull('deleted_at')->first();
-            if ($existing) {
-                return (string) $existing->id;
+            $user = DB::table('users')
+                ->where('email', $email)
+                ->whereNull('deleted_at')
+                ->first(['id', 'name', 'email', 'phone']);
+
+            if ($user) {
+                $sellerCustomer = DB::table('seller_customers')
+                    ->where('user_id', $user->id)
+                    ->whereNull('deleted_at')
+                    ->first(['address', 'phone as customer_phone']);
+
+                $userId = (string) $user->id;
+                $resolvedCustomer = [
+                    'name' => $user->name,
+                    'phone' => $sellerCustomer?->customer_phone ?? $user->phone ?? '',
+                    'email' => $user->email,
+                    'address' => $sellerCustomer?->address ?? '',
+                ];
+                return [$userId, $resolvedCustomer];
             }
         }
 
@@ -272,6 +316,13 @@ final class CreateManualOrderUseCase
             );
         }
 
-        return $userId;
+        $resolvedCustomer = [
+            'name' => $userName !== '' ? $userName : 'Pelanggan Umum',
+            'phone' => trim((string) ($customer['phone'] ?? '')),
+            'email' => $candidateEmail,
+            'address' => trim((string) ($customer['address'] ?? '')),
+        ];
+
+        return [$userId, $resolvedCustomer];
     }
 }

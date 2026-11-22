@@ -8,6 +8,8 @@ import { CrudDialog } from "@/shared/components/crud/CrudDialog";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { useFocusMode } from "@/shared/layout/FocusModeContext";
 import { useColumnVisibility, useTableSelection } from "@/shared/hooks";
+import { useHorizontalScroll } from "@/shared/hooks/useHorizontalScroll";
+import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
 import { cn } from "@/shared/utils/utils";
 import {
   getScheduleError,
@@ -404,7 +406,12 @@ export default function SchedulePage() {
     { key: "isActive", label: "Aktif" },
   ]), []);
   const columnVisibility = useColumnVisibility(columns, "admin-schedules");
-  const visibleColumns = columns.filter((c) => columnVisibility.visibleSet.has(c.key));
+  const visibleColumns = useMemo(() => {
+    const byKey = new Map(columns.map((column) => [column.key, column]));
+    const ordered = columnVisibility.visibleKeys.map((key) => byKey.get(key)).filter(Boolean);
+    return ordered.length ? ordered : columns.filter((c) => columnVisibility.visibleSet.has(c.key));
+  }, [columnVisibility.visibleKeys, columnVisibility.visibleSet, columns]);
+  const hScroll = useHorizontalScroll();
 
   const saving = createMutation.isPending || updateMutation.isPending;
 
@@ -485,9 +492,10 @@ export default function SchedulePage() {
               selectedCount={selection.selectedCount}
               onToggleSelection={selection.toggleEnabled}
               bulkActions={[]}
-              columns={columns}
+              columns={columnVisibility.allColumns}
               visibleColumns={columnVisibility.visibleKeys}
               onToggleColumn={columnVisibility.toggleColumn}
+              onMoveColumn={columnVisibility.moveColumn}
               onShowAllColumns={columnVisibility.showAll}
               onResetColumns={columnVisibility.reset}
               onApplyDefaultColumns={columnVisibility.applyAsDefault}
@@ -510,14 +518,16 @@ export default function SchedulePage() {
           empty={!schedulesQuery.isLoading && !schedulesQuery.error && !rows.length}
           emptyText="Jadwal belum tersedia."
         />
-        {!schedulesQuery.isLoading && !schedulesQuery.error && rows.length ? (
+        {!schedulesQuery.isLoading && !schedulesQuery.error ? (
           <>
             {viewMode === "kanban" ? (
               <KanbanView rows={rows} onEdit={openEdit} onDelete={setDeleteTarget} onMove={handleMoveStatus} />
             ) : null}
             {viewMode === "list" ? (
-              <div className="border border-slate-200 bg-white">
-                <table className="w-full border-collapse text-left text-sm">
+              <div>
+                <TopScrollbar {...hScroll} visible={hScroll.hasOverflow} width={hScroll.metrics.scrollWidth} />
+                <div ref={hScroll.scrollRef} onScroll={hScroll.handleTableScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] border border-slate-200 bg-white">
+                <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                   <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-50">
                     <tr className="bg-slate-50">
                       {visibleColumns.map((column) => (
@@ -567,6 +577,7 @@ export default function SchedulePage() {
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             ) : null}
             {viewMode === "kalender" ? (

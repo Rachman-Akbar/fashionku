@@ -213,6 +213,18 @@ export async function updateSellerProduct(id, values) {
   return normalizeSellerProduct(unwrapApiData(response.data));
 }
 
+export async function generateSellerSku({ pattern = "", name = "", brand = "", category = "", attributes = [], variantId = null } = {}) {
+  const response = await apiClient.post("/api/v1/catalog/products/sku/generate", {
+    pattern,
+    name,
+    brand,
+    category,
+    attributes: attributes.filter(Boolean),
+    variant_id: variantId || null,
+  });
+  return unwrapApiData(response.data)?.sku || "";
+}
+
 export async function deleteSellerProduct(id) {
   const response = await apiClient.delete(`/api/v1/catalog/seller/products/${id}`);
   return response.data;

@@ -5,14 +5,22 @@ import { useAuth } from "@/features/auth/context/AuthContext";
 import { ModuleFrame } from "@/features/advanced/components/ModuleFrame";
 import { DataGrid } from "@/features/advanced/components/DataGrid";
 import { CustomerDetailForm } from "@/features/advanced/pages/CustomerDetailPage";
-import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
-import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
-import { useEntityEditor, useRefreshOnListActivation, useViewMode } from "@/shared/hooks";
+import { useEntityEditor, useRefreshOnListActivation, useViewMode, useTableSelection } from "@/shared/hooks";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
+import { ExcelActionButtons } from "@/shared/excel";
 
 function money(value) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value || 0));
+}
+
+function formatDate(value) {
+  if (!value) return "-";
+  try {
+    return new Date(value).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" });
+  } catch {
+    return "-";
+  }
 }
 
 export default function CustomersPage() {
@@ -37,24 +45,27 @@ export default function CustomersPage() {
       setActiveToggleId(null);
     }
   };
+
   const rows = listQuery.data?.rows || [];
   const total = useListTotalCount(listQuery.data?.meta, { fallbackTotal: rows.length, label: "Pelanggan" });
   const editor = useEntityEditor({ getEditLabel: (row) => row.name || `Pelanggan #${row.id}` });
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: listQuery.refetch });
-  const spreadsheet = useSpreadsheetWorkspace({ module: "customer", label: "Pelanggan", allowImport: false, allowBulkDelete: false });
+  const selection = useTableSelection(rows);
+
   const columns = [
+    { key: "code", label: "Kode" },
     { key: "name", label: "Nama" },
     { key: "email", label: "Email" },
     { key: "is_manual", label: "Sumber", render: (row) => row.is_manual ? <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-extrabold uppercase text-teal-700">Manual</span> : <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-extrabold uppercase text-slate-500">Transaksi</span> },
     { key: "orders_count", label: "Jumlah Pesanan" },
     { key: "total_spent", label: "Total Belanja", render: (row) => money(row.total_spent) },
-    { key: "last_order_at", label: "Pesanan Terakhir", render: (row) => row.last_order_at ? new Date(row.last_order_at).toLocaleString("id-ID") : "-" },
+    { key: "last_order_at", label: "Pesanan Terakhir", render: (row) => row.last_order_at ? formatDate(row.last_order_at) : "-" },
     { key: "is_active", label: "Status", filterType: "select", options: [{ value: "true", label: "Aktif" }, { value: "false", label: "Nonaktif" }], render: (row) => <InlineActiveSwitch checked={row.is_active !== false} pending={activeToggleId === row.id} activeLabel="Aktif" inactiveLabel="Nonaktif" compact onChange={(next) => toggleCustomerActive(row, next)} /> },
   ];
 
   const customerCard = {
     title: (row) => row.name || "Pelanggan",
-    subtitle: (row) => row.email || "-",
+    subtitle: (row) => row.code ? `${row.code} · ${row.email || "-"}` : row.email || "-",
     badges: [
       (row) => row.is_manual
         ? <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-extrabold uppercase text-teal-700">Manual</span>
@@ -66,9 +77,10 @@ export default function CustomersPage() {
       ),
     ],
     fields: [
+      { label: "Kode", render: (row) => row.code || "-" },
       { label: "Pesanan", render: (row) => row.orders_count ?? 0 },
       { label: "Total Belanja", render: (row) => money(row.total_spent) },
-      { label: "Terakhir", render: (row) => (row.last_order_at ? new Date(row.last_order_at).toLocaleString("id-ID") : "-") },
+      { label: "Terakhir", render: (row) => (row.last_order_at ? formatDate(row.last_order_at) : "-") },
     ],
   };
 
@@ -81,7 +93,7 @@ export default function CustomersPage() {
         query={query}
         onQueryChange={setQuery}
         onRefresh={() => listQuery.refetch()}
-        bulkActions={spreadsheet.actions}
+        bulkActions={[]}
         onCreate={admin ? undefined : editor.create}
         createLabel="Tambah Pelanggan"
         totalCount={total.totalCount}
@@ -89,6 +101,23 @@ export default function CustomersPage() {
         totalTitle={total.totalTitle}
         viewMode={viewMode}
         onChangeViewMode={setViewMode}
+        selectionEnabled={selection.enabled}
+        selectedCount={selection.selectedCount}
+        onToggleSelection={selection.toggleEnabled}
+        extraActions={
+          <ExcelActionButtons
+            module="customer"
+            label="Pelanggan"
+            selection={selection}
+            rows={rows}
+            onRefresh={() => listQuery.refetch()}
+            onCompleted={() => {}}
+            getRowId={(row) => row.id}
+            allowImport={true}
+            allowExport={true}
+            allowDelete={true}
+          />
+        }
       >
         <DataGrid
           viewMode={viewMode}
@@ -105,6 +134,5 @@ export default function CustomersPage() {
         />
       </ModuleFrame>
     ) : null}
-    <SpreadsheetOperationPanel workspace={spreadsheet} />
   </>;
 }

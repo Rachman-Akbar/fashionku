@@ -18,11 +18,14 @@ function normalizeStat(row) {
 }
 
 async function fetchDashboardStats() {
-  const [ordersRes, usersRes, productsRes, storesRes] = await Promise.allSettled([
+  const [ordersRes, usersRes, productsRes, storeRes, financeRes] = await Promise.allSettled([
     apiClient.get("/api/v1/order/orderings", { params: { per_page: 1 } }),
     apiClient.get("/api/v1/identity/users", { params: { per_page: 1 } }),
     apiClient.get("/api/v1/catalog/products", { params: { per_page: 1 } }),
-    apiClient.get("/api/v1/seller/stores/manage", { params: { per_page: 1 } }),
+    // Single-store: profil toko diambil dari endpoint pengaturan toko.
+    // (`/seller/stores/manage` tidak ada di backend sehingga selalu 404.)
+    apiClient.get("/api/v1/seller/settings/store"),
+    apiClient.get("/api/v1/seller/finance/dashboard"),
   ]);
 
   const getMeta = (result) => {
@@ -32,28 +35,52 @@ async function fetchDashboardStats() {
     return { total: meta.total ?? source?.total ?? 0 };
   };
 
+  const storeData = storeRes.status === "fulfilled" ? (storeRes.value?.data?.data ?? storeRes.value?.data ?? null) : null;
+  const financeSummary = financeRes.status === "fulfilled" ? (financeRes.value?.data?.data?.summary ?? financeRes.value?.data?.summary ?? {}) : {};
+
   const orders = getMeta(ordersRes);
   const users = getMeta(usersRes);
   const products = getMeta(productsRes);
-  const stores = getMeta(storesRes);
+  const revenue = Number(financeSummary.income ?? 0);
 
   return {
     stats: [
       { key: "orders", label: "Total Pesanan", value: orders.total.toLocaleString("id-ID"), change: "Data API", tone: "blue", icon: "receipt_long" },
-      { key: "revenue", label: "Pendapatan", value: formatPrice(0), change: "Data API", tone: "emerald", icon: "monetization_on" },
+      { key: "revenue", label: "Pendapatan", value: formatPrice(revenue), change: "Data API", tone: "emerald", icon: "monetization_on" },
       { key: "products", label: "Produk", value: products.total.toLocaleString("id-ID"), change: "Data API", tone: "teal", icon: "inventory_2" },
-      { key: "stores", label: "Toko", value: stores.total.toLocaleString("id-ID"), change: "Data API", tone: "amber", icon: "storefront" },
+      { key: "stores", label: "Toko", value: storeData ? "1" : "0", change: storeData?.store_name || storeData?.name || "Data API", tone: "amber", icon: "storefront" },
     ],
   };
 }
 
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+
+/**
+ * Tren pendapatan 12 bulan.
+ * Backend tidak punya `/admin/dashboard/revenue` (selalu 404); sumber yang ada
+ * adalah `/seller/finance/dashboard/order-trend` (titik harian, berisi
+ * `revenue`), jadi agregasi per bulan dilakukan di sini.
+ */
 async function fetchRevenueChart() {
-  const response = await apiClient.get("/api/v1/admin/dashboard/revenue", { params: { period: "12m" } });
-  const data = unwrapCollection(response.data);
-  return data.map((row) => ({
-    month: row.month || row.bulan || row.label || "-",
-    revenue: Number(row.revenue ?? row.total ?? row.pendapatan ?? 0),
-  }));
+  const response = await apiClient.get("/api/v1/seller/finance/dashboard/order-trend", { params: { period: "yearly" } });
+  const payload = response.data?.data ?? response.data ?? {};
+  const points = Array.isArray(payload?.points) ? payload.points : unwrapCollection(response.data);
+
+  const buckets = new Map();
+  points.forEach((point) => {
+    const raw = point.date || point.bulan || point.month || point.label;
+    if (!raw) return;
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return;
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const current = buckets.get(key) || { month: MONTH_LABELS[date.getMonth()], revenue: 0, year: date.getFullYear() };
+    current.revenue += Number(point.revenue ?? point.total ?? point.pendapatan ?? 0);
+    buckets.set(key, current);
+  });
+
+  return [...buckets.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([, value]) => ({ month: value.month, revenue: value.revenue }));
 }
 
 async function fetchRecentOrders() {

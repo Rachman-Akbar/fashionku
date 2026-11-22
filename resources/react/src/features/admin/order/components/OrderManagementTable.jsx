@@ -6,6 +6,8 @@ import { TableSelectionCell, TableSelectionHeader } from "@/shared/components/cr
 import { TableHeaderFilter } from "@/shared/components/crud/TableHeaderFilter";
 import { InteractiveColGroup } from "@/shared/components/table/InteractiveTableHeader";
 import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
+import { useHorizontalScroll } from "@/shared/hooks/useHorizontalScroll";
+import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
 import { cn, formatPrice } from "@/shared/utils/utils";
 import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { toTitleCase } from "@/shared/utils/textFormatter";
@@ -148,13 +150,14 @@ export function orderCardDefinition({ onPrint } = {}) {
   };
 }
 
-export const OrderManagementTable = memo(function OrderManagementTable({ rows, portal, pendingId, onStatusChange, onPrint, onEdit, columns = ORDER_TABLE_COLUMNS, visibleSet, selectionEnabled = false, selectedIds = new Set(), allSelected = false, onToggleRow, onToggleAll, onFilterStateChange }) {
+export const OrderManagementTable = memo(function OrderManagementTable({ rows, portal, pendingId, onStatusChange, onPrint, onEdit, columns = ORDER_TABLE_COLUMNS, visibleSet, selectionEnabled = false, selectedIds = new Set(), allSelected = false, onToggleRow, onToggleAll, onFilterStateChange, columnOrder, onOrderChange, headerOnly = false }) {
   const [sortBy, setSortBy] = useState("");
   const [sortDirection, setSortDirection] = useState("asc");
   const [columnFilters, setColumnFilters] = useState({});
   const activeColumns = useMemo(() => columns.filter((column) => (!visibleSet || visibleSet.has(column.key)) && (column.key !== "store" || portal === "admin")).map((column) => ({ ...column, width: widths[column.key] || 180 })), [columns, portal, visibleSet]);
-  const layout = useTableColumnLayout({ storageKey: `${portal}.orders.management`, columns: activeColumns });
+  const layout = useTableColumnLayout({ storageKey: `${portal}.orders.management`, columns: activeColumns, preferredOrder: columnOrder, onOrderChange });
   const tableWidth = layout.totalWidth + (selectionEnabled ? 44 : 0);
+  const hScroll = useHorizontalScroll();
 
   const paymentOptions = useMemo(() => {
     const values = new Set();
@@ -232,5 +235,18 @@ export const OrderManagementTable = memo(function OrderManagementTable({ rows, p
     return <td key={column.key} className="px-4 py-3"><div className="flex w-full items-center gap-[5px]" onClick={(event) => event.stopPropagation()}>{onPrint ? <button type="button" onClick={() => onPrint(row)} title="Lihat / cetak nota pesanan" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 text-xs font-extrabold text-slate-700 transition hover:bg-teal-50 hover:text-teal-700"><span className="material-symbols-outlined text-[16px]">receipt_long</span>Nota</button> : null}<div className="w-full"><SearchableSelect value={row.status} disabled={pendingId === row.id} onChange={(nextValue) => onStatusChange(row, nextValue)} options={STATUS_OPTIONS} clearable={false} buttonClassName={`h-9 border text-xs ${STATUS_BUTTON_STYLES[row.status] || "border-slate-200 bg-white"}`} indicatorClassName={STATUS_DOT_STYLES[row.status]} /></div></div></td>;
   };
 
-  return <div className="bg-white ring-1 ring-slate-200"><table className="table-fixed text-left text-sm" style={{ width: Math.max(tableWidth, 820), minWidth: "100%" }}><InteractiveColGroup columns={layout.orderedColumns} getColumnStyle={layout.getColumnStyle} leadingWidth={selectionEnabled ? 44 : 0} /><thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-100 text-xs font-extrabold text-slate-600"><tr><TableSelectionHeader enabled={selectionEnabled} checked={allSelected} onToggle={onToggleAll} />{layout.orderedColumns.map((column) => <TableHeaderFilter key={column.key} label={column.label} sortKey={column.key} sortBy={sortBy} sortDirection={sortDirection} onSortChange={(key, direction) => { setSortBy(key); setSortDirection(direction); }} filterType={FILTER_TYPES[column.key]} filterValue={columnFilters[column.key]} onFilterChange={(value) => setColumnFilters((current) => { const next = { ...current }; if (hasFilterValue(FILTER_TYPES[column.key], value)) next[column.key] = value; else delete next[column.key]; return next; })} onClearAllFilters={() => { setColumnFilters({}); setSortBy(""); setSortDirection("asc"); }} onResetSort={() => { setSortBy(""); setSortDirection("asc"); }} options={column.key === "payment" ? paymentOptions : column.key === "status" ? STATUS_OPTIONS : column.key === "orderType" ? ORDER_TYPE_OPTIONS : column.key === "origin" ? ORIGIN_OPTIONS : []} headerProps={layout.getHeaderProps(column.key)} columnKey={column.key} columnStyle={layout.getColumnStyle(column.key)} onResizeStart={layout.startResize} onResetWidth={layout.resetWidth} dragging={layout.dragKey === column.key} dropTarget={layout.dropKey === column.key}>{column.label}</TableHeaderFilter>)}</tr></thead><tbody className="divide-y divide-slate-100">{visibleRows.map((row) => <tr key={`${row.id}:${row.subOrderNumber}`} onClick={onEdit ? () => onEdit(row) : undefined} title={onEdit ? "Klik untuk melihat detail pesanan" : undefined} className={cn("hover:bg-slate-50", onEdit && "cursor-pointer hover:bg-emerald-50/40")}><TableSelectionCell enabled={selectionEnabled} checked={selectedIds.has(String(row.id))} onToggle={() => onToggleRow?.(row.id)} />{layout.orderedColumns.map((column) => renderCell(column, row))}</tr>)}</tbody></table></div>;
+  return (
+    <div className={headerOnly ? "mb-3" : undefined}>
+      <TopScrollbar {...hScroll} visible={hScroll.hasOverflow} width={hScroll.metrics.scrollWidth} />
+      <div
+        ref={hScroll.scrollRef}
+        onScroll={hScroll.handleTableScroll}
+        className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] bg-white ring-1 ring-slate-200"
+      >
+      <table className="table-fixed text-left text-sm" style={{ width: Math.max(tableWidth, 820), minWidth: "100%" }}><InteractiveColGroup columns={layout.orderedColumns} getColumnStyle={layout.getColumnStyle} leadingWidth={selectionEnabled ? 44 : 0} /><thead className={headerOnly ? "bg-slate-100 text-xs font-extrabold text-slate-600" : "sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-100 text-xs font-extrabold text-slate-600"}><tr><TableSelectionHeader enabled={selectionEnabled} checked={allSelected} onToggle={onToggleAll} />{layout.orderedColumns.map((column) => <TableHeaderFilter key={column.key} label={column.label} sortKey={column.key} sortBy={sortBy} sortDirection={sortDirection} onSortChange={(key, direction) => { setSortBy(key); setSortDirection(direction); }} filterType={FILTER_TYPES[column.key]} filterValue={columnFilters[column.key]} onFilterChange={(value) => setColumnFilters((current) => { const next = { ...current }; if (hasFilterValue(FILTER_TYPES[column.key], value)) next[column.key] = value; else delete next[column.key]; return next; })} onClearAllFilters={() => { setColumnFilters({}); setSortBy(""); setSortDirection("asc"); }} onResetSort={() => { setSortBy(""); setSortDirection("asc"); }} options={column.key === "payment" ? paymentOptions : column.key === "status" ? STATUS_OPTIONS : column.key === "orderType" ? ORDER_TYPE_OPTIONS : column.key === "origin" ? ORIGIN_OPTIONS : []} headerProps={layout.getHeaderProps(column.key)} columnKey={column.key} columnStyle={layout.getColumnStyle(column.key)} onResizeStart={layout.startResize} onResetWidth={layout.resetWidth} dragging={layout.dragKey === column.key} dropTarget={layout.dropKey === column.key}>{column.label}</TableHeaderFilter>)}</tr></thead>{headerOnly ? null : (
+      <tbody className="divide-y divide-slate-100">{visibleRows.map((row) => <tr key={`${row.id}:${row.subOrderNumber}`} onClick={onEdit ? () => onEdit(row) : undefined} title={onEdit ? "Klik untuk melihat detail pesanan" : undefined} className={cn("hover:bg-slate-50", onEdit && "cursor-pointer hover:bg-emerald-50/40")}><TableSelectionCell enabled={selectionEnabled} checked={selectedIds.has(String(row.id))} onToggle={() => onToggleRow?.(row.id)} />{layout.orderedColumns.map((column) => renderCell(column, row))}</tr>)}</tbody>
+      )}</table>
+      </div>
+    </div>
+  );
 });

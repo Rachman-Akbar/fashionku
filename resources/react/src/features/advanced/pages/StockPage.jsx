@@ -6,18 +6,20 @@ import { normalizeSellerProduct } from "@/features/seller/product/services/selle
 import { ModuleFrame } from "@/features/advanced/components/ModuleFrame";
 import { DataGrid } from "@/features/advanced/components/DataGrid";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
-import StockChartTab from "@/features/advanced/components/StockChartTab";
+import { StockChartPanel } from "@/shared/charts/ChartPanels";
 import { Field, FormModal } from "@/features/advanced/components/FormModal";
+import { inputClassName } from "@/shared/components/form/FormField";
 import { Input } from "@/shared/components/ui/Input";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { toolbarControlClassName } from "@/shared/components/crud/toolbarControlClassName";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
-import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
-import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
-import { useViewMode } from "@/shared/hooks/useViewMode";
 import { useEntityEditor } from "@/shared/hooks";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
+import { ExcelActionButtons } from "@/shared/excel";
+import { showSuccess, showError, confirmDelete, showLoading, closeLoading, confirmAction } from "@/shared/utils/sweetAlert";
+import { MultiImagePicker } from "@/shared/components/form";
+import { DetailTabs } from "@/shared/components/ui/DetailTabs";
 
 const MATERIAL_EMPTY = { code: "", name: "", unit: "pcs", minimum_stock: 0, average_cost: 0, is_active: true };
 
@@ -31,8 +33,112 @@ function money(value) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value || 0));
 }
 
+function MaterialFormContent({
+  materialForm,
+  setMaterialForm,
+  unitOptions,
+  createUnit,
+  number,
+  money,
+  inputClassName,
+}) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <Field label="Kode" hint="Kosongkan agar dibuat otomatis oleh sistem (mis. RM-GULA), atau isi kode manual."><Input value={materialForm?.code || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, code: event.target.value }))} placeholder="Otomatis bila dikosongkan" /></Field>
+      <Field label="Nama" required><Input value={materialForm?.name || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, name: event.target.value }))} required /></Field>
+      <Field label="Satuan" required hint="Pilih satuan yang sudah ada, atau ketik satuan baru untuk menambah langsung ke daftar."><SearchableSelect value={materialForm?.unit || ""} onChange={(nextValue) => setMaterialForm((current) => ({ ...current, unit: nextValue }))} options={unitOptions} clearable={false} onCreate={createUnit} createLabel={(name) => `Satuan “${name}” belum ada, tambahkan sekarang`} placeholder="Pilih / ketik satuan" searchPlaceholder="Cari atau ketik satuan baru" /></Field>
+      <Field label="Minimum Stok"><Input type="number" min="0" value={materialForm?.minimum_stock || 0} onChange={(event) => setMaterialForm((current) => ({ ...current, minimum_stock: event.target.value }))} /></Field>
+      <Field label="Biaya Rata-rata" hint={materialForm?.id ? "Biaya rata-rata berubah melalui Stock / Restock Bahan Baku agar weighted average dan histori HPP tercatat." : "Biaya awal bahan sebelum transaksi restock pertama."}><Input type="number" min="0" value={materialForm?.average_cost || 0} disabled={Boolean(materialForm?.id)} onChange={(event) => setMaterialForm((current) => ({ ...current, average_cost: event.target.value }))} className={materialForm?.id ? "cursor-not-allowed bg-slate-100 text-slate-500" : ""} /></Field>
+    </div>
+  );
+}
+
+function StockMovementHistoryTab({ materialId, materialMovements, number, money }) {
+  const movements = materialMovements.data?.rows || [];
+
+  if (!materialId) {
+    return <p className="text-sm text-slate-500">Pilih bahan baku untuk melihat riwayat stok.</p>;
+  }
+
+  if (materialMovements.isLoading) {
+    return <p className="text-sm text-slate-500">Memuat riwayat stok...</p>;
+  }
+
+  if (!movements.length) {
+    return <p className="text-sm text-slate-500">Belum ada riwayat pergerakan stok.</p>;
+  }
+
+  const filteredMovements = movements.filter((m) => String(m.raw_material_id ?? m.material?.id) === String(materialId));
+
+  if (!filteredMovements.length) {
+    return <p className="text-sm text-slate-500">Belum ada riwayat pergerakan stok untuk bahan baku ini.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {filteredMovements.map((row) => (
+        <div key={row.id} className="border border-slate-200 bg-white rounded-xl p-4">
+          <div className="grid gap-3 sm:grid-cols-4 mb-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Tanggal</p>
+              <p className="font-medium text-slate-900">{row.occurred_at ? new Date(row.occurred_at).toLocaleString("id-ID") : "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Jenis</p>
+              <p className="font-medium text-slate-700 capitalize">{row.type || "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Perubahan</p>
+              <p className="font-bold text-slate-700">{number(row.quantity_delta)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Saldo</p>
+              <p className="font-medium text-slate-700">{number(row.balance_after)}</p>
+            </div>
+          </div>
+          <div className="border-t border-slate-200 pt-3">
+            <div className="grid gap-2 sm:grid-cols-4 mb-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Biaya/Satuan</p>
+                <p className="font-semibold text-slate-700">{row.unit_cost != null ? money(row.unit_cost) : "-"}</p>
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Referensi</p>
+                <p className="font-semibold text-slate-700">{row.reference_number || "-"}</p>
+              </div>
+              <div className="sm:col-span-2">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Catatan</p>
+                <p className="text-slate-600">{row.notes || "-"}</p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Bukti Gambar</p>
+              {row.proof_images && row.proof_images.length > 0 ? (
+                <div className="flex gap-2 flex-wrap">
+                  {row.proof_images.map((img, idx) => (
+                    <a key={idx} href={img} target="_blank" rel="noopener noreferrer" className="inline-flex h-16 w-16 rounded-lg overflow-hidden ring-1 ring-slate-200 bg-slate-50">
+                      <img src={img} alt={`Bukti ${idx + 1}`} className="h-full w-full object-cover hover:scale-105 transition-transform" />
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-slate-400">Tidak ada bukti</span>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function StockPage() {
-  const viewMode = "list";
+  const [viewMode, setViewMode] = useState("list");
+  const viewModeOptions = [
+    { value: "list", label: "Daftar", icon: "view_list" },
+    { value: "grid", label: "Kartu", icon: "grid_view" },
+    { value: "chart", label: "Grafik", icon: "insert_chart" },
+  ];
   const { activeRole } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -53,6 +159,8 @@ export default function StockPage() {
   const [delta, setDelta] = useState("");
   const [stockReference, setStockReference] = useState("");
   const [unitCost, setUnitCost] = useState("");
+  const [productAdjustImages, setProductAdjustImages] = useState([]);
+  const [materialAdjustImages, setMaterialAdjustImages] = useState([]);
   const [costEdit, setCostEdit] = useState(null);
   const products = useManageableProducts({ per_page: 100, is_active: true });
   const productMovements = useStockMovements({ per_page: 100, ...(deferred ? { search: deferred } : {}) });
@@ -115,13 +223,6 @@ export default function StockPage() {
     setMaterialForm((current) => ({ ...current, unit: clean }));
     return { value: clean, label: clean };
   };
-
-  const stockSpreadsheet = useSpreadsheetWorkspace({ module: "stock", label: "Stok Produk", allowBulkDelete: false, onCompleted: () => productMovements.refetch() });
-  const materialSpreadsheet = useSpreadsheetWorkspace({ module: "raw-material", label: "Bahan Baku", selectedRows: materialRows.filter((row) => materialSelected.has(`m-${row.id}`)), allowBulkDelete: true, onCompleted: () => { materials.refetch(); setMaterialSelected(new Set()); } });
-  const materialStockSpreadsheet = useSpreadsheetWorkspace({ module: "raw-material-stock", label: "Stok Bahan Baku", allowBulkDelete: false, onCompleted: () => { materials.refetch(); materialMovements.refetch(); } });
-
-  const allWorkspaces = [stockSpreadsheet, materialSpreadsheet, materialStockSpreadsheet];
-  const activeWorkspace = allWorkspaces.find((workspace) => workspace.activeOperation) || stockSpreadsheet;
 
   const allProductVariants = useMemo(
     () => (products.data?.rows || []).flatMap((product) => (product.variants || []).map((variant) => ({ ...variant, product_name: product.name, product_id: product.id }))),
@@ -374,8 +475,6 @@ export default function StockPage() {
     });
   }, [historyTarget, historyPeriod, materialMovements.data?.rows, productMovements.data?.rows]);
 
-  const spreadsheetActions = stockSpreadsheet.actions;
-
   function submitOpnamePicker(event) {
     event.preventDefault();
     const [kind, rawId] = String(opnameTarget || "").split(":");
@@ -412,9 +511,9 @@ export default function StockPage() {
           is_active: next,
         },
       });
-      toastSuccess("Status Bahan Baku", `${row.name || row.code} ditandai ${next ? "aktif" : "non-aktif"}.`);
+      showSuccess("Berhasil", `${row.name || row.code} ditandai ${next ? "aktif" : "non-aktif"}.`);
     } catch (error) {
-      toastError("Status Bahan Baku", advancedError(error));
+      showError("Gagal", advancedError(error));
     } finally {
       setActiveToggleId(null);
     }
@@ -424,71 +523,88 @@ export default function StockPage() {
     event.preventDefault();
     if (adjustStock.isPending) return;
     if (productionQuantity > 0 && productionPreview.some((row) => !row.enough)) {
-      toastError("Stock / Restock Produk", "Stok bahan baku belum mencukupi untuk jumlah produksi tersebut.");
+      showError("Validasi", "Stok bahan baku belum mencukupi untuk jumlah produksi tersebut.");
       return;
     }
+    const loading = showLoading("Menyimpan...", "Stok produk sedang diperbarui");
     try {
-      await adjustStock.mutateAsync({ variant_id: productAdjust.id, quantity_delta: Number(delta), reference_type: Number(delta) > 0 ? "production_restock" : "manual", reference_id: String(stockReference || "").trim() || null, notes: Number(delta) > 0 ? "Produksi / restock dari Persediaan" : "Penyesuaian dari Persediaan" });
+      await adjustStock.mutateAsync({ variant_id: productAdjust.id, quantity_delta: Number(delta), reference_type: Number(delta) > 0 ? "production_restock" : "manual", reference_id: String(stockReference || "").trim() || null, notes: Number(delta) > 0 ? "Produksi / restock dari Persediaan" : "Penyesuaian dari Persediaan", proof_images: productAdjustImages });
       setProductAdjust(null);
       setDelta("");
       setStockReference("");
-      toastSuccess("Stock / Restock Produk", "Stok produk berhasil diperbarui dan pemakaian bahan baku telah dicatat.");
+      setProductAdjustImages([]);
+      closeLoading();
+      showSuccess("Berhasil", "Stok produk berhasil diperbarui dan pemakaian bahan baku telah dicatat.");
       products.refetch();
       productMovements.refetch();
       materials.refetch();
       materialMovements.refetch();
     } catch (error) {
-      toastError("Stock / Restock Produk", advancedError(error));
+      closeLoading();
+      showError("Gagal", advancedError(error));
     }
   }
 
   async function submitMaterial(event) {
     event.preventDefault();
     if (saveMaterial.isPending) return;
+    const loading = showLoading("Menyimpan...", "Bahan baku sedang disimpan");
     try {
       await saveMaterial.mutateAsync({ id: materialForm?.id, values: materialForm });
       setMaterialForm(null);
       editor.completeSave();
-      toastSuccess("Simpan Bahan Baku", "Bahan baku berhasil disimpan. Jika biaya berubah, HPP produk terkait telah dihitung ulang.");
+      closeLoading();
+      showSuccess("Berhasil", "Bahan baku berhasil disimpan. Jika biaya berubah, HPP produk terkait telah dihitung ulang.");
     } catch (error) {
-      toastError("Simpan Bahan Baku", advancedError(error));
+      closeLoading();
+      showError("Gagal", advancedError(error));
     }
   }
 
   const removeMaterial = async () => {
     if (!materialDelete || deleteMaterial.isPending) return;
+    const confirmed = await confirmDelete({ title: "Hapus Bahan Baku", text: `Bahan baku "${materialDelete.name || materialDelete.code}" akan dihapus permanen. Riwayat pergerakan stok tetap tersimpan.` });
+    if (!confirmed.isConfirmed) return;
+    const loading = showLoading("Menghapus...", "Bahan baku sedang dihapus");
     try {
       await deleteMaterial.mutateAsync(materialDelete.id);
       setMaterialDelete(null);
       setMaterialSelected(new Set());
-      toastSuccess("Hapus Bahan Baku", `Bahan baku ${materialDelete.name || materialDelete.code} berhasil dihapus.`);
+      closeLoading();
+      showSuccess("Berhasil", `Bahan baku ${materialDelete.name || materialDelete.code} berhasil dihapus.`);
       materials.refetch();
       materialMovements.refetch();
     } catch (error) {
-      toastError("Hapus Bahan Baku", advancedError(error));
+      closeLoading();
+      showError("Gagal", advancedError(error));
     }
   };
 
   async function submitMaterialStock(event) {
     event.preventDefault();
     if (adjustMaterial.isPending) return;
+    const loading = showLoading("Menyimpan...", "Stok bahan baku sedang diperbarui");
     try {
-      await adjustMaterial.mutateAsync({ id: materialAdjust.id, values: { quantity_delta: Number(delta), unit_cost: unitCost ? Number(unitCost) : null, reference_type: Number(delta) > 0 ? "restock" : "usage", reference_number: String(stockReference || "").trim() || null, notes: "Pergerakan dari Persediaan" } });
+      await adjustMaterial.mutateAsync({ id: materialAdjust.id, values: { quantity_delta: Number(delta), unit_cost: unitCost ? Number(unitCost) : null, reference_type: Number(delta) > 0 ? "restock" : "usage", reference_number: String(stockReference || "").trim() || null, notes: "Pergerakan dari Persediaan", proof_images: materialAdjustImages } });
       setMaterialAdjust(null);
       setDelta("");
       setUnitCost("");
       setStockReference("");
-      toastSuccess("Stock / Restock Bahan Baku", "Stok bahan baku berhasil diperbarui. Dampak biaya terhadap HPP sudah disinkronkan.");
+      setMaterialAdjustImages([]);
+      closeLoading();
+      showSuccess("Berhasil", "Stok bahan baku berhasil diperbarui. Dampak biaya terhadap HPP sudah disinkronkan.");
       materials.refetch();
       materialMovements.refetch();
     } catch (error) {
-      toastError("Stock / Restock Bahan Baku", advancedError(error));
+      closeLoading();
+      showError("Gagal", advancedError(error));
     }
   }
 
   async function submitCostEdit(event) {
     event.preventDefault();
     if (!costEdit) return;
+    const loading = showLoading("Menyimpan...", "Biaya sedang diperbarui");
     try {
       if (costEdit.kind === "material") {
         const material = materialRows.find((row) => String(row.id) === String(costEdit.id));
@@ -504,17 +620,20 @@ export default function StockPage() {
             is_active: material.is_active !== false,
           },
         });
-        toastSuccess("Edit Biaya Bahan Baku", `Biaya ${material.name || material.code} berhasil diperbarui.`);
+        closeLoading();
+        showSuccess("Berhasil", `Biaya ${material.name || material.code} berhasil diperbarui.`);
         materials.refetch();
         materialMovements.refetch();
       } else {
         await saveProductCosting.mutateAsync({ productId: costEdit.id, values: { average_cost: Number(costEdit.cost) || 0 } });
-        toastSuccess("Edit Biaya Produk", `Biaya ${costEdit.name || costEdit.code} berhasil diperbarui.`);
+        closeLoading();
+        showSuccess("Berhasil", `Biaya ${costEdit.name || costEdit.code} berhasil diperbarui.`);
         products.refetch();
       }
       setCostEdit(null);
     } catch (error) {
-      toastError("Edit Biaya", advancedError(error));
+      closeLoading();
+      showError("Gagal", advancedError(error));
     }
   }
 
@@ -566,33 +685,97 @@ export default function StockPage() {
       selectionEnabled={isMaterialScope && materialSelected.size > 0}
       selectedCount={materialSelected.size}
       onToggleSelection={isMaterialScope ? () => (materialSelected.size ? setMaterialSelected(new Set()) : setMaterialSelected(new Set(materialRows.map((row) => `m-${row.id}`)))) : undefined}
-      bulkActions={spreadsheetActions}
+      bulkActions={[]}
+      extraActions={
+        <ExcelActionButtons
+          module="stock"
+          label="Stok Produk"
+          selection={{ enabled: materialSelected.size > 0, selectedCount: materialSelected.size, selectedRows: stockRows.filter((row) => row.__kind === "product" && materialSelected.has(row.id)), toggleEnabled: () => (materialSelected.size ? setMaterialSelected(new Set()) : setMaterialSelected(new Set(materialRows.map((row) => `m-${row.id}`)))) }}
+          rows={productRows}
+          onRefresh={() => { products.refetch(); productMovements.refetch(); }}
+          onCompleted={() => {}}
+          getRowId={(row) => row.raw_id}
+          allowImport={true}
+          allowExport={true}
+          allowDelete={false}
+        />
+      }
+      viewMode={viewMode}
+      onChangeViewMode={setViewMode}
+      viewModeOptions={viewModeOptions}
     >
-      <DataGrid viewMode="list" renderSpecialActions={rowSpecialActions} storageKey="inventory.stock-all-v2" onFilterStateChange={totalStock.onFilterStateChange} columns={stockColumns} rows={stockRows} emptyText="Belum ada stok produk maupun bahan baku." onRowClick={openRowDetail} selectionEnabled selectedIds={materialSelected} allSelected={materialAllSelected} onToggleRow={toggleMaterialRow} onToggleAll={toggleMaterialAll} isRowSelectable={(row) => row.__kind === "material"} />
+      {viewMode === "chart" ? (
+        <StockChartPanel data={{ products: products.data?.rows || [], materials: materials.data?.rows || [] }} isLoading={products.isLoading || materials.isLoading} />
+      ) : (
+        <DataGrid viewMode="list" renderSpecialActions={rowSpecialActions} storageKey="inventory.stock-all-v2" onFilterStateChange={totalStock.onFilterStateChange} columns={stockColumns} rows={stockRows} emptyText="Belum ada stok produk maupun bahan baku." onRowClick={openRowDetail} selectionEnabled selectedIds={materialSelected} allSelected={materialAllSelected} onToggleRow={toggleMaterialRow} onToggleAll={toggleMaterialAll} isRowSelectable={(row) => row.__kind === "material"} />
+      )}
     </ModuleFrame> : null}
 
-    <SpreadsheetOperationPanel workspace={activeWorkspace} />
-
-    <FormModal presentation="modal" open={Boolean(productAdjust)} title="Stock / Restock Produk" onClose={() => setProductAdjust(null)} onSubmit={submitProductStock} busy={adjustStock.isPending || (productionQuantity > 0 && productionPreview.some((row) => !row.enough))} submitLabel="Simpan">
+    <FormModal presentation="modal" open={Boolean(productAdjust)} title="Stock / Restock Produk" onClose={() => { setProductAdjust(null); setProductAdjustImages([]); }} onSubmit={submitProductStock} busy={adjustStock.isPending || (productionQuantity > 0 && productionPreview.some((row) => !row.enough))} submitLabel="Simpan">
       <Field label="Perubahan Stok" required hint="Positif berarti produksi/restock dan otomatis memakai bahan baku resep. Negatif berarti pengeluaran stok produk."><Input type="number" value={delta} onChange={(event) => setDelta(event.target.value)} required /></Field>
       <Field label="No. Referensi Stok" hint="Boleh diisi manual, atau kosongkan agar sistem membuat nomor otomatis (mis. STK-MASUK-20260927-001)."><Input value={stockReference} onChange={(event) => setStockReference(event.target.value)} placeholder="Kosongkan untuk nomor otomatis" /></Field>
+      <Field label="Bukti Stok (Gambar)" hint="Wajib diisi minimal 1 gambar sebagai bukti restock/penyesuaian. Maksimal 5 gambar.">
+        <MultiImagePicker value={productAdjustImages} onChange={setProductAdjustImages} scope="stock/products" maxFiles={5} />
+      </Field>
       {productionQuantity > 0 ? <div className="space-y-2 border border-blue-200 bg-blue-50 p-3"><p className="text-xs font-black uppercase text-blue-700">Estimasi pemakaian bahan untuk {productionQuantity} produk</p>{productionPreview.length ? productionPreview.map((row) => <div key={row.raw_material_id} className="flex items-center justify-between gap-3 text-sm"><span>{row.material_code} - {row.material_name}</span><span className={row.enough ? "font-bold text-slate-700" : "font-bold text-red-700"}>Butuh {number(row.required)} {row.unit} / Stok {number(row.stock)} {row.unit}</span></div>) : <p className="text-sm text-blue-800">Produk belum memiliki resep bahan baku. Penambahan stok tetap diperbolehkan tanpa konsumsi bahan.</p>}</div> : null}
     </FormModal>
 
     <FormModal presentation="page" open={Boolean(materialForm)} title={materialForm?.id ? "Edit Bahan Baku" : "Data Baru Bahan Baku"} onClose={() => setMaterialForm(null)} onSubmit={submitMaterial} busy={saveMaterial.isPending} submitLabel="Simpan" extraActions={materialForm?.id ? [{ icon: "add_box", label: "Stock / Restock", tone: "teal", onClick: () => { const row = materialForm; setMaterialForm(null); editor.close(); setMaterialAdjust(row); setDelta(""); setUnitCost(String(row?.average_cost || "")); setStockReference(""); } }] : []}>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Kode" hint="Kosongkan agar dibuat otomatis oleh sistem (mis. RM-GULA), atau isi kode manual."><Input value={materialForm?.code || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, code: event.target.value }))} placeholder="Otomatis bila dikosongkan" /></Field>
-        <Field label="Nama" required><Input value={materialForm?.name || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, name: event.target.value }))} required /></Field>
-        <Field label="Satuan" required hint="Pilih satuan yang sudah ada, atau ketik satuan baru untuk menambah langsung ke daftar."><SearchableSelect value={materialForm?.unit || ""} onChange={(nextValue) => setMaterialForm((current) => ({ ...current, unit: nextValue }))} options={unitOptions} clearable={false} onCreate={createUnit} createLabel={(name) => `Satuan “${name}” belum ada, tambahkan sekarang`} placeholder="Pilih / ketik satuan" searchPlaceholder="Cari atau ketik satuan baru" /></Field>
-        <Field label="Minimum Stok"><Input type="number" min="0" value={materialForm?.minimum_stock || 0} onChange={(event) => setMaterialForm((current) => ({ ...current, minimum_stock: event.target.value }))} /></Field>
-        <Field label="Biaya Rata-rata" hint={materialForm?.id ? "Biaya rata-rata berubah melalui Stock / Restock Bahan Baku agar weighted average dan histori HPP tercatat." : "Biaya awal bahan sebelum transaksi restock pertama."}><Input type="number" min="0" value={materialForm?.average_cost || 0} disabled={Boolean(materialForm?.id)} onChange={(event) => setMaterialForm((current) => ({ ...current, average_cost: event.target.value }))} className={materialForm?.id ? "cursor-not-allowed bg-slate-100 text-slate-500" : ""} /></Field>
-      </div>
+      {materialForm?.id ? (
+        <DetailTabs
+          tabs={[
+            {
+              id: "form",
+              label: "Form",
+              icon: "edit",
+              content: (
+                <MaterialFormContent
+                  materialForm={materialForm}
+                  setMaterialForm={setMaterialForm}
+                  unitOptions={unitOptions}
+                  createUnit={createUnit}
+                  number={number}
+                  money={money}
+                  inputClassName={inputClassName}
+                />
+              ),
+            },
+            {
+              id: "stock-history",
+              label: "Riwayat Stok",
+              icon: "history",
+              content: (
+                <StockMovementHistoryTab
+                  materialId={materialForm.id}
+                  materialMovements={materialMovements}
+                  number={number}
+                  money={money}
+                />
+              ),
+            },
+          ]}
+          defaultTab="form"
+        />
+      ) : (
+        <MaterialFormContent
+          materialForm={materialForm}
+          setMaterialForm={setMaterialForm}
+          unitOptions={unitOptions}
+          createUnit={createUnit}
+          number={number}
+          money={money}
+          inputClassName={inputClassName}
+        />
+      )}
     </FormModal>
 
-    <FormModal presentation="modal" open={Boolean(materialAdjust)} title="Stock / Restock Bahan Baku" onClose={() => setMaterialAdjust(null)} onSubmit={submitMaterialStock} busy={adjustMaterial.isPending} submitLabel="Simpan">
+<FormModal presentation="modal" open={Boolean(materialAdjust)} title="Stock / Restock Bahan Baku" onClose={() => { setMaterialAdjust(null); setMaterialAdjustImages([]); }} onSubmit={submitMaterialStock} busy={adjustMaterial.isPending} submitLabel="Simpan">
       <Field label="Perubahan Stok" required hint="Positif untuk restock, negatif untuk pemakaian."><Input type="number" step="0.0001" value={delta} onChange={(event) => setDelta(event.target.value)} required /></Field>
       <Field label="Biaya per Satuan" hint="Saat restock, nilai ini dipakai untuk average cost tertimbang dan laporan dampak HPP."><Input type="number" step="0.0001" min="0" value={unitCost} onChange={(event) => setUnitCost(event.target.value)} /></Field>
       <Field label="No. Referensi Stok" hint="Boleh diisi manual, atau kosongkan agar sistem membuat nomor otomatis (mis. RM-RSK-20260927-001)."><Input value={stockReference} onChange={(event) => setStockReference(event.target.value)} placeholder="Kosongkan untuk nomor otomatis" /></Field>
+      <Field label="Bukti Stok (Gambar)" hint="Wajib diisi minimal 1 gambar sebagai bukti restock/pemakaian. Maksimal 5 gambar.">
+        <MultiImagePicker value={materialAdjustImages} onChange={setMaterialAdjustImages} scope="stock/materials" maxFiles={5} />
+      </Field>
     </FormModal>
 
     <FormModal presentation="modal" open={opnamePickerOpen} title="Restock / Stock Opname" subtitle="Pilih produk, varian, atau bahan baku yang akan disesuaikan stoknya." onClose={() => setOpnamePickerOpen(false)} onSubmit={submitOpnamePicker} submitLabel="Lanjutkan">

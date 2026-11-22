@@ -17,8 +17,7 @@ import { VOUCHER_TABLE_COLUMNS, VoucherManagementTable } from "@/features/order/
 import { getVoucherManagementError, useDeleteVoucher, useManagedVouchers, useUpdateVoucher } from "@/features/order/voucher/services/voucherManagementService";
 import { buildRawColumns, mergeColumns } from "@/shared/utils/tableData";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
-import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
-import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
+import { ExcelActionButtons } from "@/shared/excel";
 
 export function VoucherManagementPage({ portal, children: wrap }) {
   const [viewMode, setViewMode] = useViewMode(`${portal}-vouchers`);
@@ -41,7 +40,6 @@ export function VoucherManagementPage({ portal, children: wrap }) {
   const columns = useMemo(() => mergeColumns(VOUCHER_TABLE_COLUMNS, buildRawColumns(rows, ["id", "code", "name", "image", "image_url", "discount_target", "discount_type", "discount_value", "min_spend", "max_discount", "starts_at", "ends_at", "usage_limit", "used_count", "is_active"])), [rows]);
   const selection = useTableSelection(filteredRows);
   const columnVisibility = useColumnVisibility(columns, `${portal}-vouchers`);
-  const spreadsheet = useSpreadsheetWorkspace({ module: "voucher", label: "Voucher", selectedRows: selection.selectedRows, onCompleted: () => { selection.clear(); vouchersQuery.refetch(); } });
 
   const remove = async () => {
     if (!deleteTarget) return;
@@ -116,20 +114,45 @@ export function VoucherManagementPage({ portal, children: wrap }) {
             selectionEnabled={selection.enabled}
             selectedCount={selection.selectedCount}
             onToggleSelection={selection.toggleEnabled}
-            bulkActions={spreadsheet.actions}
-            columns={columns}
+            bulkActions={[]}
+            columns={columnVisibility.allColumns}
             visibleColumns={columnVisibility.visibleKeys}
             onToggleColumn={columnVisibility.toggleColumn}
+            onMoveColumn={columnVisibility.moveColumn}
             onShowAllColumns={columnVisibility.showAll}
             onResetColumns={columnVisibility.reset}
             onApplyDefaultColumns={columnVisibility.applyAsDefault}
             viewMode={viewMode}
             onChangeViewMode={setViewMode}
+            extraActions={
+              <ExcelActionButtons
+                module="voucher"
+                label="Voucher"
+                selection={selection}
+                rows={filteredRows}
+                onRefresh={() => vouchersQuery.refetch()}
+                onCompleted={() => {}}
+                getRowId={(row) => row.id}
+                allowImport={true}
+                allowExport={true}
+                allowDelete={true}
+              />
+            }
           />
           )}
         >
           <AsyncState loading={vouchersQuery.isLoading} error={vouchersQuery.error ? getVoucherManagementError(vouchersQuery.error) : ""} empty={!vouchersQuery.isLoading && !filteredRows.length} emptyText="Voucher belum tersedia." />
           {filteredRows.length && viewMode === "grid" ? (
+            <>
+            {/* Header tabel tetap tampil di mode kartu sebagai filter & sort. */}
+            <VoucherManagementTable
+              rows={[]}
+              columns={columns}
+              headerOnly
+              visibleSet={columnVisibility.visibleSet}
+              columnOrder={columnVisibility.visibleKeys}
+              onOrderChange={columnVisibility.syncVisibleOrder}
+            />
             <RecordCardGrid
               rows={filteredRows}
               columns={columns}
@@ -140,6 +163,7 @@ export function VoucherManagementPage({ portal, children: wrap }) {
               onToggleRow={selection.toggleRow}
               rowKey={(row) => row.id}
             />
+            </>
           ) : null}
           {filteredRows.length && viewMode !== "grid" ? (
             <VoucherManagementTable
@@ -147,6 +171,8 @@ export function VoucherManagementPage({ portal, children: wrap }) {
               columns={columns}
               onEdit={editor.edit}
               visibleSet={columnVisibility.visibleSet}
+              columnOrder={columnVisibility.visibleKeys}
+              onOrderChange={columnVisibility.syncVisibleOrder}
               selectionEnabled={selection.enabled}
               selectedIds={selection.selectedIds}
               allSelected={selection.allSelected}
@@ -158,8 +184,6 @@ export function VoucherManagementPage({ portal, children: wrap }) {
           ) : null}
         </ListPageFrame>
       ) : null}
-
-      <SpreadsheetOperationPanel workspace={spreadsheet} />
 
       <VoucherFormDialog
         open={editor.open}

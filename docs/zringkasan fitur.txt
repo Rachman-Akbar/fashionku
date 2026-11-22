@@ -27,12 +27,6 @@ Halaman yang menggunakan Chart.js harus bisa menampilkan data dari filter tangga
     3. Stock
     4. Laporan Penjualan dan product 
 
-Hapus validasi yang tidak digunakan seperti 
-    1. product milik toko ini
-    2. voucher tidak dapat digunakan di toko (voucher sudah pasti bisa digunakan)
-    3. tidak di temukan toko
-karena saat ini project merupakan marketplace internal bukan lagi marketplace multistore
-
 Master Data
     1. Product
     2. Category

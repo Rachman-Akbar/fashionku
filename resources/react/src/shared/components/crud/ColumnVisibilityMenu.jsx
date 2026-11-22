@@ -15,9 +15,10 @@ export const ColumnVisibilityMenu = memo(function ColumnVisibilityMenu({ columns
   const selectableColumns = columns;
   const hasColumns = selectableColumns.length > 0;
   const normalizedQuery = query.trim().toLowerCase();
-  const orderedColumns = [...visibleKeys, ...columns.map((column) => column.key).filter((key) => !visibleSet.has(key))]
-    .map((key) => columns.find((column) => column.key === key))
-    .filter(Boolean);
+  // Urutan baris SELALU mengikuti urutan kolom yang diberikan (urutan kanonik
+  // dari useColumnVisibility). Sebelumnya kolom yang dicentang dikumpulkan di
+  // atas sehingga baris melompat-lompat setiap kali di-toggle.
+  const orderedColumns = selectableColumns.filter((column) => column && column.key);
   const filteredColumns = normalizedQuery ? orderedColumns.filter((column) => String(column.label).toLowerCase().includes(normalizedQuery)) : orderedColumns;
 
   useEffect(() => {
@@ -152,19 +153,26 @@ export const ColumnVisibilityMenu = memo(function ColumnVisibilityMenu({ columns
                       }}
                       title={onMoveColumn ? "Seret untuk mengubah urutan kolom" : undefined}
                       className={cn(
-                        "flex select-none items-center gap-[5px] px-2 py-2",
-                        onMoveColumn && "cursor-grab active:cursor-grabbing",
-                        dragging && "opacity-45",
-                        dropTarget && "bg-emerald-50",
-                        !dragging && !dropTarget && "hover:bg-slate-50",
+                        "flex select-none items-center gap-1 px-1 py-1.5 transition-colors",
+                        dropTarget && "bg-emerald-50 ring-1 ring-inset ring-emerald-200",
+                        !dropTarget && "hover:bg-slate-50",
+                        dragging && "opacity-40",
                       )}
                     >
-                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-sm text-slate-700">
+                      {onMoveColumn ? (
+                        <span
+                          className="flex h-7 w-5 shrink-0 cursor-grab items-center justify-center text-slate-300 active:cursor-grabbing"
+                          aria-hidden="true"
+                        >
+                          <span className="material-symbols-outlined text-[16px] leading-none">drag_indicator</span>
+                        </span>
+                      ) : null}
+                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 py-0.5 text-sm text-slate-700">
                         <input
                           type="checkbox"
                           checked={visibleSet.has(column.key)}
                           onChange={() => onToggle?.(column.key)}
-                          className="h-4 w-4 accent-emerald-600"
+                          className="h-4 w-4 shrink-0 accent-emerald-600"
                         />
                         <span className="min-w-0 flex-1 truncate">{column.label}</span>
                       </label>
@@ -174,7 +182,7 @@ export const ColumnVisibilityMenu = memo(function ColumnVisibilityMenu({ columns
                   <p className="px-2 py-6 text-center text-xs font-semibold text-slate-400">Kolom tidak ditemukan.</p>
                 )}
               </div>
-              {onMoveColumn ? <p className="border-t border-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-500">Seret daftar untuk mengatur urutan kolom tabel dari kiri ke kanan.</p> : null}
+              {onMoveColumn ? <p className="border-t border-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-500">Seret ikon titik-titik untuk mengubah urutan kolom tabel.</p> : null}
               {onApplyDefault ? (
                 <div className="border-t border-slate-100 p-2">
                   <button

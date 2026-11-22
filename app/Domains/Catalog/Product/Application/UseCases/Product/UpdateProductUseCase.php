@@ -9,10 +9,9 @@ use App\Domains\Catalog\Product\Domain\Entities\ProductVariant;
 use App\Domains\Catalog\Product\Domain\Repositories\ProductAttributeValueRepositoryInterface;
 use App\Domains\Catalog\Product\Domain\Repositories\ProductImageRepositoryInterface;
 use App\Domains\Catalog\Product\Domain\Repositories\ProductRepositoryInterface;
-use App\Domains\Shared\Codes\Application\Services\CodePatternService;
 use App\Domains\Catalog\Product\Domain\Repositories\ProductVariantRepositoryInterface;
+use App\Domains\Shared\Codes\Application\Services\CodePatternService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 final class UpdateProductUseCase
@@ -53,6 +52,17 @@ final class UpdateProductUseCase
                     ? array_map('intval', $data['category_ids'] ?? [])
                     : $current->categoryIds()
             ));
+
+            if (! array_key_exists('variants', $data) && array_key_exists('sku', $data)) {
+                $customSku = trim((string) $data['sku']);
+
+                if ($customSku !== '') {
+                    DB::table('product_variants')
+                        ->where('product_id', $product->id())
+                        ->where('is_default', true)
+                        ->update(['sku' => $customSku, 'updated_at' => now()]);
+                }
+            }
 
             if (array_key_exists('variants', $data) && is_array($data['variants'])) {
                 $currentVariants = collect($current->variants())->keyBy(

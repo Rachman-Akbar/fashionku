@@ -71,6 +71,7 @@ final class RawMaterialController extends Controller
         $data = $request->validate([
             'code' => ['nullable', 'string', 'max:100'],
             'name' => ['required', 'string', 'max:255'],
+            'image' => ['nullable', 'string', 'max:255'],
             'unit' => ['required', 'string', 'max:50'],
             'minimum_stock' => ['nullable', 'numeric', 'min:0'],
             'average_cost' => ['nullable', 'numeric', 'min:0'],

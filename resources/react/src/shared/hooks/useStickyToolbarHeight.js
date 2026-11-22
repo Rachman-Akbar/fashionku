@@ -80,7 +80,9 @@ export function useStickyToolbarHeight() {
     // Sticky: search bar menempel tepat di bawah header + tab bar panel yang
     // posisinya fixed (di luar area scroll `<main>`), jadi selalu terlihat
     // saat halaman digulir.
-    toolbarStyle: { position: "sticky", top: 0, zIndex: 20 },
+    // z-index lebih tinggi dari header tabel sticky (z-10/z-30) supaya tooltip
+    // tombol aksi (tambah, pilih kolom, refresh) tidak tertutup header tabel.
+    toolbarStyle: { position: "sticky", top: 0, zIndex: 40 },
     // Sticky tetap berada di alur layout, sehingga konten tidak perlu
     // padding-top kompensasi seperti saat toolbar berposition absolute.
     contentStyle: { paddingTop: 0 },

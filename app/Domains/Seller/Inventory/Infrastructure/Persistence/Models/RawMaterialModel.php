@@ -13,7 +13,7 @@ final class RawMaterialModel extends Model
 
     protected $table = 'raw_materials';
 
-    protected $fillable = ['code', 'name', 'unit', 'stock', 'minimum_stock', 'average_cost', 'is_active'];
+    protected $fillable = ['code', 'name', 'image', 'unit', 'stock', 'minimum_stock', 'average_cost', 'is_active'];
 
     protected $casts = [
         'stock' => 'decimal:4',

@@ -7,7 +7,7 @@ import { ReviewDetailForm } from "@/features/advanced/pages/ReviewDetailPage";
 import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
 import { toolbarControlClassName } from "@/shared/components/crud/toolbarControlClassName";
 import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
-import { useEntityEditor, useRefreshOnListActivation, useViewMode } from "@/shared/hooks";
+import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 
@@ -20,7 +20,7 @@ function normalizeMedia(media) {
 }
 
 export default function ReviewsPage() {
-  const [viewMode, setViewMode] = useViewMode("reviews");
+  const viewMode = "list";
   const [query, setQuery] = useState("");
   const [rating, setRating] = useState("");
   const listQuery = useReviews({ per_page: 20, ...(query.trim() ? { search: query.trim() } : {}), ...(rating ? { rating } : {}) });
@@ -81,9 +81,9 @@ export default function ReviewsPage() {
         />
       ) : null}
       {editor.isListActive ? (
-        <ModuleFrame title="Review dan Rating Produk" subtitle="Review berasal dari Buyer setelah transaksi selesai. Seller dapat mengekspor review untuk analisis, tetapi import review dinonaktifkan agar rating tetap berasal dari transaksi nyata." query={query} onQueryChange={setQuery} onRefresh={() => listQuery.refetch()} bulkActions={spreadsheet.actions} totalCount={total.totalCount} totalLabel={total.totalLabel} totalTitle={total.totalTitle} filters={<select value={rating} onChange={(event) => setRating(event.target.value)} className={toolbarControlClassName}><option value="">Semua rating</option>{[5, 4, 3, 2, 1].map((item) => <option key={item} value={item}>{item} bintang</option>)}</select>} viewMode={viewMode} onChangeViewMode={setViewMode}>
+        <ModuleFrame title="Review dan Rating Produk" subtitle="Review berasal dari Buyer setelah transaksi selesai. Seller dapat mengekspor review untuk analisis, tetapi import review dinonaktifkan agar rating tetap berasal dari transaksi nyata." query={query} onQueryChange={setQuery} onRefresh={() => listQuery.refetch()} bulkActions={spreadsheet.actions} totalCount={total.totalCount} totalLabel={total.totalLabel} totalTitle={total.totalTitle} filters={<select value={rating} onChange={(event) => setRating(event.target.value)} className={toolbarControlClassName}><option value="">Semua rating</option>{[5, 4, 3, 2, 1].map((item) => <option key={item} value={item}>{item} bintang</option>)}</select>}>
           <DataGrid
-            viewMode={viewMode}
+            viewMode="list"
             card={reviewCard}
             onFilterStateChange={total.onFilterStateChange}
             columns={columns}

@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 /**
  * Simulasi toko yang sedang berjalan hari ini.
@@ -398,6 +399,7 @@ final class FashionMarketplaceSeeder extends Seeder
             DB::table('seller_customers')->updateOrInsert(
                 ['user_id' => $buyer['id']],
                 [
+                    'code' => $this->customerCode($buyer['name']),
                     'note' => $seq % 4 === 0 ? 'Pelanggan reguler, sering repeat order' : 'Pelanggan marketplace',
                     'created_by' => $actorId,
                     'updated_by' => $actorId,
@@ -842,6 +844,26 @@ final class FashionMarketplaceSeeder extends Seeder
                 'updated_at' => $now->subDays(2 + ($index % 5))->toDateTimeString(),
             ]);
         }
+    }
+
+    /**
+     * Kode pelanggan unik (kolom `seller_customers.code` wajib & unik sejak
+     * migrasi 2026_11_22). Format sama dengan generateCustomerCode() di
+     * EloquentCustomerRepository: inisial nama + nomor urut 4 digit.
+     */
+    private function customerCode(string $name): string
+    {
+        $words = explode(' ', Str::upper(trim($name)));
+        $prefix = implode('', array_map(fn ($w) => $w[0] ?? '', $words));
+        $prefix = preg_replace('/[^A-Z0-9]/', '', $prefix) ?: 'CUST';
+        $base = $prefix.'-';
+
+        $sequence = 1;
+        while (DB::table('seller_customers')->where('code', $base.str_pad((string) $sequence, 4, '0', STR_PAD_LEFT))->exists()) {
+            $sequence++;
+        }
+
+        return $base.str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
     }
 
     private function slugify(string $value): string

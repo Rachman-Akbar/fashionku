@@ -77,13 +77,6 @@ final class UpdateCategoryUseCase
                 throw new InvalidArgumentException('Nama kategori sudah digunakan pada parent yang sama.');
             }
 
-            $resultingLevel = $resultingParent ? $resultingParent->level() + 1 : 1;
-
-            if ($resultingLevel !== 3) {
-                $payload['image_url'] = null;
-                $payload['icon_url'] = null;
-            }
-
             $category->updateData($payload, $resultingParent);
             $updatedCategory = $this->repository->save($category);
 

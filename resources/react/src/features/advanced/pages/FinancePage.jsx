@@ -1,21 +1,24 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { advancedError, useDeleteFinance, useFinance, useFinancePaymentHistory, useRecordFinancePayment, useSaveFinance } from "@/features/advanced/services/advancedMarketplaceService";
+import { advancedError, useDeleteFinance, useFinance, useFinanceDashboard, useFinancePaymentHistory, useRecordFinancePayment, useSaveFinance } from "@/features/advanced/services/advancedMarketplaceService";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { ModuleFrame } from "@/features/advanced/components/ModuleFrame";
 import { DataGrid } from "@/features/advanced/components/DataGrid";
-import FinanceChartPanel from "@/features/advanced/components/FinanceChartPanel";
+import { FinanceChartPanel } from "@/shared/charts/ChartPanels";
 import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { Input } from "@/shared/components/ui/Input";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { useEntityEditor, useRefreshOnListActivation, useTableSelection, useColumnVisibility } from "@/shared/hooks";
 import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
-import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
-import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { useAdminOrders, useSellerOrders } from "@/features/admin/order/services/orderManagementService";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { inputClassName } from "@/shared/components/form/FormField";
+import { ExcelActionButtons } from "@/shared/excel";
+import { showSuccess, showError, confirmDelete, showLoading, closeLoading } from "@/shared/utils/sweetAlert";
+import { useUnsavedChangesGuard, useFormDirty } from "@/shared/hooks/useUnsavedChanges";
+import { MultiImagePicker } from "@/shared/components/form";
+import { DetailTabs } from "@/shared/components/ui/DetailTabs";
 
 function nowInput() {
   const date = new Date();
@@ -61,9 +64,147 @@ const TYPE_BADGE = {
   expense: "bg-orange-50 text-orange-700 ring-orange-200",
 };
 
+function FinanceFormContent({
+  form,
+  setForm,
+  allowedTypes,
+  mode,
+  selectedOrder,
+  orderOptions,
+  applyOrder,
+  setOrderSearch,
+  autoReference,
+  typeLabel,
+  inputClassName,
+  money,
+  proofImages,
+  setProofImages,
+}) {
+  return (
+    <>
+    <div className="grid gap-4 md:grid-cols-2">
+      <Field label="Jenis" required>
+        <select value={form.type} onChange={(event) => { const nextType = event.target.value; setForm((current) => ({ ...current, type: nextType, reference_number: current.reference_number === autoReference(current.type) || !String(current.reference_number).trim() ? autoReference(nextType) : current.reference_number })); }} className={inputClassName} required>
+          {allowedTypes.map((item) => <option key={item} value={item}>{typeLabel(item)}</option>)}
+        </select>
+      </Field>
+      <Field label="Status" required>
+        <select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))} className={inputClassName}>
+          {(mode === "cashflow" ? ["draft", "posted", "cancelled"] : ["open", "partial", "paid", "cancelled"]).map((item) => <option key={item}>{item}</option>)}
+        </select>
+      </Field>
+    </div>
+    <div className="grid gap-4 md:grid-cols-2">
+      <Field label="No. Pesanan" hint={selectedOrder ? `Toko ${selectedOrder.storeName || "-"} · Total ${money(selectedOrder.total)}` : "Pilih pesanan untuk mengisi nominal dan nomor invoice otomatis."}>
+        <SearchableSelect
+          value={form.order_id || ""}
+          onChange={applyOrder}
+          options={orderOptions}
+          onSearch={setOrderSearch}
+          placeholder="Pilih / cari pesanan"
+          searchPlaceholder="Cari nomor pesanan"
+          emptyText="Pesanan tidak ditemukan"
+        />
+      </Field>
+      <Field label="No. Invoice / Referensi" hint="Boleh dikosongkan, sistem akan membuat nomor otomatis.">
+        <Input value={form.reference_number} placeholder={autoReference(form.type)} onChange={(event) => setForm((current) => ({ ...current, reference_number: event.target.value }))} />
+      </Field>
+    </div>
+    <Field label="Judul" required hint={selectedOrder ? "Terisi otomatis dari pesanan, bisa diubah." : undefined}><Input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required /></Field>
+    <Field label="Deskripsi"><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="min-h-24 border border-slate-300 p-3 text-sm" /></Field>
+    <div className="grid gap-4 md:grid-cols-2">
+      <Field label="Nominal" required><Input type="number" min="1" step="0.01" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} required /></Field>
+      <Field label="Sudah Dibayar" hint="Nilai ini hanya berubah melalui tombol Bayar agar seluruh cicilan tercatat di riwayat."><Input type="number" min="0" step="0.01" value={form.paid_amount} disabled /></Field>
+    </div>
+    <div className="grid gap-4 md:grid-cols-2">
+      <Field label="Tanggal Transaksi" required><Input type="datetime-local" value={form.occurred_at} onChange={(event) => setForm((current) => ({ ...current, occurred_at: event.target.value }))} required /></Field>
+      {mode !== "cashflow" ? <Field label="Jatuh Tempo"><Input type="date" value={form.due_date} onChange={(event) => setForm((current) => ({ ...current, due_date: event.target.value }))} /></Field> : <div />}
+    </div>
+    <Field label="Bukti Tanda Terima (Gambar)" hint="Wajib diisi minimal 1 gambar sebagai bukti transaksi. Maksimal 5 gambar.">
+      <MultiImagePicker value={proofImages} onChange={setProofImages} scope={mode === "cashflow" ? "finance/cashflow" : "finance/payments"} maxFiles={5} />
+    </Field>
+    </>
+  );
+}
+
+function PaymentHistoryTab({ financeId, paymentHistoryQuery, money }) {
+  const payments = Array.isArray(paymentHistoryQuery.data) ? paymentHistoryQuery.data : paymentHistoryQuery.data?.data || [];
+
+  if (!financeId) {
+    return <p className="text-sm text-slate-500">Pilih data keuangan untuk melihat riwayat pembayaran.</p>;
+  }
+
+  if (paymentHistoryQuery.isLoading) {
+    return <p className="text-sm text-slate-500">Memuat riwayat pembayaran...</p>;
+  }
+
+  if (!payments.length) {
+    return <p className="text-sm text-slate-500">Belum ada riwayat pembayaran.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {payments.map((row) => (
+        <div key={row.id} className="border border-slate-200 bg-white rounded-xl p-4">
+          <div className="grid gap-3 sm:grid-cols-4 mb-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Tanggal</p>
+              <p className="font-medium text-slate-900">{row.paid_at ? new Date(row.paid_at).toLocaleString("id-ID") : "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Nominal</p>
+              <p className="font-bold text-emerald-700">{money(row.amount)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Metode</p>
+              <p className="font-medium text-slate-700">{row.payment_method || "manual"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Sisa</p>
+              <p className="font-medium text-slate-700">{money(row.balance_after)}</p>
+            </div>
+          </div>
+          <div className="border-t border-slate-200 pt-3">
+            <div className="grid gap-2 sm:grid-cols-3 mb-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Referensi</p>
+                <p className="font-semibold text-slate-700">{row.reference_number || "-"}</p>
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Catatan</p>
+                <p className="text-slate-600">{row.notes || "-"}</p>
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Bukti Gambar</p>
+                {row.proof_images && row.proof_images.length > 0 ? (
+                  <div className="flex gap-2 flex-wrap">
+                    {row.proof_images.map((img, idx) => (
+                      <a key={idx} href={img} target="_blank" rel="noopener noreferrer" className="inline-flex h-16 w-16 rounded-lg overflow-hidden ring-1 ring-slate-200 bg-slate-50">
+                        <img src={img} alt={`Bukti ${idx + 1}`} className="h-full w-full object-cover hover:scale-105 transition-transform" />
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-slate-400">Tidak ada bukti</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function FinancePage({ mode = "cashflow" }) {
   const allowedTypes = useMemo(() => (mode === "cashflow" ? ["income", "expense"] : ["receivable", "payable"]), [mode]);
   const isDebtMode = mode !== "cashflow";
+  const [viewMode, setViewMode] = useState("list");
+  const viewModeOptions = [
+    { value: "list", label: "Daftar", icon: "view_list" },
+    { value: "grid", label: "Kartu", icon: "grid_view" },
+    { value: "chart", label: "Grafik", icon: "insert_chart" },
+  ];
   const financeCard = {
     title: (row) => row.title || row.reference_number || "Data Keuangan",
     subtitle: (row) => [row.reference_number, row.occurred_at ? new Date(row.occurred_at).toLocaleDateString("id-ID") : null].filter(Boolean).join(" · ") || "-",
@@ -93,16 +234,27 @@ export default function FinancePage({ mode = "cashflow" }) {
   const [paymentMethod, setPaymentMethod] = useState("transfer");
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
+  const [proofImages, setProofImages] = useState([]);
+  const [paymentImages, setPaymentImages] = useState([]);
   const [orderSearch, setOrderSearch] = useState("");
   const { activeRole } = useAuth();
   const panelTabs = usePanelTabs();
   const deferredQuery = useDeferredValue(query.trim());
   const editor = useEntityEditor({ getEditLabel: (row) => row.reference_number || row.title });
+  const [initialFormData, setInitialFormData] = useState(null);
+  const formDirty = useFormDirty(form, initialFormData, ["type", "title", "description", "amount", "status", "due_date", "occurred_at", "is_active", "order_id", "reference_number", "proof_images"]);
+  const { handleLeave: handleFormLeave, handleCancel: handleFormCancel } = useUnsavedChangesGuard({
+    isDirty: formDirty && editor.open,
+    onLeave: editor.close,
+    onCancel: () => {},
+    message: "Data keuangan yang diedit belum disimpan. Yakin ingin meninggalkan formulir?",
+  });
   const listQuery = useFinance({
     per_page: 20,
     type: allowedTypes.join(","),
     ...(deferredQuery ? { search: deferredQuery } : {}),
   });
+  const chartQuery = useFinanceDashboard({ type: allowedTypes.join(",") });
   const saveMutation = useSaveFinance();
   const paymentMutation = useRecordFinancePayment();
   const deleteMutation = useDeleteFinance();
@@ -139,23 +291,16 @@ export default function FinancePage({ mode = "cashflow" }) {
     return options;
   }, [editor.entity?.order_number, editor.entity?.store_name, form.order_id, orderRows]);
   const selectedOrder = useMemo(() => orderRows.find((order) => String(order.orderId || order.id) === String(form.order_id || "")) || null, [form.order_id, orderRows]);
-  const selectedTypes = useMemo(() => [...new Set(selection.selectedRows.map((row) => row.type).filter(Boolean))], [selection.selectedRows]);
-  const spreadsheetModule = selectedTypes.length === 1 ? selectedTypes[0] : allowedTypes[0];
-  const spreadsheet = useSpreadsheetWorkspace({
-    module: spreadsheetModule,
-    label: typeLabel(spreadsheetModule),
-    selectedRows: selection.selectedRows,
-    onCompleted: () => {
-      selection.clear();
-      listQuery.refetch();
-    },
-  });
 
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: listQuery.refetch });
   useEffect(() => {
-    if (!editor.open) return;
+    if (!editor.open) {
+      setInitialFormData(null);
+      setProofImages([]);
+      return;
+    }
     const row = editor.entity;
-    setForm(row ? {
+    const newForm = row ? {
       type: row.type,
       title: row.title || "",
       description: row.description || "",
@@ -167,7 +312,10 @@ export default function FinancePage({ mode = "cashflow" }) {
       is_active: row.is_active !== false,
       order_id: row.order_id ? String(row.order_id) : "",
       reference_number: row.reference_number || autoReference(row.type || allowedTypes[0]),
-    } : initialForm(allowedTypes[0], mode));
+    } : initialForm(allowedTypes[0], mode);
+    setForm(newForm);
+    setInitialFormData(newForm);
+    setProofImages(row?.proof_images || []);
   }, [allowedTypes, editor.open, editor.entity, mode]);
 
   const columns = useMemo(() => {
@@ -198,21 +346,20 @@ export default function FinancePage({ mode = "cashflow" }) {
   }, [allowedTypes, isDebtMode]);
 
   const tableColumns = useMemo(() => {
-    // Tidak ada lagi tombol hijau "Bayar / Bayar Sebagian" di toolbar: aksi
-    // pembayaran hanya lewat kolom ini (satu aksi, satu tempat).
     const bayarColumn = {
       key: "bayar",
       label: "Bayar",
       defaultVisible: true,
       render: (row) => {
-        const canPay = Number(row.outstanding_amount) > 0 && !["paid", "cancelled"].includes(String(row.status || "").toLowerCase());
+        const isDebtType = ["receivable", "payable"].includes(row.type);
+        const canPay = isDebtType && Number(row.outstanding_amount) > 0 && !["paid", "cancelled"].includes(String(row.status || "").toLowerCase());
         return (
           <button
             type="button"
             disabled={!canPay}
             onClick={(event) => { event.stopPropagation(); recordPaymentRef.current?.(row); }}
             className="inline-flex h-8 items-center gap-1.5 bg-emerald-600 px-3 text-xs font-extrabold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
-            title={canPay ? "Catat pembayaran/cicilan" : "Transaksi sudah lunas"}
+            title={canPay ? "Catat pembayaran/cicilan" : isDebtType ? "Transaksi sudah lunas" : "Hanya untuk Hutang/Piutang"}
           >
             <span className="material-symbols-outlined text-[16px]">payments</span>
             Bayar
@@ -227,8 +374,9 @@ export default function FinancePage({ mode = "cashflow" }) {
   const cardView = {
     ...financeCard,
     footer: (row) => {
+      const isDebtType = ["receivable", "payable"].includes(row.type);
       const payColumn = tableColumns.find((column) => column.key === "bayar");
-      if (payColumn?.render) return payColumn.render(row);
+      if (isDebtType && payColumn?.render) return payColumn.render(row);
       return <span className="text-[11px] font-bold text-slate-500">Klik untuk edit</span>;
     },
   };
@@ -247,6 +395,7 @@ export default function FinancePage({ mode = "cashflow" }) {
 
   async function submit(event) {
     event.preventDefault();
+    const loading = showLoading("Menyimpan...", "Data keuangan sedang disimpan");
     try {
       const { paid_amount: _paidAmount, ...editableForm } = form;
       await saveMutation.mutateAsync({
@@ -258,14 +407,18 @@ export default function FinancePage({ mode = "cashflow" }) {
           reference_number: String(form.reference_number || "").trim() || null,
           due_date: form.due_date || null,
           occurred_at: new Date(form.occurred_at).toISOString(),
+          proof_images: proofImages,
         },
       });
-      toastSuccess("Simpan Data Keuangan", `${typeLabel(form.type)} berhasil disimpan.`);
+      closeLoading();
+      showSuccess("Berhasil", `${typeLabel(form.type)} berhasil disimpan.`);
       editor.markListDirty();
       editor.completeSave();
       editor.close();
+      setProofImages([]);
     } catch (error) {
-      toastError("Simpan Data Keuangan", advancedError(error));
+      closeLoading();
+      showError("Gagal", advancedError(error));
     }
   }
 
@@ -298,6 +451,7 @@ export default function FinancePage({ mode = "cashflow" }) {
   function closePayment() {
     setPaymentRow(null);
     setPaymentAmount("");
+    setPaymentImages([]);
     if (panelTabs) {
       panelTabs.closeActiveTab();
       return;
@@ -308,26 +462,34 @@ export default function FinancePage({ mode = "cashflow" }) {
   async function submitPayment(event) {
     event.preventDefault();
     if (!paymentRow) return;
+    const loading = showLoading("Mencatat Pembayaran...", "Pembayaran sedang diproses");
     try {
-      await paymentMutation.mutateAsync({ id: paymentRow.id, amount: Number(paymentAmount), payment_method: paymentMethod, reference_number: paymentReference || null, notes: paymentNotes || null });
-      toastSuccess("Catat Pembayaran", "Pembayaran berhasil dicatat.");
+      await paymentMutation.mutateAsync({ id: paymentRow.id, amount: Number(paymentAmount), payment_method: paymentMethod, reference_number: paymentReference || null, notes: paymentNotes || null, proof_images: paymentImages });
+      closeLoading();
+      showSuccess("Berhasil", "Pembayaran berhasil dicatat.");
       editor.markListDirty();
       closePayment();
       listQuery.refetch();
     } catch (error) {
-      toastError("Catat Pembayaran", advancedError(error));
+      closeLoading();
+      showError("Gagal", advancedError(error));
     }
   }
 
   async function remove() {
     if (!deleteTarget) return;
+    const confirmed = await confirmDelete({ title: `Hapus ${typeLabel(deleteTarget.type)}`, text: `${deleteTarget.reference_number || deleteTarget.title} akan dihapus permanen.` });
+    if (!confirmed.isConfirmed) return;
+    const loading = showLoading("Menghapus...", "Data keuangan sedang dihapus");
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
+      closeLoading();
+      showSuccess("Berhasil", "Data keuangan berhasil dihapus.");
       editor.markListDirty();
       setDeleteTarget(null);
-      toastSuccess("Hapus Data Keuangan", "Data keuangan berhasil dihapus.");
     } catch (error) {
-      toastError("Hapus Data Keuangan", advancedError(error));
+      closeLoading();
+      showError("Gagal", advancedError(error));
     }
   }
 
@@ -340,7 +502,7 @@ export default function FinancePage({ mode = "cashflow" }) {
           subtitle="CRUD memakai tab data baru seperti Product. Admin melihat data global, seller otomatis dibatasi ke toko aktif."
           query={query}
           onQueryChange={setQuery}
-          onRefresh={() => listQuery.refetch()}
+          onRefresh={() => { listQuery.refetch(); chartQuery.refetch(); }}
           refreshing={listQuery.isFetching}
           totalCount={total.totalCount}
           totalLabel={total.totalLabel}
@@ -351,18 +513,38 @@ export default function FinancePage({ mode = "cashflow" }) {
           selectionEnabled={selection.enabled}
           selectedCount={selection.selectedCount}
           onToggleSelection={selection.toggleEnabled}
-          bulkActions={spreadsheet.actions}
+          bulkActions={[]}
           columns={tableColumns}
           visibleColumns={columnVisibility.visibleKeys}
           onToggleColumn={columnVisibility.toggleColumn}
+          onMoveColumn={columnVisibility.moveColumn}
           onShowAllColumns={columnVisibility.showAll}
           onResetColumns={columnVisibility.reset}
           onApplyDefaultColumns={columnVisibility.applyAsDefault}
+          extraActions={
+            <ExcelActionButtons
+              module="finance"
+              label="Keuangan"
+              selection={selection}
+              rows={rows}
+              onRefresh={() => listQuery.refetch()}
+              onCompleted={() => {}}
+              getRowId={(row) => row.id}
+              allowImport={true}
+              allowExport={true}
+              allowDelete={true}
+            />
+          }
+          viewMode={viewMode}
+          onChangeViewMode={setViewMode}
+          viewModeOptions={viewModeOptions}
         >
-          {(
+          {viewMode === "chart" ? (
+            <FinanceChartPanel data={chartQuery.data} isLoading={chartQuery.isLoading} />
+          ) : (
             <DataGrid
-              viewMode="list"
-              chart={viewMode === "chart" ? <FinanceChartPanel mode={mode} /> : null}
+              viewMode={viewMode}
+              chart={null}
               card={cardView}
               onFilterStateChange={total.onFilterStateChange}
               columns={tableColumns}
@@ -383,7 +565,6 @@ export default function FinancePage({ mode = "cashflow" }) {
         </ModuleFrame>
       ) : null}
 
-      <SpreadsheetOperationPanel workspace={spreadsheet} />
       <ConfirmDialog open={Boolean(deleteTarget)} title={`Hapus ${deleteTarget ? typeLabel(deleteTarget.type) : "Data Keuangan"}`} message={deleteTarget ? `${deleteTarget.reference_number || deleteTarget.title} akan dihapus.` : "Data akan dihapus."} pending={false} onClose={() => setDeleteTarget(null)} onConfirm={remove} />
 
 
@@ -431,6 +612,9 @@ export default function FinancePage({ mode = "cashflow" }) {
         </div>
         <Field label="Nomor Referensi"><Input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} /></Field>
         <Field label="Catatan"><textarea value={paymentNotes} onChange={(event) => setPaymentNotes(event.target.value)} className="min-h-20 border border-slate-300 p-3 text-sm" /></Field>
+        <Field label="Bukti Pembayaran (Gambar)" hint="Wajib diisi minimal 1 gambar sebagai bukti transfer/pembayaran. Maksimal 5 gambar.">
+          <MultiImagePicker value={paymentImages} onChange={setPaymentImages} scope="finance/payments" maxFiles={5} />
+        </Field>
         <div className="border-t border-slate-200 pt-4">
           <h3 className="mb-3 text-sm font-black text-slate-800">Riwayat Pembayaran</h3>
           <div className="space-y-2">
@@ -458,7 +642,7 @@ export default function FinancePage({ mode = "cashflow" }) {
         open={editor.open}
         title={editor.entity ? `Edit ${typeLabel(form.type)}` : `Tambah ${typeLabel(form.type)}`}
         subtitle="Form dibuka pada tab data tersendiri agar daftar tetap ringkas dan pekerjaan tidak tertutup modal."
-        onClose={editor.close}
+        onClose={handleFormLeave}
         onSubmit={submit}
         busy={false}
         onDelete={editor.entity ? () => { setDeleteTarget(editor.entity); editor.close(); } : undefined}
@@ -468,44 +652,91 @@ export default function FinancePage({ mode = "cashflow" }) {
             : []
         )}
       >
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Jenis" required>
-            <select value={form.type} onChange={(event) => { const nextType = event.target.value; setForm((current) => ({ ...current, type: nextType, reference_number: current.reference_number === autoReference(current.type) || !String(current.reference_number).trim() ? autoReference(nextType) : current.reference_number })); }} className={inputClassName} required>
-              {allowedTypes.map((item) => <option key={item} value={item}>{typeLabel(item)}</option>)}
-            </select>
-          </Field>
-          <Field label="Status" required>
-            <select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))} className={inputClassName}>
-              {(mode === "cashflow" ? ["draft", "posted", "cancelled"] : ["open", "partial", "paid", "cancelled"]).map((item) => <option key={item}>{item}</option>)}
-            </select>
-          </Field>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="No. Pesanan" hint={selectedOrder ? `Toko ${selectedOrder.storeName || "-"} · Total ${money(selectedOrder.total)}` : "Pilih pesanan untuk mengisi nominal dan nomor invoice otomatis."}>
-            <SearchableSelect
-              value={form.order_id || ""}
-              onChange={applyOrder}
-              options={orderOptions}
-              onSearch={setOrderSearch}
-              placeholder="Pilih / cari pesanan"
-              searchPlaceholder="Cari nomor pesanan"
-              emptyText="Pesanan tidak ditemukan"
-            />
-          </Field>
-          <Field label="No. Invoice / Referensi" hint="Boleh dikosongkan, sistem akan membuat nomor otomatis.">
-            <Input value={form.reference_number} placeholder={autoReference(form.type)} onChange={(event) => setForm((current) => ({ ...current, reference_number: event.target.value }))} />
-          </Field>
-        </div>
-        <Field label="Judul" required hint={selectedOrder ? "Terisi otomatis dari pesanan, bisa diubah." : undefined}><Input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required /></Field>
-        <Field label="Deskripsi"><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="min-h-24 border border-slate-300 p-3 text-sm" /></Field>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Nominal" required><Input type="number" min="1" step="0.01" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} required /></Field>
-          <Field label="Sudah Dibayar" hint="Nilai ini hanya berubah melalui tombol Bayar agar seluruh cicilan tercatat di riwayat."><Input type="number" min="0" step="0.01" value={form.paid_amount} disabled /></Field>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Tanggal Transaksi" required><Input type="datetime-local" value={form.occurred_at} onChange={(event) => setForm((current) => ({ ...current, occurred_at: event.target.value }))} required /></Field>
-          {mode !== "cashflow" ? <Field label="Jatuh Tempo"><Input type="date" value={form.due_date} onChange={(event) => setForm((current) => ({ ...current, due_date: event.target.value }))} /></Field> : <div />}
-        </div>
+        {editor.entity ? (
+          (() => {
+            const entityType = editor.entity.type;
+            const isDebtType = ["receivable", "payable"].includes(entityType);
+            if (isDebtType) {
+              return (
+                <DetailTabs
+                  tabs={[
+                    {
+                      id: "form",
+                      label: "Umum",
+                      icon: "edit",
+                      content: (
+                        <FinanceFormContent
+                          form={form}
+                          setForm={setForm}
+                          allowedTypes={allowedTypes}
+                          mode={mode}
+                          selectedOrder={selectedOrder}
+                          orderOptions={orderOptions}
+                          applyOrder={applyOrder}
+                          setOrderSearch={setOrderSearch}
+                          autoReference={autoReference}
+                          typeLabel={typeLabel}
+                          inputClassName={inputClassName}
+                          money={money}
+                          proofImages={proofImages}
+                          setProofImages={setProofImages}
+                        />
+                      ),
+                    },
+                    {
+                      id: "payment-history",
+                      label: "Riwayat Bayar",
+                      icon: "receipt_long",
+                      content: (
+                        <PaymentHistoryTab
+                          financeId={editor.entity.id}
+                          paymentHistoryQuery={paymentHistoryQuery}
+                          money={money}
+                        />
+                      ),
+                    },
+                  ]}
+                  defaultTab="form"
+                />
+              );
+            }
+            return (
+              <FinanceFormContent
+                form={form}
+                setForm={setForm}
+                allowedTypes={allowedTypes}
+                mode={mode}
+                selectedOrder={selectedOrder}
+                orderOptions={orderOptions}
+                applyOrder={applyOrder}
+                setOrderSearch={setOrderSearch}
+                autoReference={autoReference}
+                typeLabel={typeLabel}
+                inputClassName={inputClassName}
+                money={money}
+                proofImages={proofImages}
+                setProofImages={setProofImages}
+              />
+            );
+          })()
+        ) : (
+          <FinanceFormContent
+            form={form}
+            setForm={setForm}
+            allowedTypes={allowedTypes}
+            mode={mode}
+            selectedOrder={selectedOrder}
+            orderOptions={orderOptions}
+            applyOrder={applyOrder}
+            setOrderSearch={setOrderSearch}
+            autoReference={autoReference}
+            typeLabel={typeLabel}
+            inputClassName={inputClassName}
+            money={money}
+            proofImages={proofImages}
+            setProofImages={setProofImages}
+          />
+        )}
       </FormModal>
     </>
   );

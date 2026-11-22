@@ -3,6 +3,8 @@ import { FormField, inputClassName } from "@/shared/components/form/FormField";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { createClientId } from "@/core/utils/clientId";
 import { toTitleCase } from "@/shared/utils/textFormatter";
+import { generateSellerSku } from "@/features/seller/product/services/sellerProductService";
+import { toastError } from "@/shared/utils/userFeedback";
 
 function emptyValue() {
   return { clientId: createClientId("attribute-value"), attributeId: "", value: "" };
@@ -12,8 +14,12 @@ function emptyVariant() {
   return { clientId: createClientId("variant"), id: null, name: "", sku: "", price: "", stock: 0, values: [] };
 }
 
-export const ProductVariantFields = memo(function ProductVariantFields({ variants, attributes, onChange, onCreateAttribute, creatingAttribute = false }) {
+const SKU_PATTERN_HINT = "Token: {NAME} {BRAND} {CATEGORY} {ATTR} {DATE} {SEQ}. Kosongkan rumus untuk memakai pengaturan SKU global.";
+
+export const ProductVariantFields = memo(function ProductVariantFields({ variants, attributes, onChange, onCreateAttribute, creatingAttribute = false, skuContext = {} }) {
   const [expanded, setExpanded] = useState(() => new Set(variants.map((variant, index) => variant.id || variant.clientId || index)));
+  const [patterns, setPatterns] = useState({});
+  const [generating, setGenerating] = useState(null);
 
   useEffect(() => {
     setExpanded((current) => {
@@ -55,6 +61,26 @@ export const ProductVariantFields = memo(function ProductVariantFields({ variant
       else next.add(key);
       return next;
     });
+  };
+
+  const generateSku = async (index, variant, key) => {
+    setGenerating(key);
+    try {
+      const sku = await generateSellerSku({
+        pattern: patterns[key] || "",
+        name: skuContext.name || variant.name || "",
+        brand: skuContext.brand || "",
+        category: skuContext.category || "",
+        attributes: (variant.values || []).map((item) => item.value),
+        variantId: variant.id,
+      });
+
+      if (sku) updateVariant(index, "sku", sku);
+    } catch (error) {
+      toastError("SKU gagal dibuat", error?.message || "Rumus SKU tidak valid.");
+    } finally {
+      setGenerating(null);
+    }
   };
 
   const attributeOptions = attributes.map((attribute) => ({
@@ -117,9 +143,29 @@ export const ProductVariantFields = memo(function ProductVariantFields({ variant
                   <FormField label="Nama variant" required>
                     <input value={variant.name} onChange={(event) => updateVariant(index, "name", event.target.value)} className={inputClassName} placeholder="Contoh: Merah / XL" />
                   </FormField>
-                  <FormField label="SKU" hint="Isi kode manual bila punya kode sendiri, atau kosongkan agar sistem membuat SKU otomatis.">
+                  <FormField label="SKU" hint="Bisa diketik manual atau dibuat dari rumus di bawah.">
                     <input value={variant.sku} onChange={(event) => updateVariant(index, "sku", event.target.value)} className={inputClassName} placeholder="Kosongkan untuk SKU otomatis" />
                   </FormField>
+                  <div className="sm:col-span-2 grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <div>
+                      <input
+                        value={patterns[key] || ""}
+                        onChange={(event) => setPatterns((current) => ({ ...current, [key]: event.target.value }))}
+                        className={inputClassName}
+                        placeholder="Rumus SKU, mis. {BRAND}-{NAME:6}-{ATTR}-{SEQ:3}"
+                      />
+                      <p className="mt-1 text-[11px] font-semibold text-slate-500">{SKU_PATTERN_HINT}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => generateSku(index, variant, key)}
+                      disabled={generating === key}
+                      className="inline-flex h-11 items-center justify-center gap-1.5 border border-slate-300 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      <span className={`material-symbols-outlined text-[17px] ${generating === key ? "animate-spin" : ""}`}>autoFixHigh</span>
+                      Buat SKU
+                    </button>
+                  </div>
                 </div>
 
                 <div className="bg-slate-50 p-3">

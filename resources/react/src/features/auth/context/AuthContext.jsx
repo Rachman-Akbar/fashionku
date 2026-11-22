@@ -27,6 +27,7 @@ import {
   BASE_TOKEN_KEY,
   WINDOW_TOKEN_KEY,
 } from "@/core/utils/apiClient";
+import { confirmLogout } from "@/shared/utils/sweetAlert";
 
 const AuthContext = createContext(null);
 
@@ -226,7 +227,10 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const logout = useCallback(async () => {
+const logout = useCallback(async () => {
+    const confirmed = await confirmLogout();
+    if (!confirmed.isConfirmed) return;
+    
     setLoading(true);
     setError("");
 

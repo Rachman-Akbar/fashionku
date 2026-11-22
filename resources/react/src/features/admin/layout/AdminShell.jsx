@@ -28,6 +28,10 @@ export const ADMIN_NAV_ITEMS = [
   { href: "/admin/stock", label: "Stock", icon: "warehouse", group: "Operasional" },
   { href: "/admin/hpp-report", label: "Laporan HPP", icon: "trending_up", group: "Operasional" },
   { href: "/admin/cashflow", label: "Keuangan", icon: "account_balance_wallet", group: "Operasional" },
+  // Tanpa entri ini URL /admin/receivables-payables tidak cocok dengan menu
+  // mana pun, sehingga tab induk tidak pernah terbuat dan halamannya tampil
+  // kosong (sama seperti kasus /admin/help di bawah).
+  { href: "/admin/receivables-payables", label: "Hutang/Piutang", icon: "payments", group: "Operasional" },
 
   { href: "/admin/vouchers", label: "Voucher", icon: "confirmation_number", group: "Marketing" },
   { href: "/admin/promotions", label: "Promosi", icon: "campaign", group: "Marketing" },

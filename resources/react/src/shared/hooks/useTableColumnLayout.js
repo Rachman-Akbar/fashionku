@@ -42,7 +42,7 @@ function normalizeColumns(columns) {
     }));
 }
 
-export function useTableColumnLayout({ storageKey, columns, preferredOrder = EMPTY_ORDER }) {
+export function useTableColumnLayout({ storageKey, columns, preferredOrder = EMPTY_ORDER, onOrderChange }) {
   // Halaman biasanya mengirim `columns` sebagai array baru tiap render
   // (mis. `visibleColumns.map(...)`). Tanpa "sidik jari" ini, `normalizedColumns`
   // ikut baru tiap render, effect sinkronisasi di bawah jalan terus-menerus dan
@@ -107,6 +107,21 @@ export function useTableColumnLayout({ storageKey, columns, preferredOrder = EMP
     return () => window.clearTimeout(timer);
   }, [order, storageKey, widths]);
 
+  // Beritahu pemilik urutan (mis. useColumnVisibility) saat urutan diubah lewat
+  // drag header, supaya dropdown "Pilih kolom" menampilkan urutan yang sama.
+  const onOrderChangeRef = useRef(onOrderChange);
+  const orderReadyRef = useRef(false);
+  useEffect(() => {
+    onOrderChangeRef.current = onOrderChange;
+  }, [onOrderChange]);
+  useEffect(() => {
+    if (!orderReadyRef.current) {
+      orderReadyRef.current = true;
+      return;
+    }
+    onOrderChangeRef.current?.(order);
+  }, [order]);
+
   useEffect(() => () => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
   }, []);
@@ -134,6 +149,16 @@ export function useTableColumnLayout({ storageKey, columns, preferredOrder = EMP
     if (!requested.length) return;
     setOrder((current) => (current.length === requested.length && current.every((key, index) => key === requested[index]) ? current : requested));
   }, [validKeys]);
+
+  // Urutan dari pemilik urutan (menu "Pilih Kolom") ikut diterapkan saat
+  // berubah, bukan hanya saat pertama kali tabel dipasang. Tanpa ini, hasil
+  // drag & drop di dropdown tidak terlihat di tabel sampai halaman dimuat ulang.
+  const preferredSignature = Array.isArray(preferredOrder) ? preferredOrder.map(String).join("|") : "";
+  useEffect(() => {
+    if (!preferredSignature) return;
+    applyOrder(preferredSignature.split("|"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferredSignature, applyOrder]);
 
   const getHeaderProps = useCallback((key) => ({
     draggable: true,

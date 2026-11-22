@@ -4,5 +4,6 @@ export { FormField, inputClassName, textAreaClassName } from "@/shared/component
 
 export { SearchableSelect } from "./SearchableSelect";
 export { ImageFilePicker } from "./ImageFilePicker";
+export { MultiImagePicker } from "./MultiImagePicker";
 export { DayPicker, parseDays, compactRange } from "./DayPicker";
 export { TimePicker } from "./TimePicker";

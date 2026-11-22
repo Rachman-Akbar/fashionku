@@ -17,6 +17,7 @@ import { useNotificationCenter } from "@/shared/notifications/NotificationCenter
 import { useTabDirtyGuard } from "@/shared/hooks/useTabDirtyGuard";
 import { getRelationQuickCreateError, useQuickCreateCategory, useQuickCreateProductAttribute } from "@/shared/services/relationQuickCreateService";
 import {
+  generateSellerSku,
   getSellerProductError,
   useCreateSellerProduct,
   useSellerProductAttributes,
@@ -151,6 +152,8 @@ export function SellerProductEditor({
   const isAdmin = portal === "admin";
   const initialSectionRef = useRef(initialSection);
   initialSectionRef.current = initialSection;
+  const [skuPattern, setSkuPattern] = useState("");
+  const [generatingSku, setGeneratingSku] = useState(false);
 
   const openStock = (row) => {
     const href = isAdmin ? "/admin/stock" : "/seller/stock";
@@ -272,6 +275,27 @@ export function SellerProductEditor({
       return { ...current, mode };
     });
     setErrors((current) => ({ ...current, variants: "", variantStock: "" }));
+  };
+
+  const generateProductSku = async () => {
+    setGeneratingSku(true);
+
+    try {
+      const sku = await generateSellerSku({
+        pattern: skuPattern,
+        name: values.name,
+        brand: values.brand,
+        category: selectedCategory?.pathNames?.join("-") || selectedCategory?.rawName || "",
+        attributes: [],
+        variantId: values.variants?.[0]?.id,
+      });
+
+      if (sku) setField("sku", sku);
+    } catch (error) {
+      toastError("SKU gagal dibuat", error?.message || "Rumus SKU tidak valid.");
+    } finally {
+      setGeneratingSku(false);
+    }
   };
 
   const submit = async (event) => {
@@ -456,8 +480,26 @@ export function SellerProductEditor({
 
                   {values.mode === "simple" ? (
                     <div className="md:col-span-2 grid gap-4 bg-slate-50 p-4 sm:grid-cols-3">
-                      <FormField label="SKU">
+                      <FormField label="SKU" hint="Ketik kode custom atau buat dari rumus.">
                         <input value={values.sku} onChange={(event) => setField("sku", event.target.value)} className={inputClassName} placeholder="Kosongkan untuk otomatis" />
+                        <div className="mt-2 flex gap-2">
+                          <input
+                            value={skuPattern}
+                            onChange={(event) => setSkuPattern(event.target.value)}
+                            className={inputClassName}
+                            placeholder="Rumus: {BRAND}-{NAME:6}-{SEQ:3}"
+                          />
+                          <button
+                            type="button"
+                            onClick={generateProductSku}
+                            disabled={generatingSku}
+                            className="inline-flex h-11 shrink-0 items-center justify-center gap-1 border border-slate-300 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                          >
+                            <span className={`material-symbols-outlined text-[17px] ${generatingSku ? "animate-spin" : ""}`}>autoFixHigh</span>
+                            Buat
+                          </button>
+                        </div>
+                        <p className="mt-1 text-[11px] font-semibold text-slate-500">Token: {"{NAME} {BRAND} {CATEGORY} {ATTR} {DATE} {SEQ}"}. Kosongkan rumus untuk memakai pengaturan SKU global.</p>
                       </FormField>
                       <FormField label="Harga" error={errors.price} required>
                         <input type="number" min="0" value={values.price} onChange={(event) => setField("price", event.target.value)} className={inputClassName} placeholder="0" />
@@ -506,7 +548,7 @@ export function SellerProductEditor({
 
               {values.mode === "variant" ? (
                 <div>
-                  <ProductVariantFields variants={values.variants} attributes={attributeOptions} onChange={(variants) => setField("variants", variants)} onCreateAttribute={quickCreateAttribute} creatingAttribute={quickCreateAttributeMutation.isPending} />
+                  <ProductVariantFields variants={values.variants} attributes={attributeOptions} onChange={(variants) => setField("variants", variants)} onCreateAttribute={quickCreateAttribute} creatingAttribute={quickCreateAttributeMutation.isPending} skuContext={{ name: values.name, brand: values.brand, category: selectedCategory?.pathNames?.join("-") || selectedCategory?.rawName || "" }} />
                   {errors.variants ? <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">{errors.variants}</p> : null}
                 </div>
               ) : (

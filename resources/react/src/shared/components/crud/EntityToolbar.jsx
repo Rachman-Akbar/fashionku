@@ -70,11 +70,14 @@ export const EntityToolbar = memo(function EntityToolbar({
 
   return (
     <div className="mb-0.5 flex min-w-0 flex-col gap-[2px] bg-white px-2 py-2">
-      <div className="flex min-w-0 flex-col gap-[5px] xl:flex-row xl:items-center xl:gap-[6px]">
+      {/* Satu baris yang membungkus (flex-wrap) di semua ukuran layar: tombol
+          aksi tetap berjajar horizontal sebagai satu grup, tidak lagi turun
+          satu-per-satu ke baris sendiri saat layar < 1280px. */}
+      <div className="flex min-w-0 flex-wrap items-center gap-[5px] xl:gap-[6px]">
         {/* Total data */}
         {Number(totalCount) >= 0 ? (
           <span
-            className="flex h-9 min-w-12 shrink-0 items-center justify-center self-end border-l-[3px] border-emerald-500 bg-emerald-50 px-2.5 leading-none text-emerald-800 ring-1 ring-inset ring-emerald-100 xl:self-auto"
+            className="flex h-9 min-w-12 shrink-0 items-center justify-center border-l-[3px] border-emerald-500 bg-emerald-50 px-2.5 leading-none text-emerald-800 ring-1 ring-inset ring-emerald-100"
             title={totalTitle || "Total data"}
             aria-label={totalTitle || "Total data"}
           >
@@ -95,7 +98,7 @@ export const EntityToolbar = memo(function EntityToolbar({
         ) : null}
 
         {/* Search bar */}
-        <form onSubmit={submitSearch} className="flex min-w-0 flex-1 items-center gap-[5px]">
+        <form onSubmit={submitSearch} className="flex min-w-[180px] flex-1 items-center gap-[5px]">
           <div className="flex h-9 min-w-0 flex-1 items-center rounded-[10px] bg-slate-50 px-3 ring-1 ring-inset ring-slate-200 focus-within:bg-white focus-within:ring-emerald-500">
             <span className="material-symbols-outlined shrink-0 text-[19px] text-slate-400">search</span>
             <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={placeholder} className="h-9 min-w-0 flex-1 bg-transparent px-2 text-sm outline-none" />
@@ -107,33 +110,38 @@ export const EntityToolbar = memo(function EntityToolbar({
           </div>
         </form>
 
-        {/* Pilih Kolom */}
-        <ColumnVisibilityMenu
-          columns={columns}
-          visibleKeys={visibleColumns}
-          onToggle={onToggleColumn}
-          onShowAll={onShowAllColumns}
-          onReset={onResetColumns}
-          onApplyDefault={onApplyDefaultColumns}
-          onMoveColumn={onMoveColumn}
-          selectionEnabled={selectionEnabled}
-          selectedCount={selectedCount}
-          onToggleSelection={onToggleSelection}
-        />
+        {/* Grup aksi: pilih kolom, refresh, tambah (selalu satu baris) */}
+        <div className="ml-auto flex shrink-0 items-center gap-[5px]">
+          {extraActions}
 
-        {/* Refresh */}
-        <ActionIconButton
-          icon="refresh"
-          title={isRefreshing ? "Memuat..." : "Segarkan data"}
-          iconClassName={isRefreshing ? "animate-spin" : undefined}
-          onClick={handleRefresh}
-          disabled={isRefreshing || !onRefresh}
-        />
+          {/* Pilih Kolom */}
+          <ColumnVisibilityMenu
+            columns={columns}
+            visibleKeys={visibleColumns}
+            onToggle={onToggleColumn}
+            onShowAll={onShowAllColumns}
+            onReset={onResetColumns}
+            onApplyDefault={onApplyDefaultColumns}
+            onMoveColumn={onMoveColumn}
+            selectionEnabled={selectionEnabled}
+            selectedCount={selectedCount}
+            onToggleSelection={onToggleSelection}
+          />
 
-        {/* Tambah */}
-        {!hideCreate ? (
-          <ActionIconButton icon="add" title={`Tambah${createLabel && createLabel !== "Tambah Data" ? ` ${createLabel.replace(/^Tambah\s*/i, "")}` : " data"}`} onClick={onCreate} variant="primary" className="h-9 w-12 rounded-[10px]" />
-        ) : null}
+          {/* Refresh */}
+          <ActionIconButton
+            icon="refresh"
+            title={isRefreshing ? "Memuat..." : "Segarkan data"}
+            iconClassName={isRefreshing ? "animate-spin" : undefined}
+            onClick={handleRefresh}
+            disabled={isRefreshing || !onRefresh}
+          />
+
+          {/* Tambah */}
+          {!hideCreate ? (
+            <ActionIconButton icon="add" title={`Tambah${createLabel && createLabel !== "Tambah Data" ? ` ${createLabel.replace(/^Tambah\s*/i, "")}` : " data"}`} onClick={onCreate} variant="primary" className="h-9 w-12 rounded-[10px]" />
+          ) : null}
+        </div>
       </div>
     </div>
   );

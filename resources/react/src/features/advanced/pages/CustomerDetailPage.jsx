@@ -7,8 +7,10 @@ import { ConfirmDialog } from "@/shared/components/crud";
 import { Input } from "@/shared/components/ui/Input";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { FormActionDock, FormEditorLayout } from "@/shared/components/crud";
+import { ImageFilePicker } from "@/shared/components/form/ImageFilePicker";
 import { useFormDirty } from "@/shared/hooks/useFormDirty";
 import { toastError } from "@/shared/utils/userFeedback";
+import { CrudDialog } from "@/shared/components/crud/CrudDialog";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -16,7 +18,7 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("id-ID");
 }
 
-const INITIAL_FORM = { name: "", email: "", is_active: true };
+const INITIAL_FORM = { name: "", email: "", code: "", is_active: true, avatar: "" };
 
 function CustomerDetailForm({ customer, admin = false, onSaved, onDeleted }) {
   const [form, setForm] = useState(INITIAL_FORM);
@@ -32,7 +34,7 @@ function CustomerDetailForm({ customer, admin = false, onSaved, onDeleted }) {
   const busy = saving || deleteMutation.isPending;
 
   useEffect(() => {
-    const initial = customer ? { name: customer.name || "", email: customer.email || "", is_active: customer.is_active !== false } : INITIAL_FORM;
+    const initial = customer ? { name: customer.name || "", email: customer.email || "", code: customer.code || "", is_active: customer.is_active !== false, avatar: customer.avatar || "" } : INITIAL_FORM;
     setPristine(initial);
     setForm(initial);
   }, [customer]);
@@ -48,7 +50,7 @@ function CustomerDetailForm({ customer, admin = false, onSaved, onDeleted }) {
 
   const handleSave = async () => {
     try {
-      const payload = { name: form.name.trim(), email: form.email.trim(), is_active: form.is_active };
+      const payload = { name: form.name.trim(), email: form.email.trim(), code: form.code.trim() || null, is_active: form.is_active, avatar: form.avatar || null };
       if (editing) {
         await updateMutation.mutateAsync({ id: customer.id, values: payload });
       } else {
@@ -109,6 +111,7 @@ function CustomerDetailForm({ customer, admin = false, onSaved, onDeleted }) {
                   <div className="min-w-0">
                     <p className="truncate text-lg font-black text-slate-900">{customer.name || "Tanpa Nama"}</p>
                     <p className="truncate text-sm text-slate-500">{customer.email || "-"}</p>
+                    <p className="mt-0.5 text-[11px] font-semibold text-slate-400">Kode: {customer.code || "-"}</p>
                     <p className="mt-0.5 text-[11px] font-semibold text-slate-400">Terdaftar {formatDate(customer.registered_at)}</p>
                   </div>
                 </div>
@@ -141,6 +144,14 @@ function CustomerDetailForm({ customer, admin = false, onSaved, onDeleted }) {
               <label className="grid gap-1.5 text-sm font-bold text-slate-700 sm:col-span-2">
                 <span>Email<span className="ml-1 text-red-500">*</span></span>
                 <Input type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} placeholder="email@contoh.com" maxLength={255} />
+              </label>
+              <label className="grid gap-1.5 text-sm font-bold text-slate-700 sm:col-span-2">
+                <span>Kode Pelanggan</span>
+                <Input value={form.code} onChange={(event) => setForm((current) => ({ ...current, code: event.target.value }))} placeholder="Otomatis jika dikosongkan" maxLength={50} />
+              </label>
+              <label className="grid gap-1.5 text-sm font-bold text-slate-700 md:col-span-2">
+                <span>Avatar</span>
+                <ImageFilePicker value={form.avatar} onChange={(url) => setForm((current) => ({ ...current, avatar: url }))} scope="profiles" label="Unggah avatar" aspectClassName="aspect-square" />
               </label>
               <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 sm:col-span-2">
                 <span>Status aktif</span>

@@ -23,6 +23,7 @@ final class ProductModel extends Model
     protected $table = 'products';
 
     protected $fillable = [
+        'code',
         'primary_category_id',
         'name',
         'slug',

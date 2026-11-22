@@ -181,6 +181,7 @@ export default function HppReportPage() {
       columns={columns}
       visibleColumns={columnVisibility.visibleKeys}
       onToggleColumn={columnVisibility.toggleColumn}
+      onMoveColumn={columnVisibility.moveColumn}
       onShowAllColumns={columnVisibility.showAll}
       onResetColumns={columnVisibility.reset}
       onApplyDefaultColumns={columnVisibility.applyAsDefault}

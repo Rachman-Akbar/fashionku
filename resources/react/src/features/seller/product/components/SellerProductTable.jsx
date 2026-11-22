@@ -1,4 +1,4 @@
-import { Fragment, memo, useEffect, useMemo, useState } from "react";
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatPrice } from "@/shared/utils/utils";
 import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import { isInactiveRow } from "@/shared/components/feedback/inactiveRow";
@@ -34,6 +34,7 @@ export const SellerProductTable = memo(function SellerProductTable({
   portal = "seller",
   columns = PRODUCT_TABLE_COLUMNS,
   visibleSet,
+  onOrderChange,
   selectionEnabled = false,
   selectedIds = new Set(),
   allSelected = false,
@@ -49,14 +50,59 @@ export const SellerProductTable = memo(function SellerProductTable({
   storeOptions = [],
   columnOrder = [],
   isLoading = false,
+  // Mode "header saja": dipakai saat tampilan kartu (grid), header + filter
+  // kolom tetap tampil di atas kartu tanpa baris data.
+  headerOnly = false,
 }) {
   const admin = portal === "admin";
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const activeColumns = useMemo(() => columns.filter((column) => (!visibleSet || visibleSet.has(column.key)) && (column.key !== "store" || admin) && (column.key !== "status" || admin)).map((column) => ({ ...column, width: widths[column.key] || 190 })), [admin, columns, visibleSet]);
-  const layout = useTableColumnLayout({ storageKey: `${portal}.products`, columns: activeColumns, preferredOrder: columnOrder });
+  const layout = useTableColumnLayout({ storageKey: `${portal}.products`, columns: activeColumns, preferredOrder: columnOrder, onOrderChange });
   const applyOrder = layout.applyOrder;
   const tableWidth = layout.totalWidth + (selectionEnabled ? 44 : 0);
   const changeFilter = (key) => (value) => onColumnFilterChange?.(key, value);
+
+  // ── Scroll horizontal ───────────────────────────────────────────────────
+  // Tabel bisa lebih lebar dari layar (banyak kolom aktif atau jendela kecil).
+  // Supaya tetap bisa DIGESER tanpa harus menggulir halaman sampai dasar
+  // tabel, disediakan scrollbar horizontal di ATAS tabel yang tersinkron dua
+  // arah dengan isi tabel (pola "top scrollbar" untuk tabel lebar).
+  const scrollRef = useRef(null);
+  const topScrollRef = useRef(null);
+  const [scrollMetrics, setScrollMetrics] = useState({ scrollWidth: 0, clientWidth: 0 });
+
+  const measureScroll = useCallback(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    const next = { scrollWidth: element.scrollWidth, clientWidth: element.clientWidth };
+    setScrollMetrics((current) => (current.scrollWidth === next.scrollWidth && current.clientWidth === next.clientWidth ? current : next));
+  }, []);
+
+  useEffect(() => {
+    measureScroll();
+    const element = scrollRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(measureScroll);
+    observer.observe(element);
+    if (element.firstElementChild) observer.observe(element.firstElementChild);
+    return () => observer.disconnect();
+  }, [measureScroll, tableWidth, selectionEnabled, headerOnly]);
+
+  const hasHorizontalOverflow = scrollMetrics.scrollWidth - scrollMetrics.clientWidth > 1;
+
+  const handleTableScroll = () => {
+    const source = scrollRef.current;
+    const target = topScrollRef.current;
+    if (!source || !target) return;
+    if (Math.abs(target.scrollLeft - source.scrollLeft) > 1) target.scrollLeft = source.scrollLeft;
+  };
+
+  const handleTopScroll = () => {
+    const source = topScrollRef.current;
+    const target = scrollRef.current;
+    if (!source || !target) return;
+    if (Math.abs(target.scrollLeft - source.scrollLeft) > 1) target.scrollLeft = source.scrollLeft;
+  };
 
   const hasVariants = (product) => product.mode === "variant" && (product.variants || []).length > 0;
   const isExpanded = (product) => hasVariants(product) && expandedIds.has(product.id);
@@ -201,11 +247,28 @@ export const SellerProductTable = memo(function SellerProductTable({
   };
 
   return (
-    <div className="relative bg-white ring-1 ring-slate-200">
-      <table className="table-fixed text-left text-sm" style={{ width: Math.max(tableWidth, 840), minWidth: "100%" }}>
-        <InteractiveColGroup columns={layout.orderedColumns} getColumnStyle={layout.getColumnStyle} leadingWidth={selectionEnabled ? 44 : 0} />
-        <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-100 text-xs font-extrabold text-slate-600"><tr><TableSelectionHeader enabled={selectionEnabled} checked={allSelected} onToggle={onToggleAll} />{layout.orderedColumns.map(renderHeader)}</tr></thead>
-          <tbody className="divide-y divide-slate-100">{rows.map((product) => {
+    <div className={headerOnly ? "mb-3" : undefined}>
+      {/* Scrollbar horizontal selalu terjangkau di atas header tabel. */}
+      {hasHorizontalOverflow ? (
+        <div
+          ref={topScrollRef}
+          onScroll={handleTopScroll}
+          aria-hidden="true"
+          className="mb-1 h-3 w-full overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:thin]"
+        >
+          <div style={{ width: scrollMetrics.scrollWidth, height: 1 }} />
+        </div>
+      ) : null}
+      <div
+        ref={scrollRef}
+        onScroll={handleTableScroll}
+        className="relative w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] bg-white ring-1 ring-slate-200"
+      >
+        <table className="table-fixed text-left text-sm" style={{ width: Math.max(tableWidth, 840), minWidth: "100%" }}>
+          <InteractiveColGroup columns={layout.orderedColumns} getColumnStyle={layout.getColumnStyle} leadingWidth={selectionEnabled ? 44 : 0} />
+          <thead className={headerOnly ? "bg-slate-100 text-xs font-extrabold text-slate-600" : "sticky top-[var(--list-toolbar-h,0px)] z-10 bg-slate-100 text-xs font-extrabold text-slate-600"}><tr><TableSelectionHeader enabled={selectionEnabled} checked={allSelected} onToggle={onToggleAll} />{layout.orderedColumns.map(renderHeader)}</tr></thead>
+          {headerOnly ? null : (
+            <tbody className="divide-y divide-slate-100">{rows.map((product) => {
             const inactive = isInactiveRow(product);
             const expanded = isExpanded(product);
             return (
@@ -223,12 +286,14 @@ export const SellerProductTable = memo(function SellerProductTable({
               </Fragment>
             );
           })}</tbody>
-      </table>
-      {isLoading ? (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-slate-900/10 backdrop-blur-[1px]">
-          <span className="material-symbols-outlined animate-spin text-[28px] leading-none text-slate-500">progress_activity</span>
-        </div>
-      ) : null}
+          )}
+        </table>
+        {isLoading && !headerOnly ? (
+          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-slate-900/10 backdrop-blur-[1px]">
+            <span className="material-symbols-outlined animate-spin text-[28px] leading-none text-slate-500">progress_activity</span>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 });

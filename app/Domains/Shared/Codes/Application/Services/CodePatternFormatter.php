@@ -36,6 +36,7 @@ final class CodePatternFormatter
     public const TOKENS = [
         'type' => 'Tipe kode, mis. SKU/RM/INV',
         'name' => 'Nama produk atau bahan baku',
+        'attr' => 'Nilai atribut varian',
         'brand' => 'Merek produk',
         'category' => 'Kategori produk',
         'store' => 'Nama toko',
@@ -68,6 +69,7 @@ final class CodePatternFormatter
             $value = match ($token) {
                 'type' => strtoupper((string) ($context['type'] ?? 'CODE')),
                 'name' => self::token((string) ($context['name'] ?? '')),
+                'attr' => self::token((string) ($context['attr'] ?? '')),
                 'brand' => self::token((string) ($context['brand'] ?? '')),
                 'category' => self::token((string) ($context['category'] ?? '')),
                 'store' => self::token((string) ($context['store'] ?? '')),

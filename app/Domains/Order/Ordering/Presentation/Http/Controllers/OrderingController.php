@@ -112,6 +112,7 @@ class OrderingController extends Controller
             $order = $this->createManualOrderUseCase->execute(
                 itemInputs: $data['items'],
                 customer: array_filter([
+                    'id' => $data['customer_id'] ?? null,
                     'name' => $data['customer_name'] ?? null,
                     'phone' => $data['customer_phone'] ?? null,
                     'email' => $data['customer_email'] ?? null,

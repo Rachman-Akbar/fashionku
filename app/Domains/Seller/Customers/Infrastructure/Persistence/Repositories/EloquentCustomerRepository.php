@@ -57,6 +57,7 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
 
         return User::query()
             ->joinSub($candidateIds, 'store_customer_ids', fn ($join) => $join->on('store_customer_ids.user_id', '=', 'users.id'))
+            ->leftJoin('seller_customers', 'seller_customers.user_id', '=', 'users.id')
             ->leftJoinSub($summary, 'customer_summary', fn ($join) => $join->on('customer_summary.user_id', '=', 'users.id'))
             ->leftJoinSub($buyerAddress, 'buyer_address_sub', fn ($join) => $join->on('buyer_address_sub.buyer_user_id', '=', 'users.id'))
             ->select([
@@ -72,6 +73,7 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
                 'buyer_address_sub.buyer_recipient as primary_recipient',
                 'buyer_address_sub.buyer_phone as primary_phone',
                 'buyer_address_sub.buyer_address_text as primary_address',
+                'seller_customers.code',
                 DB::raw("(CASE WHEN {$manualExists} THEN 1 ELSE 0 END) as is_manual"),
             ])
             ->when(trim((string) ($filters['search'] ?? '')) !== '', function (Builder $query) use ($filters): void {
@@ -135,7 +137,7 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
                 'password' => null,
                 'has_set_password' => false,
                 'name' => trim((string) ($data['name'] ?? '')),
-                'avatar' => $data['avatar'] ?? null,
+                'avatar' => self::normalizeImage($data['avatar'] ?? null),
                 'is_email_verified' => false,
                 'is_active' => (bool) ($data['is_active'] ?? true),
                 'banned_at' => null,
@@ -154,8 +156,14 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
                 );
             }
 
+            $code = $data['code'] ?? null;
+            if (! $code) {
+                $code = $this->generateCustomerCode($data['name'] ?? '');
+            }
+
             DB::table('seller_customers')->insert([
                 'user_id' => $userId,
+                'code' => $code,
                 'note' => $data['note'] ?? null,
                 'created_by' => $actorId,
                 'updated_by' => $actorId,
@@ -175,20 +183,84 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
             return null;
         }
 
-        $user->forceFill([
-            'name' => trim((string) $data['name']),
-            'email' => Str::lower(trim((string) $data['email'])),
-            'avatar' => $data['avatar'] ?? null,
-            'is_active' => (bool) ($data['is_active'] ?? true),
-        ])->save();
+        // Hanya field yang benar-benar dikirim yang ditulis, supaya pembaruan
+        // parsial (mis. sekadar mengubah status atau foto) tidak mengosongkan
+        // data lain.
+        $updates = [];
 
+        if (array_key_exists('name', $data)) {
+            $updates['name'] = trim((string) $data['name']);
+        }
+
+        if (array_key_exists('email', $data)) {
+            $updates['email'] = Str::lower(trim((string) $data['email']));
+        }
+
+        if (array_key_exists('avatar', $data)) {
+            $updates['avatar'] = self::normalizeImage($data['avatar']);
+        }
+
+        if (array_key_exists('is_active', $data)) {
+            $updates['is_active'] = (bool) $data['is_active'];
+        }
+
+        if ($updates !== []) {
+            $user->forceFill($updates)->save();
+        }
+
+        // Update seller_customers table
+        $sellerCustomerUpdates = [];
+        
+        if (array_key_exists('code', $data)) {
+            $sellerCustomerUpdates['code'] = $data['code'] ?: null;
+        }
+        
         if (array_key_exists('note', $data)) {
+            $sellerCustomerUpdates['note'] = $data['note'];
+        }
+
+        if ($sellerCustomerUpdates !== []) {
+            $sellerCustomerUpdates['updated_by'] = auth()->id();
+            $sellerCustomerUpdates['updated_at'] = now();
             DB::table('seller_customers')
                 ->where('user_id', $user->id)
-                ->update(['note' => $data['note'], 'updated_by' => auth()->id(), 'updated_at' => now()]);
+                ->update($sellerCustomerUpdates);
         }
 
         return $user->refresh();
+    }
+
+    /**
+     * URL gambar disimpan apa adanya; nilai kosong diubah menjadi NULL.
+     */
+    private static function normalizeImage(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
+    }
+
+    private function generateCustomerCode(string $name): string
+    {
+        $words = explode(' ', Str::upper(trim($name)));
+        $prefix = implode('', array_map(fn ($w) => $w[0], $words));
+        $prefix = preg_replace('/[^A-Z0-9]/', '', $prefix) ?: 'CUST';
+
+        $sequence = 1;
+        while (true) {
+            $code = $prefix . '-' . str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
+            $exists = DB::table('seller_customers')->where('code', $code)->exists();
+            if (! $exists) {
+                break;
+            }
+            $sequence++;
+        }
+
+        return $code;
     }
 
     public function deleteCustomer(string $userId): bool

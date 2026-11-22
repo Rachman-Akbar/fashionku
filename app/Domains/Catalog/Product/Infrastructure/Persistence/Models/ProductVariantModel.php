@@ -20,11 +20,13 @@ final class ProductVariantModel extends Model
         'po_stock',
         'is_default',
         'min_stock',
+        'hpp',
     ];
 
     protected $casts = [
         'product_id' => 'integer',
         'price' => 'decimal:2',
+        'hpp' => 'decimal:4',
         'stock' => 'integer',
         'po_stock' => 'integer',
         'is_default' => 'boolean',
@@ -46,6 +48,11 @@ final class ProductVariantModel extends Model
     public function values()
     {
         return $this->hasMany(ProductVariantValueModel::class, 'variant_id');
+    }
+
+    public function materials()
+    {
+        return $this->hasMany(ProductVariantMaterialModel::class, 'variant_id');
     }
 
     public function totalStock(): int

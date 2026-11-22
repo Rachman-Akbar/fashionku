@@ -11,6 +11,7 @@ function resolveColumnsProps(props, registration) {
     onShowAllColumns: hasExplicitColumns ? props.onShowAllColumns : registration?.onShowAll,
     onResetColumns: hasExplicitColumns ? props.onResetColumns : registration?.onReset,
     onApplyDefaultColumns: hasExplicitColumns ? props.onApplyDefaultColumns : registration?.onApplyDefault,
+    onMoveColumn: hasExplicitColumns ? props.onMoveColumn : registration?.onMoveColumn,
   };
 }
 
@@ -32,6 +33,7 @@ function ModuleFrameInner({
   columns = [],
   visibleColumns = [],
   onToggleColumn,
+  onMoveColumn,
   onShowAllColumns,
   onResetColumns,
   onApplyDefaultColumns,
@@ -49,6 +51,7 @@ function ModuleFrameInner({
     columns,
     visibleColumns,
     onToggleColumn,
+    onMoveColumn,
     onShowAllColumns,
     onResetColumns,
     onApplyDefaultColumns,
@@ -78,6 +81,7 @@ function ModuleFrameInner({
         onShowAllColumns={resolved.onShowAllColumns}
         onResetColumns={resolved.onResetColumns}
         onApplyDefaultColumns={resolved.onApplyDefaultColumns}
+        onMoveColumn={resolved.onMoveColumn}
         extraActions={extraActions}
         totalCount={totalCount}
         totalLabel={totalLabel}

@@ -46,6 +46,27 @@ final class UpdateProductRequest extends FormRequest
 
         return [
             'primary_category_id' => ['nullable', 'integer', 'exists:categories,id'],
+            'sku' => [
+                'nullable',
+                'string',
+                'max:100',
+                function (string $attribute, mixed $value, $fail) use ($id): void {
+                    $value = trim((string) $value);
+
+                    if ($value === '') {
+                        return;
+                    }
+
+                    $exists = DB::table('product_variants')
+                        ->where('sku', $value)
+                        ->where('product_id', '!=', $id)
+                        ->exists();
+
+                    if ($exists) {
+                        $fail("The SKU '{$value}' has already been taken.");
+                    }
+                },
+            ],
             'name' => [
                 'sometimes',
                 'string',

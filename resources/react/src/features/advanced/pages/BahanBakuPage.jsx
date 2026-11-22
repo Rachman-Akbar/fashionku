@@ -16,13 +16,14 @@ import { Input } from "@/shared/components/ui/Input";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
-import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
-import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
+import { ImageFilePicker } from "@/shared/components/form/ImageFilePicker";
 import { useViewMode } from "@/shared/hooks/useViewMode";
-import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
+import { useEntityEditor, useRefreshOnListActivation, useTableSelection, useColumnVisibility } from "@/shared/hooks";
+import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
+import { ExcelActionButtons } from "@/shared/excel";
 
-const MATERIAL_EMPTY = { code: "", name: "", unit: "pcs", minimum_stock: 0, average_cost: 0, is_active: true };
+const MATERIAL_EMPTY = { code: "", name: "", unit: "pcs", minimum_stock: 0, average_cost: 0, is_active: true, image: "" };
 const DEFAULT_UNITS = ["pcs", "kg", "gram", "liter", "ml", "meter", "cm", "dus", "botol", "sachet", "lusin", "pack", "rim", "unit", "buah"];
 
 function money(value) {
@@ -97,7 +98,6 @@ export default function BahanBakuPage() {
     return { value: clean, label: clean };
   };
 
-  const materialSpreadsheet = useSpreadsheetWorkspace({ module: "raw-material", label: "Bahan Baku", selectedRows: materialRows.filter((row) => materialSelected.has(row.id)), allowBulkDelete: true, onCompleted: () => { materials.refetch(); setMaterialSelected(new Set()); } });
   const totalMaterials = useListTotalCount(materials.data?.meta, { label: "Bahan Baku" });
   const totalMaterialHistory = useListTotalCount(materialMovements.data?.meta, { label: "Pergerakan" });
   const totalCostImpact = useListTotalCount(costImpacts.data?.meta, { label: "Dampak HPP" });
@@ -131,7 +131,7 @@ export default function BahanBakuPage() {
 
   const materialDirty = useMemo(() => {
     if (!materialForm || !materialInitial) return true;
-    const keys = ["code", "name", "unit", "minimum_stock", "average_cost", "is_active"];
+    const keys = ["code", "name", "unit", "minimum_stock", "average_cost", "is_active", "image"];
     return keys.some((key) => String(materialForm[key] ?? "") !== String(materialInitial[key] ?? ""));
   }, [materialForm, materialInitial]);
 
@@ -140,6 +140,7 @@ export default function BahanBakuPage() {
   const materialColumns = [
     { key: "code", label: "Kode", filterType: "text" },
     { key: "name", label: "Bahan Baku", filterType: "text" },
+    { key: "image", label: "Gambar", filterType: "none", render: (row) => row.image ? <img src={resolveMediaUrl(row.image)} alt="" className="h-10 w-10 rounded object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span> },
     { key: "unit", label: "Satuan", filterType: "select", options: unitOptions },
     { key: "stock", label: "Stok", filterType: "range" },
     { key: "minimum_stock", label: "Minimum", filterType: "range" },
@@ -191,6 +192,7 @@ export default function BahanBakuPage() {
       </span>
     )],
     fields: [
+      { label: "Gambar", render: (row) => row.image ? <img src={resolveMediaUrl(row.image)} alt="" className="h-16 w-16 rounded object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span> },
       { label: "Satuan", render: (row) => row.unit || "-" },
       { label: "Stok", render: (row) => number(row.stock) },
       { label: "Minimum", render: (row) => number(row.minimum_stock) },
@@ -287,9 +289,25 @@ export default function BahanBakuPage() {
         selectionEnabled={tab === "materials" && materialSelected.size > 0}
         selectedCount={tab === "materials" ? materialSelected.size : 0}
         onToggleSelection={tab === "materials" ? () => (materialSelected.size ? setMaterialSelected(new Set()) : setMaterialSelected(new Set(materialRows.map((row) => row.id)))) : undefined}
-        bulkActions={tab === "materials" ? materialSpreadsheet.actions : []}
+        bulkActions={[]}
         viewMode={viewMode}
         onChangeViewMode={setViewMode}
+        extraActions={
+          tab === "materials" ? (
+            <ExcelActionButtons
+              module="raw-material"
+              label="Bahan Baku"
+              selection={{ enabled: materialSelected.size > 0, selectedCount: materialSelected.size, selectedRows: materialRows.filter((row) => materialSelected.has(row.id)), toggleEnabled: () => (materialSelected.size ? setMaterialSelected(new Set()) : setMaterialSelected(new Set(materialRows.map((row) => row.id)))) }}
+              rows={materialRows}
+              onRefresh={() => { materials.refetch(); materialMovements.refetch(); costImpacts.refetch(); }}
+              onCompleted={() => {}}
+              getRowId={(row) => row.id}
+              allowImport={true}
+              allowExport={true}
+              allowDelete={true}
+            />
+          ) : null
+        }
       >
         <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">{tabs.map(([id, label]) => <button key={id} type="button" onClick={() => setTab(id)} className={`h-9 px-4 text-sm font-bold ${tab === id ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}>{label}</button>)}</div>
         {tab === "materials" ? (
@@ -306,8 +324,6 @@ export default function BahanBakuPage() {
         ) : null}
       </ModuleFrame> : null}
 
-      <SpreadsheetOperationPanel workspace={materialSpreadsheet} />
-
       <FormModal presentation="page" open={Boolean(materialForm)} title={materialForm?.id ? "Edit Bahan Baku" : "Data Baru Bahan Baku"} onClose={() => { setMaterialForm(null); setMaterialInitial(null); }} onSubmit={submitMaterial} busy={saveMaterial.isPending} dirty={materialDirty} submitLabel="Simpan" onDelete={materialForm?.id ? () => { setMaterialDelete(materialForm); setMaterialForm(null); setMaterialInitial(null); } : undefined} extraActions={materialForm?.id ? [{ icon: "add_box", label: "Stock / Restock", tone: "teal", onClick: () => { const row = materialForm; setMaterialForm(null); setMaterialInitial(null); editor.close(); openStock(row); } }] : []}>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Kode" hint="Kosongkan agar dibuat otomatis oleh sistem (mis. RM-GULA), atau isi kode manual."><Input value={materialForm?.code || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, code: event.target.value }))} placeholder="Otomatis bila dikosongkan" /></Field>
@@ -315,6 +331,9 @@ export default function BahanBakuPage() {
           <Field label="Satuan" required hint="Pilih satuan yang sudah ada, atau ketik satuan baru untuk menambah langsung ke daftar."><SearchableSelect value={materialForm?.unit || ""} onChange={(nextValue) => setMaterialForm((current) => ({ ...current, unit: nextValue }))} options={unitOptions} clearable={false} onCreate={createUnit} createLabel={(name) => `Satuan “${name}” belum ada, tambahkan sekarang`} placeholder="Pilih / ketik satuan" searchPlaceholder="Cari atau ketik satuan baru" /></Field>
           <Field label="Minimum Stok"><Input type="number" min="0" value={materialForm?.minimum_stock || 0} onChange={(event) => setMaterialForm((current) => ({ ...current, minimum_stock: event.target.value }))} /></Field>
           <Field label="Biaya Rata-rata" hint={materialForm?.id ? "Biaya rata-rata berubah melalui Stock / Restock Bahan Baku." : "Biaya awal bahan sebelum transaksi restock pertama."}><Input type="number" min="0" value={materialForm?.average_cost || 0} disabled={Boolean(materialForm?.id)} onChange={(event) => setMaterialForm((current) => ({ ...current, average_cost: event.target.value }))} className={materialForm?.id ? "cursor-not-allowed bg-slate-100 text-slate-500" : ""} /></Field>
+          <Field label="Gambar" hint="Unggah gambar bahan baku (maks. 5 MB)." md:col-span-2>
+            <ImageFilePicker value={materialForm?.image || ""} onChange={(url) => setMaterialForm((current) => ({ ...current, image: url }))} scope="materials" />
+          </Field>
         </div>
       </FormModal>
 

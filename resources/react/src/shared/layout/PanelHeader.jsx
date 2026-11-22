@@ -77,7 +77,7 @@ function PanelHeaderComponent({
   return (
     <>
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur">
-        <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between gap-4 px-3 sm:px-4 lg:px-6">
           <div className="min-w-0">
             <p className={cn("text-xs font-bold uppercase tracking-[0.22em]", accentTextClassName)}>{eyebrow}</p>
             <h1 className="truncate text-base font-extrabold text-slate-950">{title}</h1>

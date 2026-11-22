@@ -10,17 +10,17 @@ import { FormModal } from "@/features/advanced/components/FormModal";
 import { Input } from "@/shared/components/ui/Input";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { InfiniteScrollSentinel } from "@/shared/components/ui/InfiniteScrollSentinel";
-import { useColumnVisibility, useTableSelection, useViewMode } from "@/shared/hooks";
+import { useColumnVisibility, useTableSelection } from "@/shared/hooks";
 import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
 import { buildRawColumns, mergeColumns } from "@/shared/utils/tableData";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
-import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
-import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
 import OrderPrintSheet from "@/features/seller/order/components/OrderPrintSheet";
-import OrdersChartPanel from "@/features/admin/order/components/OrdersChartPanel";
-import OrderDetailForm from "@/features/seller/order/pages/OrderDetailPage";
+import { OrdersChartPanel } from "@/shared/charts/ChartPanels";
+import { OrderDetailForm } from "@/features/seller/order/pages/OrderDetailPage";
 import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
+import { ExcelActionButtons } from "@/shared/excel";
+import { showSuccess, showError, confirmAction, showLoading, closeLoading } from "@/shared/utils/sweetAlert";
 
 export default function AdminOrdersPage() {
   const viewMode = "list";
@@ -50,43 +50,38 @@ export default function AdminOrdersPage() {
   const selection = useTableSelection(rows);
   const columnVisibility = useColumnVisibility(columns, "admin-orders");
   const orderCard = useMemo(() => orderCardDefinition({ onPrint: setPrintRow }), []);
-  const spreadsheetRowId = useCallback((row) => row?.orderId || row?.order_id || row?.id, []);
-  const spreadsheet = useSpreadsheetWorkspace({
-    module: "order",
-    label: "Pesanan",
-    selectedRows: selection.selectedRows,
-    allowBulkDelete: false,
-    getRowId: spreadsheetRowId,
-    onCompleted: () => {
-      selection.clear();
-      ordersQuery.refetch();
-    },
-  });
+  
+  const bulkActions = [];
 
   const bulkStatus = async (nextStatus, targetRows = selection.selectedRows, reason = "") => {
     if (!targetRows.length) return;
-    const task = notifications.startTask({ title: "Ubah Status Pesanan", message: `Memproses ${targetRows.length} pesanan ke status ${nextStatus}...` });
+    const confirmed = await confirmAction({
+      title: "Ubah Status Pesanan",
+      text: `${targetRows.length} pesanan akan diubah menjadi status "${nextStatus}". Lanjutkan?`,
+      icon: "question",
+      confirmButtonText: "Ya, Ubah Status",
+      confirmButtonColor: "#059669",
+    });
+    if (!confirmed.isConfirmed) return;
+    const loading = showLoading("Memproses...", `Mengubah status ${targetRows.length} pesanan ke ${nextStatus}`);
     try {
       for (const row of targetRows) {
         await updateMutation.mutateAsync({ id: row.id, status: nextStatus, trackingNumber: row.trackingNumber, reason });
       }
       selection.clear();
-      toastSuccess("Ubah Status Pesanan", `Status pesanan terpilih diubah menjadi ${nextStatus}.`);
-      task.success(`${targetRows.length} pesanan diubah menjadi ${nextStatus}.`);
+      closeLoading();
+      showSuccess("Berhasil", `${targetRows.length} pesanan diubah menjadi ${nextStatus}.`);
       ordersQuery.refetch();
     } catch (error) {
-      toastError("Ubah Status Pesanan", getOrderManagementError(error));
-      task.fail(getOrderManagementError(error));
+      closeLoading();
+      showError("Gagal", getOrderManagementError(error));
     }
   };
-
-  // Status tidak lagi punya menu sendiri: semua lewat satu Aksi Khusus.
-  const bulkActions = [...spreadsheet.actions];
 
   const submitStatusDialog = async (event) => {
     event?.preventDefault?.();
     if (!statusDraft) {
-      toastError("Ubah Status Pesanan", "Pilih status baru terlebih dahulu.");
+      showError("Validasi", "Pilih status baru terlebih dahulu.");
       return;
     }
     await bulkStatus(statusDraft, selection.selectedRows, statusReason.trim());
@@ -99,90 +94,106 @@ export default function AdminOrdersPage() {
     <>
       {editor.open && editor.entity ? (
         <OrderDetailForm row={editor.entity} />
-      ) : !spreadsheet.activeOperation ? (
+      ) : (
         <ListPageFrame
-          toolbar={(
-          <EntityToolbar
-            query={query}
-            onQueryChange={setQuery}
-            hideCreate
-            extraActions={(
-              <SpecialActionButton
-                icon="swap_horiz"
-                label="Ubah Status Pesanan"
-                title={selection.selectedCount ? `Ubah status ${selection.selectedCount} pesanan terpilih` : "Aktifkan pilih baris, centang pesanan, lalu ubah statusnya"}
-                onClick={() => {
-                  setStatusDraft("");
-                  setStatusReason("");
-                  if (!selection.selectedCount && !selection.enabled) {
-                    selection.toggleEnabled();
-                    toastError("Ubah Status Pesanan", "Mode pilih baris diaktifkan. Centang pesanan yang ingin diubah statusnya.");
-                    return;
-                  }
-                  setStatusDialogOpen(true);
-                }}
-              />
-            )}
-            onRefresh={() => ordersQuery.refetch()}
-            refreshing={ordersQuery.isFetching}
-            placeholder="Cari nomor order lalu tekan Enter"
-            totalCount={total.totalCount}
-            totalLabel={total.totalLabel}
-            totalTitle={total.totalTitle}
-            selectionEnabled={selection.enabled}
-            selectedCount={selection.selectedCount}
-            onToggleSelection={selection.toggleEnabled}
-            bulkActions={bulkActions}
-            columns={columns}
-            visibleColumns={columnVisibility.visibleKeys}
-            onToggleColumn={columnVisibility.toggleColumn}
-            onShowAllColumns={columnVisibility.showAll}
-            onResetColumns={columnVisibility.reset}
-            onApplyDefaultColumns={columnVisibility.applyAsDefault}
-            filters={(
-              <>
-                <SearchableSelect
-                  value={type}
-                  onChange={setType}
-                  options={[
-                    { value: "reguler", label: "Reguler" },
-                    { value: "terjadwal", label: "Pesanan Terjadwal" },
-                    { value: "manual", label: "Manual" },
-                  ]}
-                  placeholder="Semua tipe"
-                  className="w-40"
-                  buttonClassName="h-9"
-                />
-                <SearchableSelect
-                  value={status}
-                  onChange={setStatus}
-                  options={ADMIN_ORDER_STATUS_OPTIONS}
-                  placeholder="Semua status"
-                  className="w-44"
-                  buttonClassName="h-9"
-                />
-              </>
-            )}
-          />
+toolbar={(
+            <EntityToolbar
+              query={query}
+              onQueryChange={setQuery}
+              hideCreate
+              extraActions={
+                <>
+                  <ExcelActionButtons
+                    module="sales"
+                    label="Pesanan"
+                    selection={selection}
+                    rows={rows}
+                    onRefresh={() => ordersQuery.refetch()}
+                    onCompleted={() => {}}
+                    getRowId={(row) => row.id}
+                    allowImport={true}
+                    allowExport={true}
+                    allowDelete={false}
+                  />
+                  <SpecialActionButton
+                    icon="swap_horiz"
+                    label="Ubah Status Pesanan"
+                    title={selection.selectedCount ? `Ubah status ${selection.selectedCount} pesanan terpilih` : "Aktifkan pilih baris, centang pesanan, lalu ubah statusnya"}
+                    onClick={() => {
+                      setStatusDraft("");
+                      setStatusReason("");
+                      if (!selection.selectedCount && !selection.enabled) {
+                        selection.toggleEnabled();
+                        toastError("Ubah Status Pesanan", "Mode pilih baris diaktifkan. Centang pesanan yang ingin diubah statusnya.");
+                        return;
+                      }
+                      setStatusDialogOpen(true);
+                    }}
+                  />
+                </>
+              }
+              onRefresh={() => ordersQuery.refetch()}
+              refreshing={ordersQuery.isFetching}
+              placeholder="Cari nomor order lalu tekan Enter"
+              totalCount={total.totalCount}
+              totalLabel={total.totalLabel}
+              totalTitle={total.totalTitle}
+              selectionEnabled={selection.enabled}
+              selectedCount={selection.selectedCount}
+              onToggleSelection={selection.toggleEnabled}
+              bulkActions={bulkActions}
+              columns={columnVisibility.allColumns}
+              visibleColumns={columnVisibility.visibleKeys}
+              onToggleColumn={columnVisibility.toggleColumn}
+              onMoveColumn={columnVisibility.moveColumn}
+              onShowAllColumns={columnVisibility.showAll}
+              onResetColumns={columnVisibility.reset}
+              onApplyDefaultColumns={columnVisibility.applyAsDefault}
+              filters={(
+                <>
+                  <SearchableSelect
+                    value={type}
+                    onChange={setType}
+                    options={[
+                      { value: "reguler", label: "Reguler" },
+                      { value: "terjadwal", label: "Pesanan Terjadwal" },
+                      { value: "manual", label: "Manual" },
+                    ]}
+                    placeholder="Semua tipe"
+                    className="w-40"
+                    buttonClassName="h-9"
+                  />
+                  <SearchableSelect
+                    value={status}
+                    onChange={setStatus}
+                    options={ADMIN_ORDER_STATUS_OPTIONS}
+                    placeholder="Semua status"
+                    className="w-44"
+                    buttonClassName="h-9"
+                  />
+                </>
+              )}
+            />
           )}
         >
           <AsyncState loading={ordersQuery.isLoading} error={ordersQuery.error ? getOrderManagementError(ordersQuery.error) : ""} empty={!ordersQuery.isLoading && !rows.length} emptyText="Pesanan belum tersedia." />
           {rows.length && viewMode === "chart" ? (
             <>
               {/* Header + filter tetap tampil di mode grafik (body tabel disembunyikan). */}
-              <div className="[&_tbody]:hidden">
-                <OrderManagementTable
-                  rows={rows}
-                  columns={columns}
-                  portal="admin"
-                  pendingId={updateMutation.variables?.id}
-                  visibleSet={columnVisibility.visibleSet}
-                  onFilterStateChange={(state) => setFilteredOrders(state?.filteredRows || [])}
-                  onEdit={editor.edit}
-                  onPrint={setPrintRow}
-                />
-              </div>
-              <OrdersChartPanel rows={filteredOrders.length ? filteredOrders : rows} />
+              <OrderManagementTable
+                rows={rows}
+                columns={columns}
+                portal="admin"
+                headerOnly
+                pendingId={updateMutation.variables?.id}
+                visibleSet={columnVisibility.visibleSet}
+                columnOrder={columnVisibility.visibleKeys}
+                onOrderChange={columnVisibility.syncVisibleOrder}
+                onFilterStateChange={(state) => setFilteredOrders(state?.filteredRows || [])}
+                onEdit={editor.edit}
+                onPrint={setPrintRow}
+              />
+              <OrdersChartPanel data={{ orders: filteredOrders.length ? filteredOrders : rows }} />
             </>
           ) : null}
           {rows.length && viewMode === "grid" ? (
@@ -205,6 +216,8 @@ export default function AdminOrdersPage() {
               portal="admin"
               pendingId={updateMutation.variables?.id}
               visibleSet={columnVisibility.visibleSet}
+              columnOrder={columnVisibility.visibleKeys}
+              onOrderChange={columnVisibility.syncVisibleOrder}
               selectionEnabled={selection.enabled}
               selectedIds={selection.selectedIds}
               allSelected={selection.allSelected}
@@ -213,22 +226,30 @@ export default function AdminOrdersPage() {
               onEdit={editor.edit}
               onPrint={setPrintRow}
               onStatusChange={async (row, nextStatus) => {
-                const task = notifications.startTask({ title: "Ubah Status Pesanan", message: `Memproses pesanan ${row.orderNumber || `#${row.id}`} ke status ${nextStatus}...` });
+                const confirmed = await confirmAction({
+                  title: "Ubah Status Pesanan",
+                  text: `Pesanan ${row.orderNumber || `#${row.id}`} akan diubah menjadi status "${nextStatus}". Lanjutkan?`,
+                  icon: "question",
+                  confirmButtonText: "Ya, Ubah",
+                  confirmButtonColor: "#059669",
+                });
+                if (!confirmed.isConfirmed) return;
+                const loading = showLoading("Memproses...", `Mengubah status pesanan ke ${nextStatus}`);
                 try {
                   await updateMutation.mutateAsync({ id: row.id, status: nextStatus, trackingNumber: row.trackingNumber });
-                  task.success(`Pesanan ${row.orderNumber || `#${row.id}`} diubah menjadi ${nextStatus}.`);
-                  toastSuccess("Ubah Status Pesanan", "Status pesanan berhasil diperbarui.");
+                  closeLoading();
+                  showSuccess("Berhasil", `Pesanan ${row.orderNumber || `#${row.id}`} diubah menjadi ${nextStatus}.`);
                   ordersQuery.refetch();
                 } catch (error) {
-                  toastError("Ubah Status Pesanan", getOrderManagementError(error));
-                  task.fail(getOrderManagementError(error));
+                  closeLoading();
+                  showError("Gagal", getOrderManagementError(error));
                 }
               }}
             />
           ) : null}
           <InfiniteScrollSentinel hasNextPage={ordersQuery.hasNextPage} isFetchingNextPage={ordersQuery.isFetchingNextPage} onLoadMore={() => ordersQuery.fetchNextPage()} />
         </ListPageFrame>
-      ) : null}
+      )}
       <FormModal
         presentation="modal"
         open={statusDialogOpen}
@@ -261,7 +282,6 @@ export default function AdminOrdersPage() {
           className="mt-1"
         />
       </FormModal>
-      <SpreadsheetOperationPanel workspace={spreadsheet} />
       {printRow ? <OrderPrintSheet row={printRow} onClose={() => setPrintRow(null)} /> : null}
     </>
   );

@@ -17,9 +17,8 @@ import { useColumnVisibility, useTableSelection } from "@/shared/hooks";
 import { buildRawColumns, mergeColumns } from "@/shared/utils/tableData";
 import { useRefreshOnListActivation } from "@/shared/hooks/useRefreshOnListActivation";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
-import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
-import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
 import { getSellerProductError, useDeleteSellerProduct, useSellerProducts, useUpdateSellerProduct } from "@/features/seller/product/services/sellerProductService";
+import { ExcelActionButtons } from "@/shared/excel";
 
 const PER_PAGE = 20;
 const EMPTY_COLUMN_FILTERS = { product: "", mode: "", price: { min: "", max: "" }, stock: { min: "", max: "", status: "" }, active: "" };
@@ -69,10 +68,6 @@ export default function SellerProductsPage() {
   const columns = useMemo(() => mergeColumns(PRODUCT_TABLE_COLUMNS.filter((column) => column.key !== "store" && column.key !== "status"), buildRawColumns(rows, ["id", "name", "thumbnail", "variants", "images", "price", "stock", "status", "is_active"])), [rows]);
   const columnVisibility = useColumnVisibility(columns, "seller-products");
   const selection = useTableSelection(rows);
-  const spreadsheet = useSpreadsheetWorkspace({ module: "product", label: "Product", selectedRows: selection.selectedRows, onCompleted: () => { selection.clear(); productsQuery.refetch(); } });
-  const hppSpreadsheet = useSpreadsheetWorkspace({ module: "product-costing", label: "HPP & Harga Jual", allowBulkDelete: false, onCompleted: () => productsQuery.refetch() });
-  const spreadsheetActions = [...spreadsheet.actions, ...hppSpreadsheet.actions];
-  const activeSpreadsheet = spreadsheet.activeOperation?.payload?.module === "product-costing" ? hppSpreadsheet : spreadsheet;
 
   // Toggle aktif langsung berubah (optimistic); kegagalan masuk notifikasi.
   const activeToggle = useActiveToggle({
@@ -112,6 +107,32 @@ export default function SellerProductsPage() {
     if (!editor.open) setInitialSection("general");
   }, [editor.open]);
 
+  // Prop header kolom dipakai bersama oleh mode list dan mode grid, supaya
+  // header + filter tetap tampil saat tampilan diganti ke kartu (grid).
+  const tableProps = {
+    onEdit: editor.edit,
+    onToggleActive: toggleActive,
+    isActiveOf: activeToggle.isActive,
+    pendingId: quickUpdateMutation.variables?.id,
+    portal: "seller",
+    columns,
+    visibleSet: columnVisibility.visibleSet,
+    columnOrder: columnVisibility.visibleKeys,
+    onOrderChange: columnVisibility.syncVisibleOrder,
+    selectionEnabled: selection.enabled,
+    selectedIds: selection.selectedIds,
+    allSelected: selection.allSelected,
+    onToggleRow: selection.toggleRow,
+    onToggleAll: selection.toggleAll,
+    sortBy: sort.by,
+    sortDirection: sort.direction,
+    onSortChange: (by, direction) => setSort({ by, direction }),
+    columnFilters,
+    onColumnFilterChange: (key, value) => setColumnFilters((current) => ({ ...current, [key]: value })),
+    onClearAllFilters: () => setColumnFilters(EMPTY_COLUMN_FILTERS),
+    onResetSort: () => setSort({ by: "created_at", direction: "desc" }),
+  };
+
   return (
     <SellerPanelShell>
       {editor.isListActive ? (
@@ -130,8 +151,8 @@ export default function SellerProductsPage() {
             selectionEnabled={selection.enabled}
             selectedCount={selection.selectedCount}
             onToggleSelection={selection.toggleEnabled}
-            bulkActions={spreadsheetActions}
-            columns={columns}
+            bulkActions={[]}
+            columns={columnVisibility.allColumns}
             visibleColumns={columnVisibility.visibleKeys}
             onToggleColumn={columnVisibility.toggleColumn}
             onShowAllColumns={columnVisibility.showAll}
@@ -140,6 +161,20 @@ export default function SellerProductsPage() {
             onMoveColumn={columnVisibility.moveColumn}
             viewMode={viewMode}
             onChangeViewMode={setViewMode}
+            extraActions={
+              <ExcelActionButtons
+                module="product"
+                label="Produk"
+                selection={selection}
+                rows={rows}
+                onRefresh={() => productsQuery.refetch()}
+                onCompleted={() => {}}
+                getRowId={(row) => row.id}
+                allowImport={true}
+                allowExport={true}
+                allowDelete={true}
+              />
+            }
           />
           )}
         >
@@ -147,48 +182,28 @@ export default function SellerProductsPage() {
           {!isInitialLoading ? (
             <>
               {viewMode === "grid" ? (
-                <SellerProductGrid
-                  rows={rows}
-                  onEdit={editor.edit}
-                  onToggleActive={toggleActive}
-                  isActiveOf={activeToggle.isActive}
-                  pendingId={quickUpdateMutation.variables?.id}
-                  selectionEnabled={selection.enabled}
-                  selectedIds={selection.selectedIds}
-                  onToggleRow={selection.toggleRow}
-                />
+                <>
+                  {/* Header + filter kolom tetap dirender di mode kartu (grid). */}
+                  <SellerProductTable rows={[]} headerOnly isLoading={false} {...tableProps} />
+                  <SellerProductGrid
+                    rows={rows}
+                    onEdit={editor.edit}
+                    onToggleActive={toggleActive}
+                    isActiveOf={activeToggle.isActive}
+                    pendingId={quickUpdateMutation.variables?.id}
+                    selectionEnabled={selection.enabled}
+                    selectedIds={selection.selectedIds}
+                    onToggleRow={selection.toggleRow}
+                  />
+                </>
               ) : (
-              <SellerProductTable
-                rows={rows}
-                isLoading={Boolean(productsQuery.isPlaceholderData)}
-                onEdit={editor.edit}
-                onToggleActive={toggleActive}
-                  isActiveOf={activeToggle.isActive}
-                pendingId={quickUpdateMutation.variables?.id}
-                portal="seller"
-                columns={columns}
-                visibleSet={columnVisibility.visibleSet}
-                selectionEnabled={selection.enabled}
-                selectedIds={selection.selectedIds}
-                allSelected={selection.allSelected}
-                onToggleRow={selection.toggleRow}
-                onToggleAll={selection.toggleAll}
-                sortBy={sort.by}
-                sortDirection={sort.direction}
-                onSortChange={(by, direction) => setSort({ by, direction })}
-                columnFilters={columnFilters}
-                onColumnFilterChange={(key, value) => setColumnFilters((current) => ({ ...current, [key]: value }))}
-                onClearAllFilters={() => setColumnFilters(EMPTY_COLUMN_FILTERS)}
-                onResetSort={() => setSort({ by: "created_at", direction: "desc" })}
-              />
+                <SellerProductTable rows={rows} isLoading={Boolean(productsQuery.isPlaceholderData)} {...tableProps} />
               )}
               <InfiniteScrollSentinel hasNextPage={productsQuery.hasNextPage} isFetchingNextPage={productsQuery.isFetchingNextPage} onLoadMore={() => productsQuery.fetchNextPage()} />
             </>
           ) : null}
         </ListPageFrame>
       ) : null}
-
-      <SpreadsheetOperationPanel workspace={activeSpreadsheet} />
 
       <SellerProductEditor
         open={editor.open}

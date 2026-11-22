@@ -13,13 +13,12 @@ import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
 import { buildRawColumns, mergeColumns } from "@/shared/utils/tableData";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
-import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
-import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
 import OrderPrintSheet from "@/features/seller/order/components/OrderPrintSheet";
 import OrderCompletionIncomeModal from "@/features/seller/order/components/OrderCompletionIncomeModal";
 import { ManualOrderForm } from "@/features/seller/order/components/ManualOrderForm";
 import { OrderDetailForm } from "@/features/seller/order/pages/OrderDetailPage";
 import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
+import { ExcelActionButtons } from "@/shared/excel";
 
 export default function SellerOrdersPage() {
   const [viewMode, setViewMode] = useViewMode("seller-orders");
@@ -40,18 +39,6 @@ export default function SellerOrdersPage() {
   const selection = useTableSelection(rows);
   const columnVisibility = useColumnVisibility(columns, "seller-orders");
   const orderCard = useMemo(() => orderCardDefinition({ onPrint: setPrintRow }), []);
-  const spreadsheetRowId = useCallback((row) => row?.orderId || row?.order_id || row?.id, []);
-  const spreadsheet = useSpreadsheetWorkspace({
-    module: "order",
-    label: "Pesanan",
-    selectedRows: selection.selectedRows,
-    allowBulkDelete: false,
-    getRowId: spreadsheetRowId,
-    onCompleted: () => {
-      selection.clear();
-      ordersQuery.refetch();
-    },
-  });
 
   const completeOrders = (rowsToComplete) => {
     const pending = rowsToComplete.filter((row) => row.status !== "completed");
@@ -85,7 +72,6 @@ export default function SellerOrdersPage() {
     { key: "shipped", label: "Set Shipped", icon: "local_shipping", requiresSelection: true, onClick: () => bulkStatus("shipped") },
     { key: "received", label: "Set Received", icon: "inventory_2", requiresSelection: true, onClick: () => bulkStatus("received") },
     { key: "completed", label: "Set Completed", icon: "task_alt", requiresSelection: true, onClick: () => bulkStatus("completed") },
-    ...spreadsheet.actions,
   ];
 
   return (
@@ -110,7 +96,7 @@ export default function SellerOrdersPage() {
             }}
           />
         )
-      ) : !spreadsheet.activeOperation ? (
+      ) : (
         <ListPageFrame
           toolbar={(
           <EntityToolbar
@@ -128,9 +114,10 @@ export default function SellerOrdersPage() {
             selectedCount={selection.selectedCount}
             onToggleSelection={selection.toggleEnabled}
             bulkActions={bulkActions}
-            columns={columns}
+            columns={columnVisibility.allColumns}
             visibleColumns={columnVisibility.visibleKeys}
             onToggleColumn={columnVisibility.toggleColumn}
+            onMoveColumn={columnVisibility.moveColumn}
             onShowAllColumns={columnVisibility.showAll}
             onResetColumns={columnVisibility.reset}
             onApplyDefaultColumns={columnVisibility.applyAsDefault}
@@ -167,11 +154,36 @@ export default function SellerOrdersPage() {
                 />
               </>
             )}
+            extraActions={
+              <ExcelActionButtons
+                module="sales"
+                label="Pesanan"
+                selection={selection}
+                rows={rows}
+                onRefresh={() => ordersQuery.refetch()}
+                onCompleted={() => {}}
+                getRowId={(row) => row.id}
+                allowImport={true}
+                allowExport={true}
+                allowDelete={false}
+              />
+            }
           />
           )}
         >
           <AsyncState loading={ordersQuery.isLoading} error={ordersQuery.error ? getOrderManagementError(ordersQuery.error) : ""} empty={!ordersQuery.isLoading && !rows.length} emptyText="Pesanan toko belum tersedia." />
           {rows.length && viewMode === "grid" ? (
+            <>
+            {/* Header tabel tetap tampil di mode kartu sebagai filter & sort. */}
+            <OrderManagementTable
+              rows={[]}
+              columns={columns}
+              portal="seller"
+              headerOnly
+              visibleSet={columnVisibility.visibleSet}
+              columnOrder={columnVisibility.visibleKeys}
+              onOrderChange={columnVisibility.syncVisibleOrder}
+            />
             <RecordCardGrid
               rows={rows}
               columns={columns}
@@ -182,6 +194,7 @@ export default function SellerOrdersPage() {
               onToggleRow={selection.toggleRow}
               rowKey={(row) => row.id}
             />
+            </>
           ) : null}
           {rows.length && viewMode !== "grid" ? (
             <OrderManagementTable
@@ -193,6 +206,8 @@ export default function SellerOrdersPage() {
               onPrint={setPrintRow}
               onEdit={editor.edit}
               visibleSet={columnVisibility.visibleSet}
+              columnOrder={columnVisibility.visibleKeys}
+              onOrderChange={columnVisibility.syncVisibleOrder}
               selectionEnabled={selection.enabled}
               selectedIds={selection.selectedIds}
               allSelected={selection.allSelected}
@@ -219,8 +234,7 @@ export default function SellerOrdersPage() {
           ) : null}
           <InfiniteScrollSentinel hasNextPage={ordersQuery.hasNextPage} isFetchingNextPage={ordersQuery.isFetchingNextPage} onLoadMore={() => ordersQuery.fetchNextPage()} />
         </ListPageFrame>
-      ) : null}
-      <SpreadsheetOperationPanel workspace={spreadsheet} />
+      )}
       {printRow ? <OrderPrintSheet row={printRow} onClose={() => setPrintRow(null)} /> : null}
       <OrderCompletionIncomeModal
         open={completionRows.length > 0}
