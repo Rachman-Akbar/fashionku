@@ -18,7 +18,7 @@ final class SwitchRoleUseCase
 
     public function execute(User $user, string $targetRole, ?string $deviceName): array
     {
-        if (! (bool) $user->is_active || $user->isBanned()) {
+        if (! (bool) $user->is_active) {
             throw new AccessDeniedHttpException('Akun tidak memiliki akses aktif.');
         }
 

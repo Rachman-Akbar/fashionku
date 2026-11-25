@@ -45,7 +45,10 @@ final class ProductMapper
             reviewCount: (int) ($model->reviews_count ?? 0),
             soldCount: (int) ($model->sold_count ?? 0),
             createdAt: $model->created_at?->toDateTimeString(),
-            updatedAt: $model->updated_at?->toDateTimeString()
+            updatedAt: $model->updated_at?->toDateTimeString(),
+            code: $model->code !== null ? (string) $model->code : null,
+            createdBy: $model->created_by !== null ? (string) $model->created_by : null,
+            updatedBy: $model->updated_by !== null ? (string) $model->updated_by : null
         );
     }
 

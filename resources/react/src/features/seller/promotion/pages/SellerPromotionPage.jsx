@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { SellerPanelShell } from "@/features/seller/dashboard/components/SellerPanelShell";
 import { useTableSearch } from "@/core/hooks/useTableSearch";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
@@ -16,26 +17,38 @@ import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { useRefreshOnListActivation } from "@/shared/hooks/useRefreshOnListActivation";
 import { PromotionFormDialog } from "@/features/catalog/promotion/components/PromotionFormDialog";
 import { PROMOTION_TABLE_COLUMNS, PromotionManagementTable } from "@/features/catalog/promotion/components/PromotionManagementTable";
-import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
-import { buildRawColumns, mergeColumns } from "@/shared/utils/tableData";
+import { buildDatabaseColumns, mergeColumns } from "@/shared/utils/tableData";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
 import { getPromotionError, useDeleteSellerPromotion, useSellerPromotions, useUpdateSellerPromotion } from "@/features/catalog/promotion/services/promotionManagementService";
 import { ExcelActionButtons } from "@/shared/excel";
 
 export default function SellerPromotionPage() {
+  // /admin/promotions = tampilan admin, /seller/promotions = tampilan operator toko.
+  // Promosi tidak memakai approval: simpan = langsung tayang.
+  const location = useLocation();
+  const portal = location.pathname.startsWith("/admin") ? "admin" : "seller";
   const [viewMode, setViewMode] = useViewMode("promotions");
-  const [approvalStatus, setApprovalStatus] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const editor = useEntityEditor();
   const notifications = useNotificationCenter();
-  const promotionsQuery = useSellerPromotions(approvalStatus ? { approval_status: approvalStatus } : {});
+  const promotionsQuery = useSellerPromotions();
   const deleteMutation = useDeleteSellerPromotion();
   const quickUpdateMutation = useUpdateSellerPromotion();
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: promotionsQuery.refetch });
   const rows = promotionsQuery.data || [];
   const total = useListTotalCount(undefined, { fallbackTotal: rows.length, label: "Promosi" });
-  const { query, setQuery, filteredRows } = useTableSearch(rows, ["name", "approvalStatus", "targetUrl"]);
-  const columns = useMemo(() => mergeColumns(PROMOTION_TABLE_COLUMNS.filter((column) => column.key !== "store"), buildRawColumns(rows, ["id", "name", "image_url", "mobile_image_url", "click_action", "target_id", "target_url", "sort_order", "is_active", "approval_status", "rejection_reason", "submitted_at", "approved_at", "approved_by"])), [rows]);
+  const { query, setQuery, filteredRows } = useTableSearch(rows, ["name", "targetUrl"]);
+  // Kolom kurasi + semua kolom database lain (kecuali kolom ID).
+  const columns = useMemo(() => mergeColumns(PROMOTION_TABLE_COLUMNS.filter((column) => column.key !== "store"), buildDatabaseColumns(rows, {
+    omit: ["id", "name", "image_url", "mobile_image_url", "click_action", "target_id", "target_url", "sort_order", "is_active", "store_name", "resolved_url"],
+    labels: {
+      created_by_user: "Dibuat Oleh",
+      updated_by_user: "Diubah Oleh",
+      created_at: "Dibuat",
+      updated_at: "Diubah",
+      deleted_at: "Dihapus",
+    },
+  })), [rows]);
   const selection = useTableSelection(filteredRows);
   const columnVisibility = useColumnVisibility(columns, "seller-promotions");
 
@@ -56,7 +69,7 @@ export default function SellerPromotionPage() {
     title: (row) => toTitleCase(row.name),
     subtitle: (row) => row.badge || row.targetUrl || "-",
     image: (row) => row.imageUrl || null,
-    badges: [(row) => <StatusBadge status={row.approvalStatus} />],
+    badges: [(row) => <StatusBadge status={row.isActive ? "active" : "inactive"} />],
     fields: [
       { label: "Toko", render: (row) => toTitleCase(row.storeName) || "Platform" },
       {
@@ -64,10 +77,6 @@ export default function SellerPromotionPage() {
         render: (row) => `${row.clickAction || "-"}${row.targetId ? ` #${row.targetId}` : ""}`,
       },
       { label: "Urutan", render: (row) => row.sortOrder ?? "-" },
-      {
-        label: "Diajukan",
-        render: (row) => (row.submittedAt ? new Date(row.submittedAt).toLocaleString("id-ID") : "-"),
-      },
     ],
     footer: (row) => (
       <>
@@ -122,7 +131,6 @@ export default function SellerPromotionPage() {
             onApplyDefaultColumns={columnVisibility.applyAsDefault}
             viewMode={viewMode}
             onChangeViewMode={setViewMode}
-            filters={<SearchableSelect value={approvalStatus} onChange={setApprovalStatus} options={[{ value: "pending", label: "Pending" }, { value: "approved", label: "Approved" }, { value: "rejected", label: "Rejected" }]} placeholder="Semua approval" className="w-44" buttonClassName="h-9" />}
             extraActions={
               <ExcelActionButtons
                 module="promotion"
@@ -147,7 +155,7 @@ export default function SellerPromotionPage() {
             <PromotionManagementTable
               rows={[]}
               columns={columns}
-              portal="seller"
+              portal={portal}
               headerOnly
               visibleSet={columnVisibility.visibleSet}
               columnOrder={columnVisibility.visibleKeys}
@@ -169,7 +177,7 @@ export default function SellerPromotionPage() {
             <PromotionManagementTable
               rows={filteredRows}
               columns={columns}
-              portal="seller"
+              portal={portal}
               onEdit={editor.edit}
               visibleSet={columnVisibility.visibleSet}
               columnOrder={columnVisibility.visibleKeys}

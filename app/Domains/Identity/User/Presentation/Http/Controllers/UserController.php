@@ -104,8 +104,7 @@ final class UserController extends Controller
                 $validated['firebase_uid'],
                 $validated['is_email_verified'],
                 $validated['role_ids'],
-                $validated['is_active'],
-                $validated['banned_at']
+                $validated['is_active']
             );
 
             // Sensitive self-edits (biodata, email, avatar, password) must be
@@ -127,21 +126,14 @@ final class UserController extends Controller
             $previousUser = $this->getUserUseCase->execute($id);
             $user = $this->updateUserUseCase->execute($id, UpdateUserDTO::fromArray($validated));
 
-            $banStateChanged = $previousUser->is_active !== $user->is_active
-                || (string) $previousUser->banned_at !== (string) $user->banned_at;
-
-            if ($activeRole === 'admin' && $banStateChanged) {
-                $wasBanned = (bool) $previousUser->banned_at || ! $previousUser->is_active;
-                $isBanned = (bool) $user->banned_at || ! $user->is_active;
-
-                if ($wasBanned !== $isBanned) {
-                    $this->moderationChat->notifyUserStatus(
-                        $id,
-                        $isBanned ? 'banned' : 'unbanned',
-                        (string) $request->user()->id,
-                        is_string($validated['message'] ?? null) ? $validated['message'] : null
-                    );
-                }
+            // Status akun hanya aktif/nonaktif (tanpa sistem banned).
+            if ($activeRole === 'admin' && $previousUser->is_active !== $user->is_active) {
+                $this->moderationChat->notifyUserStatus(
+                    $id,
+                    $user->is_active ? 'activated' : 'deactivated',
+                    (string) $request->user()->id,
+                    is_string($validated['message'] ?? null) ? $validated['message'] : null
+                );
             }
 
             return (new UserResource($user))->response()->setStatusCode(Response::HTTP_OK);

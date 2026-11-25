@@ -6,7 +6,8 @@ import { CrudDialog } from "@/shared/components/crud/CrudDialog";
 import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 import { FormPageLayout } from "@/shared/components/crud/FormPageLayout";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
-import { useColumnVisibility, useTableSelection, useViewMode } from "@/shared/hooks";
+import { useDatabaseTableColumns, useTableSelection, useViewMode } from "@/shared/hooks";
+import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { useActiveToggle } from "@/shared/hooks/useActiveToggle";
@@ -237,16 +238,12 @@ export default function AdminUsersPage() {
   const [viewMode, setViewMode] = useViewMode("admin-users");
   const [query, setQuery] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [violationTarget, setViolationTarget] = useState(null);
-  const [violationMessage, setViolationMessage] = useState("");
-  const violationRef = useRef("");
   const activeToggle = useActiveToggle({
     mutate: (user, nextActive) => updateMutation.mutateAsync({
       id: user.id,
       values: {
         ...user.raw,
         is_active: nextActive,
-        ...(nextActive ? {} : { violation_message: violationRef.current }),
       },
     }),
     errorMessage: () => "Status pengguna gagal diubah. Periksa kembali data lalu coba lagi.",
@@ -265,8 +262,9 @@ export default function AdminUsersPage() {
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: usersQuery.refetch });
   const rows = usersQuery.data || [];
   const total = useListTotalCount(usersQuery.meta || {}, { label: "Pengguna" });
-  const columnVisibility = useColumnVisibility(
-    [
+  // Kolom kurasi + semua kolom database lain (kecuali kolom ID).
+  const curatedColumns = useMemo(
+    () => [
       { key: "name", label: "Nama", filterable: true },
       { key: "email", label: "Email", filterable: true },
       { key: "role", label: "Role", filterable: true },
@@ -274,17 +272,23 @@ export default function AdminUsersPage() {
       { key: "createdAt", label: "Daftar", filterable: false },
       { key: "avatar", label: "Avatar", filterable: false },
     ],
-    "admin-users",
+    [],
   );
+  const { columnVisibility, visibleColumns } = useDatabaseTableColumns(curatedColumns, rows, {
+    storageKey: "admin-users",
+    omit: ["status"],
+    labels: {
+      is_active: "Aktif",
+      firebase_uid: "Firebase UID",
+      has_set_password: "Sudah Atur Password",
+      deleted_at: "Dihapus",
+      created_by_user: "Dibuat Oleh",
+      updated_by_user: "Diubah Oleh",
+      created_at: "Dibuat",
+      updated_at: "Diubah",
+    },
+  });
   const selection = useTableSelection(rows);
-
-  const visibleColumns = useMemo(
-    () =>
-      [{ key: "name", label: "Nama" }, { key: "email", label: "Email" }, { key: "role", label: "Role" }, { key: "status", label: "Status" }, { key: "createdAt", label: "Daftar" }, { key: "avatar", label: "Avatar" }].filter(
-        (column) => columnVisibility.visibleSet.has(column.key),
-      ),
-    [columnVisibility.visibleSet],
-  );
 
   const tableLayout = useTableColumnLayout({
     storageKey: "admin-users-table",
@@ -307,27 +311,9 @@ export default function AdminUsersPage() {
     }
   };
 
+  // Aktif / nonaktif cukup satu saklar (tanpa sistem banned).
   const handleActivate = (user, nextActive) => {
-    if (!nextActive) {
-      setViolationTarget(user);
-      setViolationMessage("");
-      violationRef.current = "";
-      return;
-    }
-    activeToggle.toggle(user, true);
-  };
-
-  const confirmDeactivate = () => {
-    const message = violationMessage.trim();
-    if (!message) {
-      toastError("Nonaktifkan Pengguna", "Pesan pelanggaran wajib diisi agar buyer tahu alasannya.");
-      return;
-    }
-    if (!violationTarget) return;
-    violationRef.current = message;
-    activeToggle.toggle(violationTarget, false);
-    setViolationTarget(null);
-    setViolationMessage("");
+    activeToggle.toggle(user, nextActive);
   };
 
   const saveDetailUser = async (form) => {
@@ -467,7 +453,7 @@ export default function AdminUsersPage() {
                       {rows.map((user) => (
                         <tr key={user.id} onClick={() => editor.edit(user)} className={cn("cursor-pointer border-b border-slate-100 hover:bg-slate-50 group", !activeToggle.isActive(user) && "bg-slate-50 text-slate-400 [&_td]:opacity-70")}>
                           {tableLayout.orderedColumns.map((column) => {
-                            const value = user[column.key];
+                            const value = resolveTableValue(user, column.key);
                             return (
                               <td key={column.key} className="px-4 py-3 text-slate-700">
                                 {column.key === "role" ? (
@@ -490,7 +476,7 @@ export default function AdminUsersPage() {
                                 ) : column.key === "avatar" ? (
                                   value ? <img src={resolveMediaUrl(value)} alt="" className="h-8 w-8 rounded-full object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span>
                                 ) : (
-                                  value || "-"
+                                  formatTableValue(value)
                                 )}
                               </td>
                             );
@@ -515,30 +501,6 @@ export default function AdminUsersPage() {
           ) : null}
         </ListPageFrame>
       )}
-      <ConfirmDialog
-        open={Boolean(violationTarget)}
-        title="Nonaktifkan Pengguna"
-        message={`Pengguna “${violationTarget?.name || ""}” akan dinonaktifkan. Pesan pelanggaran akan ditampilkan ke buyer saat membuka aplikasi.`}
-        confirmLabel="Nonaktifkan"
-        confirmTone="neutral"
-        snoozeable={false}
-        pending={false}
-        onClose={() => { setViolationTarget(null); setViolationMessage(""); }}
-        onConfirm={confirmDeactivate}
-      >
-        <label className="block text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500" htmlFor="violation-message">
-          Pesan Pelanggaran
-        </label>
-        <textarea
-          id="violation-message"
-          value={violationMessage}
-          onChange={(event) => setViolationMessage(event.target.value)}
-          rows={4}
-          placeholder="Contoh: Akun dinonaktifkan karena terbukti melakukan transaksi fiktif."
-          className="mt-1 w-full rounded-[10px] border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-emerald-500"
-        />
-        <p className="mt-1 text-[11px] text-slate-500">Pesan ini wajib diisi dan akan muncul sebagai modal di aplikasi buyer.</p>
-      </ConfirmDialog>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Hapus Pengguna"

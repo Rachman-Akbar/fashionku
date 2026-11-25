@@ -39,6 +39,19 @@ final class CategoryMapper
             isActive: (bool) $model->is_active,
             isVisibleInMenu: (bool) $model->is_visible_in_menu,
             children: $children,
+            parentScopeId: (int) ($model->parent_scope_id ?? 0),
+            parent: $model->relationLoaded('parent') && $model->parent
+                ? ['id' => $model->parent->id, 'name' => $model->parent->name]
+                : null,
+            createdByUser: $model->created_by
+                ? ['id' => $model->created_by, 'name' => $model->relationLoaded('creator') ? $model->creator?->name : null]
+                : null,
+            updatedByUser: $model->updated_by
+                ? ['id' => $model->updated_by, 'name' => $model->relationLoaded('updater') ? $model->updater?->name : null]
+                : null,
+            createdAt: $model->created_at?->toDateTimeString(),
+            updatedAt: $model->updated_at?->toDateTimeString(),
+            deletedAt: $model->deleted_at?->toDateTimeString(),
         );
     }
 
@@ -68,6 +81,13 @@ final class CategoryMapper
             isActive: (bool) ($data['is_active'] ?? true),
             isVisibleInMenu: (bool) ($data['is_visible_in_menu'] ?? true),
             children: $children,
+            parentScopeId: isset($data['parent_scope_id']) ? (int) $data['parent_scope_id'] : null,
+            parent: $data['parent'] ?? null,
+            createdByUser: $data['created_by_user'] ?? null,
+            updatedByUser: $data['updated_by_user'] ?? null,
+            createdAt: $data['created_at'] ?? null,
+            updatedAt: $data['updated_at'] ?? null,
+            deletedAt: $data['deleted_at'] ?? null,
         );
     }
 }

@@ -3,6 +3,7 @@ import { advancedError, useDeleteFinance, useFinance, useFinanceDashboard, useFi
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { ModuleFrame } from "@/features/advanced/components/ModuleFrame";
 import { DataGrid } from "@/features/advanced/components/DataGrid";
+import { buildDatabaseColumns } from "@/shared/utils/tableData";
 import { FinanceChartPanel } from "@/shared/charts/ChartPanels";
 import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { Input } from "@/shared/components/ui/Input";
@@ -202,7 +203,6 @@ export default function FinancePage({ mode = "cashflow" }) {
   const [viewMode, setViewMode] = useState("list");
   const viewModeOptions = [
     { value: "list", label: "Daftar", icon: "view_list" },
-    { value: "grid", label: "Kartu", icon: "grid_view" },
     { value: "chart", label: "Grafik", icon: "insert_chart" },
   ];
   const financeCard = {
@@ -218,8 +218,12 @@ export default function FinancePage({ mode = "cashflow" }) {
     ],
     fields: [
       { label: "Nominal", render: (row) => money(row.amount) },
-      { label: "Terbayar", render: (row) => money(row.paid_amount) },
-      { label: "Sisa", render: (row) => money(row.outstanding_amount) },
+      { label: "Terbayar / Sisa", render: (row) => {
+        const amount = Number(row.amount || 0);
+        const paid = Number(row.paid_amount || 0);
+        const outstanding = Number(row.outstanding_amount || 0);
+        return `${money(paid)} / ${money(amount)} (Sisa ${money(outstanding)})`;
+      } },
       { label: "Pesanan", render: (row) => row.order_number || "-" },
     ],
   };
@@ -337,13 +341,48 @@ export default function FinancePage({ mode = "cashflow" }) {
       { key: "title", label: "Keterangan" },
       { key: "order_number", label: "Pesanan" },
       { key: "amount", label: "Nominal", render: (row) => <span className="font-bold text-slate-900">{money(row.amount)}</span> },
-      { key: "paid_amount", label: "Terbayar", render: (row) => money(row.paid_amount) },
-      { key: "outstanding_amount", label: "Sisa", render: (row) => money(row.outstanding_amount) },
+      { key: "paid_progress", label: "Terbayar / Sisa", width: 200, minWidth: 160, render: (row) => {
+        const amount = Number(row.amount || 0);
+        const paid = Number(row.paid_amount || 0);
+        const outstanding = Number(row.outstanding_amount || 0);
+        const pct = amount > 0 ? Math.min(Math.round((paid / amount) * 100), 100) : 0;
+        const isDebtType = ["receivable", "payable"].includes(row.type);
+        const done = !isDebtType || row.status === "paid" || outstanding <= 0;
+        return (
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between text-xs text-slate-600">
+              <span>{money(paid)} / {money(amount)}</span>
+              <span className={`font-bold ${done ? "text-emerald-700" : pct >= 50 ? "text-amber-700" : "text-rose-700"}`}>{pct}%</span>
+            </div>
+            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div className={`h-full transition-all duration-300 ${done ? "bg-emerald-500" : pct >= 50 ? "bg-amber-500" : "bg-rose-500"}`} style={{ width: `${pct}%` }} />
+            </div>
+            {!done && outstanding > 0 && <span className="text-[10px] text-rose-600 font-bold">Sisa {money(outstanding)}</span>}
+          </div>
+        );
+      } },
       { key: "status", label: "Status", filterType: "select", options: (isDebtMode ? ["open", "partial", "paid", "cancelled"] : ["draft", "posted", "cancelled"]).map((item) => ({ value: item, label: item })), render: (row) => <span className="font-bold uppercase text-slate-600">{row.status}</span> },
       { key: "occurred_at", label: "Tanggal", render: (row) => row.occurred_at ? new Date(row.occurred_at).toLocaleDateString("id-ID") : "-" },
+      // Sisa kolom database transaksi (kategori, deskripsi, audit, relasi).
+      ...buildDatabaseColumns(rows, {
+        omit: ["id", "order_id", "user_id", "type", "reference_number", "title", "order_number", "amount", "paid_amount", "outstanding_amount", "status", "occurred_at", "order", "counterparty"],
+        labels: {
+          category: "Kategori",
+          description: "Deskripsi",
+          due_date: "Jatuh Tempo",
+          settled_at: "Lunas Pada",
+          is_active: "Aktif",
+          metadata: "Metadata",
+          created_by_user: "Dibuat Oleh",
+          updated_by_user: "Diubah Oleh",
+          created_at: "Dibuat",
+          updated_at: "Diubah",
+          deleted_at: "Dihapus",
+        },
+      }),
     ];
     return [typeColumn, ...list];
-  }, [allowedTypes, isDebtMode]);
+  }, [allowedTypes, isDebtMode, rows]);
 
   const tableColumns = useMemo(() => {
     const bayarColumn = {

@@ -32,12 +32,6 @@ final readonly class AccountDeletionUseCase
             ]);
         }
 
-        if ($user->isBanned()) {
-            throw ValidationException::withMessages([
-                'account' => ['Akun diblokir.'],
-            ]);
-        }
-
         $userId = (string) $user->id;
 
         DB::transaction(function () use ($userId, $user): void {
@@ -74,7 +68,6 @@ final readonly class AccountDeletionUseCase
             'is_active' => false,
             'password' => null,
             'has_set_password' => false,
-            'banned_at' => now(),
         ])->save();
     }
 }

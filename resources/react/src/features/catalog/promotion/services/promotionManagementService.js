@@ -30,7 +30,6 @@ export function normalizePromotion(row = {}) {
   return {
     id: Number(row.id || 0),
     storeName: toTitleCase(row.store_name || ""),
-    promotionPaymentId: row.promotion_payment_id ? Number(row.promotion_payment_id) : null,
     name: row.name || "",
     title: toTitleCase(row.name || "Promosi"),
     subtitle: row.store_name ? `Campaign dari ${toTitleCase(row.store_name)}` : "Campaign pilihan untuk buyer Ziip",
@@ -43,11 +42,6 @@ export function normalizePromotion(row = {}) {
     targetUrl: row.target_url || "",
     sortOrder: Number(row.sort_order || 0),
     isActive: booleanValue(row.is_active ?? row.isActive, true),
-    approvalStatus: String(row.approval_status || row.approvalStatus || "approved").trim().toLowerCase(),
-    rejectionReason: row.rejection_reason || "",
-    submittedAt: row.submitted_at || null,
-    approvedAt: row.approved_at || null,
-    approvedBy: row.approved_by || null,
     href,
     raw: row,
   };
@@ -55,7 +49,6 @@ export function normalizePromotion(row = {}) {
 
 function serialize(values) {
   return {
-    ...(values.promotionPaymentId ? { promotion_payment_id: Number(values.promotionPaymentId) } : {}),
     name: values.name,
     image_url: values.imageUrl,
     mobile_image_url: values.mobileImageUrl || null,
@@ -88,7 +81,7 @@ async function remove(url, id) {
 
 export async function getPublicPromotions() {
   const rows = await list("/api/v1/catalog/promotions");
-  return rows.filter((row) => row.isActive && row.approvalStatus === "approved");
+  return rows.filter((row) => row.isActive);
 }
 export async function getAdminPromotions(params = {}) { return list("/api/v1/catalog/promotions/manage", params); }
 export async function getSellerPromotions(params = {}) { return list("/api/v1/seller/promotions/manage", params); }
@@ -98,16 +91,6 @@ export async function deleteAdminPromotion(id) { return remove("/api/v1/catalog/
 export async function createSellerPromotion(values) { return create("/api/v1/seller/promotions", values); }
 export async function updateSellerPromotion(id, values) { return update("/api/v1/seller/promotions", id, values); }
 export async function deleteSellerPromotion(id) { return remove("/api/v1/seller/promotions", id); }
-
-export async function approvePromotion(id) {
-  const response = await apiClient.patch(`/api/v1/catalog/promotions/${id}/approve`);
-  return normalizePromotion(unwrapApiData(response.data));
-}
-
-export async function rejectPromotion({ id, reason }) {
-  const response = await apiClient.patch(`/api/v1/catalog/promotions/${id}/reject`, { reason });
-  return normalizePromotion(unwrapApiData(response.data));
-}
 
 export function usePublicPromotions() {
   return useQuery({
@@ -157,6 +140,4 @@ export function useDeleteAdminPromotion() { return usePromotionMutation(deleteAd
 export function useCreateSellerPromotion() { return usePromotionMutation(createSellerPromotion, promotionManagementKeys.seller); }
 export function useUpdateSellerPromotion() { return usePromotionMutation(({ id, values }) => updateSellerPromotion(id, values), promotionManagementKeys.seller, true); }
 export function useDeleteSellerPromotion() { return usePromotionMutation(deleteSellerPromotion, promotionManagementKeys.seller); }
-export function useApprovePromotion() { return usePromotionMutation(approvePromotion, promotionManagementKeys.admin); }
-export function useRejectPromotion() { return usePromotionMutation(rejectPromotion, promotionManagementKeys.admin); }
 export function getPromotionError(error) { return getApiMessage(error, "Promosi gagal diproses."); }

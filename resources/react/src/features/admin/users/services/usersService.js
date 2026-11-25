@@ -15,7 +15,6 @@ function normalizeUser(row) {
     email: row.email || "",
     role: String(row.role ?? row.roles?.[0] ?? "buyer"),
     status: row.is_active === false ? "Nonaktif" : "Aktif",
-    phone: row.phone || row.no_hp || "",
     createdAt: row.created_at || null,
     raw: row,
   };
@@ -41,11 +40,12 @@ export async function removeUser(id) {
   return id;
 }
 
-export function useUsers(params = {}) {
+export function useUsers(params = {}, options = {}) {
   return useQuery({
     queryKey: [...keys.list, params],
     queryFn: () => listUsers(params),
     staleTime: 60000,
+    enabled: options.enabled !== false,
   });
 }
 

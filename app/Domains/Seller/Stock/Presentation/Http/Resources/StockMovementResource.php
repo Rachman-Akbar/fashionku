@@ -24,6 +24,8 @@ final class StockMovementResource extends JsonResource
                 : null,
             'order_id' => $this->order_id,
             'order_number' => $this->order?->order_number,
+            'order_item_id' => $this->order_item_id,
+            'movement_key' => $this->movement_key,
             'type' => $this->type,
             'quantity_delta' => $this->quantity_delta,
             'balance_after' => $this->balance_after,
@@ -32,7 +34,19 @@ final class StockMovementResource extends JsonResource
             'reference_id' => $this->reference_id,
             'notes' => $this->notes,
             'occurred_at' => $this->occurred_at?->toIso8601String(),
+            'created_by_user' => $this->auditName($this->created_by, $this->creator?->name),
+            'updated_by_user' => $this->auditName($this->updated_by, $this->updater?->name),
             'created_at' => $this->created_at?->toIso8601String(),
+            'updated_at' => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    private function auditName(mixed $id, ?string $name): ?array
+    {
+        if (! is_string($id) || $id === '') {
+            return null;
+        }
+
+        return ['id' => $id, 'name' => $name];
     }
 }

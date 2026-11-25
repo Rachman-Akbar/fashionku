@@ -15,12 +15,16 @@ final class ScheduleController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = DB::table('schedules')
-            ->whereNull('deleted_at')
-            ->when($request->filled('date'), fn ($q) => $q->where('date', $request->query('date')))
-            ->when($request->filled('type'), fn ($q) => $q->where('type', $request->query('type')))
-            ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
-            ->orderBy('date', 'asc')
-            ->orderBy('start_time', 'asc');
+            ->leftJoin('users as schedule_owner', 'schedule_owner.id', '=', 'schedules.user_id')
+            ->leftJoin('users as schedule_creator', 'schedule_creator.id', '=', 'schedules.created_by')
+            ->leftJoin('users as schedule_updater', 'schedule_updater.id', '=', 'schedules.updated_by')
+            ->select('schedules.*', 'schedule_owner.name as user_name', 'schedule_creator.name as created_by_name', 'schedule_updater.name as updated_by_name')
+            ->whereNull('schedules.deleted_at')
+            ->when($request->filled('date'), fn ($q) => $q->where('schedules.date', $request->query('date')))
+            ->when($request->filled('type'), fn ($q) => $q->where('schedules.type', $request->query('type')))
+            ->when($request->filled('is_active'), fn ($q) => $q->where('schedules.is_active', $request->boolean('is_active')))
+            ->orderBy('schedules.date', 'asc')
+            ->orderBy('schedules.start_time', 'asc');
 
         $perPage = min(100, max(1, (int) $request->query('per_page', 20)));
         $rows = $query->paginate($perPage);

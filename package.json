@@ -23,6 +23,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "firebase": "^11.10.0",
+    "free-pi-cli": "^0.6.26",
     "html2canvas": "^1.4.1",
     "laravel-echo": "^2.4.0",
     "leaflet": "^1.9.4",

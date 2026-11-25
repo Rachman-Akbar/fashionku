@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Catalog\Promotion\Application\UseCases;
 
 use App\Domains\Catalog\Promotion\Application\Dtos\PromotionData;
-use App\Domains\Catalog\Promotion\Application\Services\PromotionPaymentService;
 use App\Domains\Catalog\Promotion\Domain\Entities\Promotion;
 use App\Domains\Catalog\Promotion\Domain\Repositories\PromotionRepositoryInterface;
 use Illuminate\Support\Facades\DB;
@@ -13,10 +12,7 @@ use InvalidArgumentException;
 
 final class UpsertPromotionUseCase
 {
-    public function __construct(
-        private PromotionRepositoryInterface $repository,
-        private PromotionPaymentService $paymentService
-    ) {}
+    public function __construct(private PromotionRepositoryInterface $repository) {}
 
     public function execute(PromotionData $dto, ?int $id = null): PromotionData
     {
@@ -30,15 +26,10 @@ final class UpsertPromotionUseCase
             throw new InvalidArgumentException("Nama promosi '{$dto->name}' sudah digunakan.");
         }
 
-        if ($dto->promotionPaymentId) {
-            $this->paymentService->approvedForPromotion($dto->promotionPaymentId, $id);
-        }
-
         $this->validateTarget($dto);
 
         $entity = new Promotion(
             id: $id,
-            promotionPaymentId: $dto->promotionPaymentId ?? $existing?->promotionPaymentId,
             name: $dto->name,
             imageUrl: $dto->imageUrl,
             mobileImageUrl: $dto->mobileImageUrl,

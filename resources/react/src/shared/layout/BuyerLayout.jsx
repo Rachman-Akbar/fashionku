@@ -4,7 +4,6 @@ import { Navbar } from "@/shared/layout/Navbar";
 import { Footer } from "@/shared/layout/Footer";
 import { RouteOutletBoundary } from "@/shared/layout/RouteOutletBoundary";
 import PageTransitionLoader from "@/shared/layout/PageTransitionLoader";
-import { ViolationNoticeModal } from "@/shared/components/feedback/ViolationNoticeModal";
 
 const StableNavbar = memo(Navbar);
 const StableFooter = memo(Footer);
@@ -23,7 +22,6 @@ export default function BuyerLayout() {
         </main>
         <StableFooter />
       </div>
-      <ViolationNoticeModal />
     </div>
   );
 }

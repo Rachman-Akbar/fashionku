@@ -145,7 +145,7 @@ export function getCheckoutVoucherValidity(voucher, items = [], now = new Date()
   }
 
   const status = String(voucher.status || "active").toLowerCase();
-  if (["inactive", "expired", "banned", "rejected", "archived"].includes(status)) {
+  if (["inactive", "expired", "rejected", "archived"].includes(status)) {
     return { valid: false, reason: "Voucher tidak tersedia." };
   }
 

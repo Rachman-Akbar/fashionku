@@ -27,8 +27,19 @@ final class ProductReviewResource extends JsonResource
             'review' => $this->review,
             'media' => $this->media,
             'is_active' => (bool) $this->is_active,
+            'created_by_user' => $this->auditName($this->created_by, $this->creator?->name),
+            'updated_by_user' => $this->auditName($this->updated_by, $this->updater?->name),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    private function auditName(mixed $id, ?string $name): ?array
+    {
+        if (! is_string($id) || $id === '') {
+            return null;
+        }
+
+        return ['id' => $id, 'name' => $name];
     }
 }

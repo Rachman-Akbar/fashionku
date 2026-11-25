@@ -11,7 +11,7 @@ Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:seller
         Route::get('/', [CustomerController::class, 'index']);
     });
 
-Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:seller', 'permission:orders.view'])
+Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:seller,admin', 'permission:orders.view'])
     ->prefix('customers')
     ->group(function (): void {
         Route::post('/', [CustomerController::class, 'store']);

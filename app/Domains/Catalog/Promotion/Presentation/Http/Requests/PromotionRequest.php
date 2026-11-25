@@ -32,7 +32,6 @@ final class PromotionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'promotion_payment_id' => ['nullable', 'integer', 'exists:promotion_payments,id'],
             'name' => ['required', 'string', 'max:150'],
             'image_url' => ['required', 'url', 'max:2048'],
             'mobile_image_url' => ['nullable', 'url', 'max:2048'],

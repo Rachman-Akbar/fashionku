@@ -26,6 +26,44 @@ use Illuminate\Support\Str;
 
 final class ProductController extends Controller
 {
+    /**
+     * Siapkan peta nama user untuk kolom audit `created_by` / `updated_by`
+     * sekali per halaman, supaya resource tidak menampilkan UUID.
+     */
+    private function attachAuditNames(Request $request, iterable $products): void
+    {
+        $ids = [];
+
+        foreach ($products as $product) {
+            $id = method_exists($product, 'id') ? $product->id() : ($product->id ?? null);
+
+            if ($id !== null) {
+                $ids[] = $id;
+            }
+        }
+
+        if ($ids === []) {
+            $request->attributes->set('audit_user_names', []);
+
+            return;
+        }
+
+        $userIds = DB::table('products')
+            ->whereIn('id', $ids)
+            ->get(['created_by', 'updated_by'])
+            ->flatMap(fn ($row): array => [$row->created_by, $row->updated_by])
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $names = $userIds === []
+            ? []
+            : DB::table('users')->whereIn('id', $userIds)->pluck('name', 'id')->all();
+
+        $request->attributes->set('audit_user_names', $names);
+    }
+
     private function resolveCurrentSellerId(Request $request): ?string
     {
         $userId = $request->user()?->id;
@@ -37,7 +75,10 @@ final class ProductController extends Controller
     {
         $filters = $request->all();
 
-        return ProductResource::collection($query->execute($filters))
+        $rows = $query->execute($filters);
+        $this->attachAuditNames($request, $rows);
+
+        return ProductResource::collection($rows)
             ->additional(['facets' => $products->facets($filters)]);
     }
 
@@ -73,6 +114,8 @@ final class ProductController extends Controller
             filters: $request->all()
         );
 
+        $this->attachAuditNames($request, $products);
+
         return ProductResource::collection($products);
     }
 
@@ -83,7 +126,10 @@ final class ProductController extends Controller
         $perPage = max(1, min(100, (int) ($filters['per_page'] ?? 20)));
         $page = max(1, (int) ($filters['page'] ?? 1));
 
-        return ProductResource::collection($products->paginate($filters, $perPage, $page));
+        $rows = $products->paginate($filters, $perPage, $page);
+        $this->attachAuditNames($request, $rows);
+
+        return ProductResource::collection($rows);
     }
 
     public function adminStore(StoreProductRequest $request, CreateProductUseCase $useCase)

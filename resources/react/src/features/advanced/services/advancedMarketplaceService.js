@@ -79,7 +79,6 @@ export const advancedKeys = {
   ticketContext: ["advanced", "tickets", "context"],
   missions: ["advanced", "missions"],
   userMissions: ["advanced", "missions", "me"],
-  promotionPayments: ["advanced", "promotion-payments"],
   conversations: ["communication", "conversations"],
   products: ["advanced", "products"],
   reviews: ["advanced", "reviews"],
@@ -311,22 +310,6 @@ export function useMissionEventTypes() {
 
 export function useDeleteMission() {
   return useMutationHelper((id) => remove(`/api/v1/engagement/missions/${id}`), advancedKeys.missions);
-}
-
-export function usePromotionPayments(params = {}) {
-  return useInfiniteList({ queryKey: advancedKeys.promotionPayments, queryFn: (queryParams) => getList("/api/v1/catalog/promotion-payments", queryParams), params });
-}
-
-export function useCreatePromotionPayment() {
-  return useMutationHelper((values) => post("/api/v1/catalog/promotion-payments", values), advancedKeys.promotionPayments);
-}
-
-export function useReviewPromotionPayment() {
-  return useMutationHelper(({ id, status, reason }) => {
-    if (status === "approve") return patch(`/api/v1/catalog/promotion-payments/${id}/approve`);
-    if (status === "reject") return patch(`/api/v1/catalog/promotion-payments/${id}/reject`, { reason });
-    throw new Error("Aksi review pembayaran promosi tidak valid.");
-  }, advancedKeys.promotionPayments);
 }
 
 export function useConversations(params = {}, options = {}) {

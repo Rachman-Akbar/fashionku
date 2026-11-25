@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Catalog\Promotion\Application\Excel;
 
 use App\Domains\Catalog\Promotion\Infrastructure\Persistence\Models\PromotionModel;
-use App\Domains\Catalog\Promotion\Infrastructure\Persistence\Models\PromotionPaymentModel;
-use App\Domains\Identity\User\Domain\Entities\User;
 use App\Domains\Shared\Excel\Application\Exports\BaseExport;
 use App\Domains\Shared\Excel\Application\Imports\BaseImport;
 use App\Domains\Shared\Excel\Application\Templates\BaseTemplateExport;
@@ -23,7 +21,7 @@ class PromotionExport extends BaseExport
 
     public function collection(): Collection
     {
-        return $this->promotions ?? PromotionModel::with('payment.user')->get();
+        return $this->promotions ?? PromotionModel::query()->get();
     }
 
     public function headings(): array
@@ -37,10 +35,6 @@ class PromotionExport extends BaseExport
             'target_url',
             'urutan',
             'aktif',
-            'pembayaran_kode',
-            'pembayaran_user',
-            'paket',
-            'jumlah_bayar',
         ];
     }
 
@@ -55,10 +49,6 @@ class PromotionExport extends BaseExport
             $promotion->target_url ?? '',
             $promotion->sort_order ?? 0,
             $promotion->is_active ? 'ya' : 'tidak',
-            $promotion->payment?->payment_number ?? '',
-            $promotion->payment?->user?->name ?? '',
-            $promotion->payment?->package_name ?? '',
-            $promotion->payment?->amount ?? 0,
         ];
     }
 }

@@ -22,7 +22,7 @@ final class TicketController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $isAdmin = $this->hasActiveRole($request, 'admin');
+        $isAdmin = $this->hasOperatorRole($request);
         $rows = $this->service->paginate(
             $request->only(['status', 'priority', 'category', 'search']),
             min(100, max(1, (int) $request->query('per_page', 20))),
@@ -65,7 +65,7 @@ final class TicketController extends Controller
 
     public function show(Request $request, int $id): JsonResponse
     {
-        $ownerId = $this->hasActiveRole($request, 'admin') ? null : (string) $request->user()->id;
+        $ownerId = $this->hasOperatorRole($request) ? null : (string) $request->user()->id;
 
         try {
             return (new TicketResource($this->service->find($id, $ownerId)))->additional(['success' => true])->response();
@@ -76,7 +76,7 @@ final class TicketController extends Controller
 
     public function updateStatus(Request $request, int $id): JsonResponse
     {
-        abort_unless($this->hasActiveRole($request, 'admin'), 403, 'Hanya admin yang dapat mengubah status Help.');
+        abort_unless($this->hasOperatorRole($request), 403, 'Hanya admin yang dapat mengubah status Help.');
         $validated = $request->validate([
             'status' => ['required', Rule::in(['open', 'in_progress', 'resolved', 'closed'])],
             'assigned_to' => ['nullable', 'uuid', 'exists:users,id'],
@@ -101,7 +101,7 @@ final class TicketController extends Controller
         ]);
 
         try {
-            $row = $this->service->reply($id, $validated, (string) $request->user()->id, $this->hasActiveRole($request, 'admin'));
+            $row = $this->service->reply($id, $validated, (string) $request->user()->id, $this->hasOperatorRole($request));
 
             return (new TicketResource($row))->additional(['success' => true, 'message' => 'Balasan berhasil dikirim.'])->response();
         } catch (InvalidArgumentException $exception) {
@@ -111,7 +111,7 @@ final class TicketController extends Controller
 
     public function destroy(Request $request, int $id): JsonResponse
     {
-        abort_unless($this->hasActiveRole($request, 'admin'), 403, 'Hanya admin yang dapat menghapus Help.');
+        abort_unless($this->hasOperatorRole($request), 403, 'Hanya admin yang dapat menghapus Help.');
 
         try {
             $this->service->delete($id);

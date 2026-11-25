@@ -73,3 +73,5 @@ Perbaikibug pada admin panel ku di route http://127.0.0.1:8000/admin/products me
 lakukan perbaikannya bedasarkan error diatas
 
 Atur dan perbaiki agar bahan baku, kategori, user, dan pelanggan mempunyai gambar di dalam database nya. lalu perbaiki frontend (pada admin panel) dan backendnya bisa menampilka gambar dengan benar
+
+Terjadi bug dan masalh dimana admin panel tida dapat melakukan ekspor dn hanya membuka tab baru. untuk ekspor cukup langsung download saja tidak perlu membuka notifikasi

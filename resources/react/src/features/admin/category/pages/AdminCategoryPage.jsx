@@ -5,7 +5,8 @@ import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { CrudDialog } from "@/shared/components/crud/CrudDialog"; 
 import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
-import { useColumnVisibility, useTableSelection, useViewMode } from "@/shared/hooks";
+import { useDatabaseTableColumns, useTableSelection, useViewMode } from "@/shared/hooks";
+import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { useActiveToggle } from "@/shared/hooks/useActiveToggle";
@@ -28,7 +29,6 @@ function CategoryEditor({ open, category, onClose, onSave, saving, parents }) {
     parent_id: category?.parentId ?? "",
     sort_order: category?.sortOrder ?? 0,
     is_active: category?.isActive !== false,
-    description: category?.description || "",
     image_url: category?.imageUrl || "",
     icon_url: category?.iconUrl || "",
   });
@@ -238,8 +238,9 @@ export default function AdminCategoryPage() {
   const rows = categoriesQuery.data || [];
   const selection = useTableSelection(rows);
   const total = useListTotalCount({ total: rows.length }, { label: "Kategori" });
-  const columnVisibility = useColumnVisibility(
-    [
+  // Kolom kurasi + semua kolom database lain (kecuali kolom ID).
+  const curatedColumns = useMemo(
+    () => [
       { key: "name", label: "Nama" },
       { key: "slug", label: "Slug" },
       { key: "parentId", label: "Induk" },
@@ -248,28 +249,30 @@ export default function AdminCategoryPage() {
       { key: "imageUrl", label: "Gambar" },
       { key: "iconUrl", label: "Ikon" },
     ],
-    "admin-categories",
+    [],
   );
+  const { columnVisibility, visibleColumns } = useDatabaseTableColumns(curatedColumns, rows, {
+    storageKey: "admin-categories",
+    labels: {
+      parent_scope_id: "Parent Scope",
+      parent: "Induk",
+      created_by_user: "Dibuat Oleh",
+      updated_by_user: "Diubah Oleh",
+      created_at: "Dibuat",
+      updated_at: "Diubah",
+      deleted_at: "Dihapus",
+      is_active: "Aktif",
+      sort_order: "Urutan",
+      image_url: "Gambar",
+      icon_url: "Ikon",
+    },
+  });
 
   const parentOptions = useMemo(
     () => rows.filter((c) => !editor.entity || c.id !== editor.entity.id).map((c) => ({ id: c.id, name: c.name })),
     [rows, editor.entity],
   );
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: categoriesQuery.refetch });
-
-  const visibleColumns = useMemo(
-    () =>
-      [
-        { key: "name", label: "Nama" },
-        { key: "slug", label: "Slug" },
-        { key: "parentId", label: "Induk" },
-        { key: "sortOrder", label: "Urutan" },
-        { key: "isActive", label: "Aktif" },
-        { key: "imageUrl", label: "Gambar" },
-        { key: "iconUrl", label: "Ikon" },
-      ].filter((column) => columnVisibility.visibleSet.has(column.key)),
-    [columnVisibility.visibleSet],
-  );
 
   const closeEditor = editor.close;
 
@@ -618,7 +621,7 @@ export default function AdminCategoryPage() {
                             ) : null}
                           </td>
                           {tableLayout.orderedColumns.map((column) => {
-                            const value = category[column.key];
+                            const value = resolveTableValue(category, column.key);
                             if (column.key === "name") {
                               return (
                                 <td key={column.key} className="px-4 py-3 text-slate-700">
@@ -693,7 +696,7 @@ export default function AdminCategoryPage() {
                             }
                             return (
                               <td key={column.key} className="px-4 py-3 text-slate-700">
-                                {value ?? "-"}
+                                {formatTableValue(value)}
                               </td>
                             );
                           })}

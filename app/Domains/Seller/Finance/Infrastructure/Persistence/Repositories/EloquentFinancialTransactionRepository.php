@@ -14,7 +14,7 @@ final class EloquentFinancialTransactionRepository implements FinancialTransacti
     public function paginate(array $filters, int $perPage): LengthAwarePaginator
     {
         return FinancialTransactionModel::query()
-            ->with(['order:id,order_number', 'counterparty:id,name,email'])
+            ->with(['order:id,order_number', 'counterparty:id,name,email', 'creator:id,name', 'updater:id,name'])
             ->when(! empty($filters['type']), fn (Builder $query) => $query->whereIn('type', collect(explode(',', (string) $filters['type']))->map(fn (string $type): string => trim($type))->filter()->values()->all()))
             ->when(! empty($filters['status']), fn (Builder $query) => $query->where('status', $filters['status']))
             ->when(isset($filters['is_active']), fn (Builder $query) => $query->where('is_active', filter_var($filters['is_active'], FILTER_VALIDATE_BOOLEAN)))
@@ -36,7 +36,7 @@ final class EloquentFinancialTransactionRepository implements FinancialTransacti
     public function find(int $id): ?FinancialTransactionModel
     {
         return FinancialTransactionModel::query()
-            ->with(['order:id,order_number', 'counterparty:id,name,email'])
+            ->with(['order:id,order_number', 'counterparty:id,name,email', 'creator:id,name', 'updater:id,name'])
             ->find($id);
     }
 

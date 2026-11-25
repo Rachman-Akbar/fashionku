@@ -137,7 +137,14 @@ final class TicketService
         $model = $this->find($id, null);
         $status = $data['status'];
         $model->status = $status;
-        $model->assigned_to = $data['assigned_to'] ?? $model->assigned_to ?? $actorId;
+
+        // assigned_to eksplisit (termasuk null untuk melepas penugasan) harus dihormati.
+        if (array_key_exists('assigned_to', $data)) {
+            $model->assigned_to = $data['assigned_to'] ?: null;
+        } elseif (! $model->assigned_to) {
+            $model->assigned_to = $actorId;
+        }
+
         $model->resolved_at = in_array($status, ['resolved', 'closed'], true) ? now() : null;
 
         return $this->repository->save($model);

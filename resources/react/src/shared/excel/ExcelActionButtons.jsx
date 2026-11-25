@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ActionIconButton } from "@/shared/components/crud/ActionIconButton";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
 // Import langsung ke modul tujuan (bukan lewat barrel ./index) supaya tidak
@@ -8,6 +9,10 @@ import { ExcelImportExportModal } from "./ExcelImportExportModal";
 import { useExcelWorkspace } from "./useExcelWorkspace";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
+import { cn } from "@/shared/utils/utils";
+
+const MENU_WIDTH = 224;
+const MENU_MARGIN = 8;
 
 export function ExcelActionButtons({
   module,
@@ -23,6 +28,10 @@ export function ExcelActionButtons({
 }) {
   const center = useNotificationCenter();
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const rootRef = useRef(null);
+  const menuRef = useRef(null);
 
   const workspace = useExcelWorkspace({
     module,
@@ -38,11 +47,6 @@ export function ExcelActionButtons({
   const selectedIds = workspace.selectedIds;
 
   const handleExport = () => {
-    const targetIds = selectedIds.length > 0 ? selectedIds : rows.map((row) => Number(getRowId ? getRowId(row) : row?.id)).filter(Boolean);
-    if (!targetIds.length && rows.length === 0) {
-      toastError(label, "Tidak ada data untuk diekspor.");
-      return;
-    }
     workspace.openExport();
   };
 
@@ -85,41 +89,105 @@ export function ExcelActionButtons({
     });
   };
 
-  const extraActions = (
-    <>
-      {allowImport && (
-        <ActionIconButton
-          icon="upload_file"
-          title="Import Excel"
-          onClick={handleImport}
-          variant="secondary"
-          className="h-9 w-12 rounded-[10px]"
-        />
-      )}
-      {allowExport && (
-        <ActionIconButton
-          icon="download"
-          title={selectedIds.length > 0 ? `Export ${selectedIds.length} ${label} terpilih` : `Export ${label}`}
-          onClick={handleExport}
-          variant="secondary"
-          className="h-9 w-12 rounded-[10px]"
-        />
-      )}
-      {allowDelete && (
-        <ActionIconButton
-          icon="delete"
-          title={selectedIds.length > 0 ? `Hapus ${selectedIds.length} ${label} terpilih` : `Hapus semua ${label}`}
-          onClick={handleDelete}
-          variant="danger"
-          className="h-9 w-12 rounded-[10px]"
-        />
-      )}
-    </>
-  );
+  const actionItems = [
+    allowImport && { key: "import", icon: "upload_file", label: "Import Excel", onClick: handleImport },
+    allowExport && {
+      key: "export",
+      icon: "download",
+      label: selectedIds.length > 0 ? `Export ${selectedIds.length} ${label} terpilih` : `Export ${label}`,
+      onClick: handleExport,
+    },
+    allowDelete && {
+      key: "delete",
+      icon: "delete",
+      label: selectedIds.length > 0 ? `Hapus ${selectedIds.length} ${label} terpilih` : `Hapus semua ${label}`,
+      onClick: handleDelete,
+      tone: "danger",
+    },
+  ].filter(Boolean);
+
+  // Menu dirender lewat portal dengan posisi `fixed` agar tidak terpotong oleh
+  // container toolbar/tabel yang punya overflow.
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const updatePosition = () => {
+      const rect = rootRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const margin = MENU_MARGIN;
+      const left = Math.max(margin, Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - margin));
+      const menuHeight = menuRef.current?.getBoundingClientRect().height || 150;
+      const below = rect.bottom + 5;
+      const above = rect.top - 5 - menuHeight;
+      const top = below + menuHeight > window.innerHeight - margin && above > margin ? above : Math.max(margin, below);
+      setPosition({ top, left });
+    };
+
+    const close = (event) => {
+      if (rootRef.current?.contains(event.target)) return;
+      if (menuRef.current?.contains(event.target)) return;
+      setOpen(false);
+    };
+
+    const escape = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    updatePosition();
+    document.addEventListener("mousedown", close);
+    window.addEventListener("keydown", escape);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
+    return () => {
+      document.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", escape);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open]);
+
+  if (!actionItems.length) return null;
 
   return (
     <>
-      {extraActions}
+      <div ref={rootRef} className="shrink-0">
+        <ActionIconButton
+          icon="more_vert"
+          title="Aksi data"
+          active={open}
+          onClick={() => setOpen((current) => !current)}
+          className="h-9 w-12 rounded-[10px]"
+        />
+      </div>
+      {open && typeof document !== "undefined" ? createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          className="fixed z-[300] overflow-hidden rounded-[10px] bg-white py-1 shadow-xl ring-1 ring-slate-200"
+          style={{ top: position.top, left: position.left, width: MENU_WIDTH }}
+        >
+          {actionItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                item.onClick();
+              }}
+              className={cn(
+                "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm font-semibold transition-colors",
+                item.tone === "danger" ? "text-rose-600 hover:bg-rose-50" : "text-slate-700 hover:bg-slate-50",
+              )}
+            >
+              <span className="material-symbols-outlined text-[19px]">{item.icon}</span>
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+            </button>
+          ))}
+        </div>,
+        document.body,
+      ) : null}
       <ExcelImportExportModal
         workspace={workspace}
         module={module}

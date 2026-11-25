@@ -14,7 +14,7 @@ final class EloquentProductReviewRepository implements ProductReviewRepositoryIn
     public function paginate(array $filters, int $perPage, ?string $userId): LengthAwarePaginator
     {
         return ProductReviewModel::query()
-            ->with(['product:id,name,slug,thumbnail', 'user:id,name,avatar', 'order:id,order_number'])
+            ->with(['product:id,name,slug,thumbnail', 'user:id,name,avatar', 'order:id,order_number', 'creator:id,name', 'updater:id,name'])
             ->when($userId !== null, fn (Builder $query) => $query->where('user_id', $userId))
             ->when(! empty($filters['product_id']), fn (Builder $query) => $query->where('product_id', (int) $filters['product_id']))
             ->when(! empty($filters['rating']), fn (Builder $query) => $query->where('rating', (int) $filters['rating']))
@@ -32,14 +32,14 @@ final class EloquentProductReviewRepository implements ProductReviewRepositoryIn
 
     public function find(int $id): ?ProductReviewModel
     {
-        return ProductReviewModel::query()->with(['product', 'user:id,name,avatar', 'order:id,order_number'])->find($id);
+        return ProductReviewModel::query()->with(['product', 'user:id,name,avatar', 'order:id,order_number', 'creator:id,name', 'updater:id,name'])->find($id);
     }
 
     public function save(ProductReviewModel $model): ProductReviewModel
     {
         $model->save();
 
-        return $model->refresh()->load(['product:id,name,slug,thumbnail', 'user:id,name,avatar', 'order:id,order_number']);
+        return $model->refresh()->load(['product:id,name,slug,thumbnail', 'user:id,name,avatar', 'order:id,order_number', 'creator:id,name', 'updater:id,name']);
     }
 
     public function delete(ProductReviewModel $model): bool

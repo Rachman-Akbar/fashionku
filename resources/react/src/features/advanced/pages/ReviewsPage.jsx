@@ -3,6 +3,7 @@ import { advancedError, useReviews, useUpdateReview } from "@/features/advanced/
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { ModuleFrame } from "@/features/advanced/components/ModuleFrame";
 import { DataGrid } from "@/features/advanced/components/DataGrid";
+import { buildDatabaseColumns } from "@/shared/utils/tableData";
 import { ReviewDetailForm } from "@/features/advanced/pages/ReviewDetailPage";
 import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
 import { toolbarControlClassName } from "@/shared/components/crud/toolbarControlClassName";
@@ -55,6 +56,21 @@ export default function ReviewsPage() {
     { key: "review", label: "Review" },
     { key: "is_active", label: "Status", filterable: false, render: (row) => <InlineActiveSwitch checked={row.is_active !== false} pending={activeToggleId === row.id} activeLabel="Aktif" inactiveLabel="Nonaktif" compact onChange={(next) => toggleReviewActive(row, next)} /> },
     { key: "created_at", label: "Tanggal", render: (row) => row.created_at ? new Date(row.created_at).toLocaleString("id-ID") : "-" },
+    // Sisa kolom database review (relasi produk/user/order sudah ada di atas).
+    ...buildDatabaseColumns(rows, {
+      omit: ["id", "product_id", "review_id", "user_id", "order_id", "order_item_id", "product_name", "order_number", "user_name", "rating", "review", "is_active", "created_at", "product", "user", "order", "order_item"],
+      labels: {
+        comment: "Komentar",
+        images: "Foto",
+        reply: "Balasan Penjual",
+        replied_at: "Dibalas",
+        is_visible: "Tampil",
+        created_by_user: "Dibuat Oleh",
+        updated_by_user: "Diubah Oleh",
+        updated_at: "Diubah",
+        deleted_at: "Dihapus",
+      },
+    }),
   ];
 
   const reviewCard = {

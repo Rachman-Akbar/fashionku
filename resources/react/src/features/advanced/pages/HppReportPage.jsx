@@ -2,6 +2,7 @@ import { useDeferredValue, useMemo, useState } from "react";
 import { useRawMaterialCostImpacts, useRawMaterials } from "@/features/advanced/services/advancedMarketplaceService";
 import { ModuleFrame } from "@/features/advanced/components/ModuleFrame";
 import { DataGrid } from "@/features/advanced/components/DataGrid";
+import { buildDatabaseColumns } from "@/shared/utils/tableData";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { useColumnVisibility, useViewMode } from "@/shared/hooks";
@@ -109,7 +110,19 @@ export default function HppReportPage() {
     },
     { key: "new_suggested_price", label: "Saran Harga Jual", align: "right", render: (row) => money(row.new_suggested_price) },
     { key: "reference_number", label: "Referensi", defaultVisible: false, render: (row) => row.cost_history?.reference_number || "-" },
-  ], []);
+    // Sisa kolom database riwayat biaya/HPP.
+    ...buildDatabaseColumns(rows, {
+      omit: ["id", "raw_material_id", "raw_material_stock_movement_id", "occurred_at", "material", "product", "old_cost", "new_cost", "old_hpp", "new_hpp", "hpp_change_percent", "new_suggested_price", "reference_number", "cost_history"],
+      labels: {
+        change_amount: "Selisih Biaya",
+        change_percent: "Persentase Selisih",
+        direction: "Arah",
+        reference_type: "Tipe Referensi",
+        created_at: "Dibuat",
+        updated_at: "Diubah",
+      },
+    }),
+  ], [rows]);
 
   const columnVisibility = useColumnVisibility(columns, "admin-hpp-report");
   const total = useListTotalCount(undefined, { fallbackTotal: rows.length, label: "Riwayat HPP" });

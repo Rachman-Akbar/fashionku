@@ -7,22 +7,21 @@ namespace App\Domains\Support\Ticket\Infrastructure\Persistence\Repositories;
 use App\Domains\Support\Ticket\Domain\Repositories\TicketRepositoryInterface;
 use App\Domains\Support\Ticket\Infrastructure\Persistence\Models\SupportTicketModel;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Builder;
 
 final class EloquentTicketRepository implements TicketRepositoryInterface
 {
     public function paginate(array $filters, int $perPage, ?string $ownerId): LengthAwarePaginator
     {
         return SupportTicketModel::query()
-            ->with(['user:id,name,email', 'order:id,order_number', 'assignee:id,name,email'])
-            ->withCount(['messages' => fn (Builder $query) => $query->when($ownerId !== null, fn (Builder $messageQuery) => $messageQuery->where('is_internal', false))])
+            ->with(['user:id,name,email', 'order:id,order_number', 'assignee:id,name,email', 'creator:id,name', 'updater:id,name'])
+            ->withCount(['messages' => fn ($query) => $ownerId !== null ? $query->where('is_internal', false) : $query])
             ->when($ownerId !== null, fn (Builder $query) => $query->where('user_id', $ownerId))
             ->when(! empty($filters['status']), fn (Builder $query) => $query->where('status', $filters['status']))
             ->when(! empty($filters['priority']), fn (Builder $query) => $query->where('priority', $filters['priority']))
             ->when(! empty($filters['category']), fn (Builder $query) => $query->where('category', $filters['category']))
-            ->when(trim((string) ($filters['search'] ?? '')) !== '', function (Builder $query) use ($filters): void {
+            ->when(trim((string) ($filters['search'] ?? '')) !== '', function ($query) use ($filters): void {
                 $search = trim((string) $filters['search']);
-                $query->where(function (Builder $query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
                     $query->where('ticket_number', 'like', "%{$search}%")
                         ->orWhere('subject', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%");
@@ -40,9 +39,9 @@ final class EloquentTicketRepository implements TicketRepositoryInterface
                 'user:id,name,email',
                 'order:id,order_number',
                 'assignee:id,name,email',
-                'messages' => fn (Builder $query) => $query
-                    ->when($ownerId !== null, fn (Builder $messageQuery) => $messageQuery->where('is_internal', false))
-                    ->with('user:id,name,email'),
+                'messages' => fn ($query) => $ownerId !== null
+                    ? $query->where('is_internal', false)->with('user:id,name,email')
+                    : $query->with('user:id,name,email'),
             ])
             ->when($ownerId !== null, fn (Builder $query) => $query->where('user_id', $ownerId))
             ->find($id);
@@ -52,7 +51,7 @@ final class EloquentTicketRepository implements TicketRepositoryInterface
     {
         $model->save();
 
-        return $model->refresh()->load(['user:id,name,email', 'order:id,order_number', 'assignee:id,name,email', 'messages.user:id,name,email'])->loadCount('messages');
+        return $model->refresh()->load(['user:id,name,email', 'order:id,order_number', 'assignee:id,name,email', 'creator:id,name', 'updater:id,name', 'messages.user:id,name,email'])->loadCount('messages');
     }
 
     public function delete(SupportTicketModel $model): bool

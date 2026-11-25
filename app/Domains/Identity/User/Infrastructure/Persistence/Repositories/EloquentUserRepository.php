@@ -22,7 +22,7 @@ final class EloquentUserRepository implements UserRepositoryInterface
     public function paginate(int $perPage = 15): LengthAwarePaginator
     {
         return User::query()
-            ->with('roles:id,name,is_active')
+            ->with(['roles:id,name,is_active', 'creator:id,name', 'updater:id,name'])
             ->orderByDesc('created_at')
             ->paginate($perPage);
     }
@@ -30,7 +30,7 @@ final class EloquentUserRepository implements UserRepositoryInterface
     public function findById(string $id): ?User
     {
         return User::query()
-            ->with('roles:id,name,is_active')
+            ->with(['roles:id,name,is_active', 'creator:id,name', 'updater:id,name'])
             ->find($id);
     }
 
@@ -38,7 +38,6 @@ final class EloquentUserRepository implements UserRepositoryInterface
     {
         return User::query()
             ->active()
-            ->whereNull('banned_at')
             ->where('email', Str::lower(trim($email)))
             ->first();
     }
@@ -54,7 +53,6 @@ final class EloquentUserRepository implements UserRepositoryInterface
     {
         return User::query()
             ->active()
-            ->whereNull('banned_at')
             ->where('firebase_uid', trim($firebaseUid))
             ->first();
     }
@@ -80,7 +78,6 @@ final class EloquentUserRepository implements UserRepositoryInterface
                 'avatar' => $dto->avatar,
                 'is_email_verified' => $dto->isEmailVerified,
                 'is_active' => $dto->isActive,
-                'banned_at' => $dto->bannedAt,
             ]);
             $user->save();
 
@@ -132,14 +129,6 @@ final class EloquentUserRepository implements UserRepositoryInterface
                 $updateData['is_active'] = $dto->isActive;
             }
 
-            if ($dto->hasBannedAt) {
-                $updateData['banned_at'] = $dto->bannedAt;
-            }
-
-            if ($dto->violationMessage !== null) {
-                $updateData['violation_message'] = $dto->violationMessage;
-            }
-
             if ($updateData !== []) {
                 $user->forceFill($updateData)->save();
             }
@@ -148,7 +137,7 @@ final class EloquentUserRepository implements UserRepositoryInterface
                 $user->roles()->sync($this->activeRoleIds($dto->roleIds));
             }
 
-            if ($dto->isActive === false || ($dto->hasBannedAt && $dto->bannedAt !== null)) {
+            if ($dto->isActive === false) {
                 $user->tokens()->delete();
             }
         });
@@ -255,7 +244,6 @@ final class EloquentUserRepository implements UserRepositoryInterface
                 'avatar' => $providerAvatar !== '' ? $providerAvatar : null,
                 'is_email_verified' => $isEmailVerified,
                 'is_active' => true,
-                'banned_at' => null,
             ]);
             $user->save();
             $this->assignRoleByName($user, 'buyer');
@@ -278,7 +266,7 @@ final class EloquentUserRepository implements UserRepositoryInterface
     public function hasSellerAccess(User $user): bool
     {
         // Single-store: admin adalah seller/operator yang sama.
-        return $user->is_active && ! $user->isBanned() && ($user->hasRole('seller') || $user->hasRole('admin'));
+        return $user->is_active && ($user->hasRole('seller') || $user->hasRole('admin'));
     }
 
     public function assignRoleByName(User $user, string $role): void
@@ -363,8 +351,5 @@ final class EloquentUserRepository implements UserRepositoryInterface
             throw new RuntimeException('Akun sedang nonaktif.');
         }
 
-        if ($user->isBanned()) {
-            throw new RuntimeException('Akun sedang diblokir.');
-        }
     }
 }

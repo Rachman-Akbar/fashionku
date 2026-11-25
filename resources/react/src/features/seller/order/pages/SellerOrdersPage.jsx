@@ -1,6 +1,6 @@
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import { SellerPanelShell } from "@/features/seller/dashboard/components/SellerPanelShell";
-import { ORDER_TABLE_COLUMNS, OrderManagementTable, orderCardDefinition } from "@/features/admin/order/components/OrderManagementTable";
+import { ORDER_TABLE_COLUMNS, OrderManagementTable } from "@/features/admin/order/components/OrderManagementTable";
 import { getOrderManagementError, useSellerOrders, useUpdateOrderStatus } from "@/features/admin/order/services/orderManagementService";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
@@ -9,9 +9,7 @@ import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { InfiniteScrollSentinel } from "@/shared/components/ui/InfiniteScrollSentinel";
 import { useColumnVisibility, useTableSelection, useViewMode } from "@/shared/hooks";
-import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
-import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
-import { buildRawColumns, mergeColumns } from "@/shared/utils/tableData";
+import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";import { buildDatabaseColumns, mergeColumns } from "@/shared/utils/tableData";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import OrderPrintSheet from "@/features/seller/order/components/OrderPrintSheet";
 import OrderCompletionIncomeModal from "@/features/seller/order/components/OrderCompletionIncomeModal";
@@ -35,10 +33,36 @@ export default function SellerOrdersPage() {
   const total = useListTotalCount(ordersQuery.data?.meta, { label: "Pesanan" });
   const editor = useEntityEditor({ getEditLabel: (row) => row.orderNumber || row.order_number || row.subOrderNumber || `Order #${row.id}` });
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: ordersQuery.refetch });
-  const columns = useMemo(() => mergeColumns(ORDER_TABLE_COLUMNS.filter((column) => column.key !== "store"), buildRawColumns(rows, ["id", "order_id", "order_number", "sub_order_number", "store_name", "grand_total", "total", "total_items_price", "shipping_cost", "status", "payment_status", "tracking_number"])), [rows]);
+  // Kolom kurasi + semua kolom database lain (kecuali kolom ID).
+  const columns = useMemo(() => mergeColumns(ORDER_TABLE_COLUMNS.filter((column) => column.key !== "store"), buildDatabaseColumns(rows, {
+    omit: ["id", "order_id", "order_number", "sub_order_number", "store_name", "grand_total", "total", "total_items_price", "shipping_cost", "status", "payment_status", "tracking_number", "items", "sub_orders", "user", "created_at", "order_type", "is_preorder"],
+    labels: {
+      user_name: "Customer",
+      voucher: "Voucher",
+      voucher_code: "Kode Voucher",
+      discount_amount: "Diskon",
+      shipping_discount_amount: "Diskon Ongkir",
+      shipping_address: "Alamat Kirim",
+      shipping_method: "Metode Kirim",
+      shipping_courier: "Kurir",
+      payment_method: "Metode Bayar",
+      pickup_note: "Catatan Ambil",
+      notes: "Catatan",
+      cancel_reason: "Alasan Batal",
+      reject_reason: "Alasan Tolak",
+      scheduled_at: "Jadwal",
+      pickup_at: "Ambil di Toko",
+      received_at: "Diterima",
+      preorder_release_at: "Rilis Preorder",
+      completed_at: "Selesai",
+      cancelled_at: "Dibatalkan",
+      created_at: "Dibuat",
+      updated_at: "Diubah",
+      deleted_at: "Dihapus",
+    },
+  })), [rows]);
   const selection = useTableSelection(rows);
   const columnVisibility = useColumnVisibility(columns, "seller-orders");
-  const orderCard = useMemo(() => orderCardDefinition({ onPrint: setPrintRow }), []);
 
   const completeOrders = (rowsToComplete) => {
     const pending = rowsToComplete.filter((row) => row.status !== "completed");
@@ -123,6 +147,10 @@ export default function SellerOrdersPage() {
             onApplyDefaultColumns={columnVisibility.applyAsDefault}
             viewMode={viewMode}
             onChangeViewMode={setViewMode}
+            viewModeOptions={[
+              { value: "list", label: "Daftar", icon: "view_list" },
+              { value: "chart", label: "Grafik", icon: "insert_chart" },
+            ]}
             filters={(
               <>
                 <SearchableSelect
@@ -172,31 +200,7 @@ export default function SellerOrdersPage() {
           )}
         >
           <AsyncState loading={ordersQuery.isLoading} error={ordersQuery.error ? getOrderManagementError(ordersQuery.error) : ""} empty={!ordersQuery.isLoading && !rows.length} emptyText="Pesanan toko belum tersedia." />
-          {rows.length && viewMode === "grid" ? (
-            <>
-            {/* Header tabel tetap tampil di mode kartu sebagai filter & sort. */}
-            <OrderManagementTable
-              rows={[]}
-              columns={columns}
-              portal="seller"
-              headerOnly
-              visibleSet={columnVisibility.visibleSet}
-              columnOrder={columnVisibility.visibleKeys}
-              onOrderChange={columnVisibility.syncVisibleOrder}
-            />
-            <RecordCardGrid
-              rows={rows}
-              columns={columns}
-              card={orderCard}
-              onRowClick={editor.edit}
-              selectionEnabled={selection.enabled}
-              selectedIds={selection.selectedIds}
-              onToggleRow={selection.toggleRow}
-              rowKey={(row) => row.id}
-            />
-            </>
-          ) : null}
-          {rows.length && viewMode !== "grid" ? (
+          {rows.length && viewMode !== "chart" ? (
             <OrderManagementTable
               rows={rows}
               onFilterStateChange={total.onFilterStateChange}

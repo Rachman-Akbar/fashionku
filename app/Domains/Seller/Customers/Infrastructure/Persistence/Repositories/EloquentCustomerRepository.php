@@ -66,7 +66,9 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
                 'users.email',
                 'users.avatar',
                 'users.is_active',
+                'users.is_email_verified',
                 'users.created_at',
+                'users.updated_at',
                 'customer_summary.orders_count',
                 'customer_summary.total_spent',
                 'customer_summary.last_order_at',
@@ -74,6 +76,9 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
                 'buyer_address_sub.buyer_phone as primary_phone',
                 'buyer_address_sub.buyer_address_text as primary_address',
                 'seller_customers.code',
+                'seller_customers.note',
+                'seller_customers.created_by as customer_created_by',
+                'seller_customers.updated_by as customer_updated_by',
                 DB::raw("(CASE WHEN {$manualExists} THEN 1 ELSE 0 END) as is_manual"),
             ])
             ->when(trim((string) ($filters['search'] ?? '')) !== '', function (Builder $query) use ($filters): void {
@@ -140,7 +145,6 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
                 'avatar' => self::normalizeImage($data['avatar'] ?? null),
                 'is_email_verified' => false,
                 'is_active' => (bool) ($data['is_active'] ?? true),
-                'banned_at' => null,
             ])->save();
 
             $roleId = DB::table('roles')

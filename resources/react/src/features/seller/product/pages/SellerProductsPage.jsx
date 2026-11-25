@@ -14,7 +14,7 @@ import { useActiveToggle } from "@/shared/hooks/useActiveToggle";
 import { useEntityEditor } from "@/shared/hooks/useEntityEditor";
 import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
 import { useColumnVisibility, useTableSelection } from "@/shared/hooks";
-import { buildRawColumns, mergeColumns } from "@/shared/utils/tableData";
+import { buildDatabaseColumns, mergeColumns } from "@/shared/utils/tableData";
 import { useRefreshOnListActivation } from "@/shared/hooks/useRefreshOnListActivation";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
 import { getSellerProductError, useDeleteSellerProduct, useSellerProducts, useUpdateSellerProduct } from "@/features/seller/product/services/sellerProductService";
@@ -65,7 +65,26 @@ export default function SellerProductsPage() {
   };
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: productsQuery.refetch });
   const rows = productsQuery.data?.rows || [];
-  const columns = useMemo(() => mergeColumns(PRODUCT_TABLE_COLUMNS.filter((column) => column.key !== "store" && column.key !== "status"), buildRawColumns(rows, ["id", "name", "thumbnail", "variants", "images", "price", "stock", "status", "is_active"])), [rows]);
+  // Kolom kurasi + semua kolom database produk (kecuali kolom ID).
+  const columns = useMemo(() => mergeColumns(PRODUCT_TABLE_COLUMNS.filter((column) => column.key !== "store" && column.key !== "status"), buildDatabaseColumns(rows, {
+    omit: ["id", "name", "thumbnail", "variants", "images", "price", "stock", "status", "is_active", "sku"],
+    labels: {
+      code: "Kode",
+      slug: "Slug",
+      description: "Deskripsi",
+      brand: "Merek",
+      average_rating: "Rating Rata-rata",
+      review_count: "Jumlah Review",
+      sold_count: "Terjual",
+      category_ids: "Kategori",
+      attribute_values: "Atribut",
+      created_by_user: "Dibuat Oleh",
+      updated_by_user: "Diubah Oleh",
+      created_at: "Dibuat",
+      updated_at: "Diubah",
+      deleted_at: "Dihapus",
+    },
+  })), [rows]);
   const columnVisibility = useColumnVisibility(columns, "seller-products");
   const selection = useTableSelection(rows);
 

@@ -11,6 +11,8 @@ import {
 } from "@/features/advanced/services/advancedMarketplaceService";
 import { ModuleFrame } from "@/features/advanced/components/ModuleFrame";
 import { DataGrid } from "@/features/advanced/components/DataGrid";
+import { useUsers } from "@/features/admin/users/services/usersService";
+import { buildDatabaseColumns } from "@/shared/utils/tableData";
 import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
@@ -53,6 +55,17 @@ export default function HelpPage() {
   const createMutation = useCreateTicket();
   const replyMutation = useReplyTicket();
   const statusMutation = useUpdateTicketStatus();
+  // Penanggung jawab Help hanya operator/admin aktif (dipakai saat menugaskan tiket).
+  const usersQuery = useUsers({ per_page: 100 }, { enabled: admin });
+  const assignees = useMemo(() => {
+    const list = usersQuery.data || [];
+    return list
+      .filter((item) => {
+        const roles = Array.isArray(item.raw?.roles) ? item.raw.roles.map((role) => String(role?.name || role || "").toLowerCase()) : [];
+        return roles.includes("admin") && item.raw?.is_active !== false;
+      })
+      .map((item) => ({ id: item.id, name: item.name }));
+  }, [usersQuery.data]);
   const rows = listQuery.data?.rows || [];
   const total = useListTotalCount(listQuery.data?.meta, { fallbackTotal: rows.length, label: "Help" });
   const ticket = ticketQuery.data || detailTab?.entity || null;
@@ -75,8 +88,24 @@ export default function HelpPage() {
     { key: "priority", label: "Prioritas" },
     { key: "status", label: "Status" },
     { key: "messages_count", label: "Balasan" },
+    { key: "assigned_name", label: "Ditugaskan", render: (row) => row.assigned_name || "Belum ditugaskan" },
     { key: "created_at", label: "Dibuat", render: (row) => row.created_at ? new Date(row.created_at).toLocaleString("id-ID") : "-" },
-  ], []);
+    // Sisa kolom database tiket tampil otomatis (kecuali kolom ID).
+    ...buildDatabaseColumns(rows, {
+      omit: ["id", "user_id", "order_id", "assigned_to", "ticket_number", "subject", "category", "priority", "status", "messages_count", "created_at", "user", "order", "assignee"],
+      labels: {
+        description: "Deskripsi",
+        assigned_to: "Ditugaskan Ke",
+        last_replied_at: "Balasan Terakhir",
+        resolved_at: "Diselesaikan",
+        is_active: "Aktif",
+        created_by_user: "Dibuat Oleh",
+        updated_by_user: "Diubah Oleh",
+        updated_at: "Diubah",
+        deleted_at: "Dihapus",
+      },
+    }),
+  ], [rows]);
 
   function openDetail(row) {
     if (tabs) tabs.openOperationTab("help-detail", { id: row.id, label: row.ticket_number || "Detail Help", entity: row });
@@ -122,9 +151,25 @@ export default function HelpPage() {
     try {
       await statusMutation.mutateAsync({ id: selectedId, values: { status: value } });
       ticketQuery.refetch();
+      listQuery.refetch();
       toastSuccess("Ubah Status Help", "Status Help berhasil diperbarui.");
     } catch (error) {
       toastError("Ubah Status Help", advancedError(error));
+    }
+  }
+
+  async function assignTicket(value) {
+    if (!selectedId) return;
+    try {
+      await statusMutation.mutateAsync({
+        id: selectedId,
+        values: { status: ticket?.status || "open", assigned_to: value || null },
+      });
+      ticketQuery.refetch();
+      listQuery.refetch();
+      toastSuccess("Tugaskan Help", value ? "Help berhasil ditugaskan." : "Penugasan Help dilepas.");
+    } catch (error) {
+      toastError("Tugaskan Help", advancedError(error));
     }
   }
 
@@ -135,6 +180,7 @@ export default function HelpPage() {
       { label: "Kategori", render: (row) => row.category || "-" },
       { label: "Prioritas", render: (row) => row.priority || "-" },
       { label: "Status", render: (row) => row.status || "-" },
+      { label: "Ditugaskan", render: (row) => row.assigned_name || "Belum ditugaskan" },
       { label: "Balasan", render: (row) => row.messages_count ?? 0 },
       { label: "Dibuat", render: (row) => (row.created_at ? new Date(row.created_at).toLocaleString("id-ID") : "-") },
     ],
@@ -207,7 +253,7 @@ export default function HelpPage() {
                   <label className="grid gap-1.5 text-sm font-bold text-slate-700"><span>Prioritas</span><Input value={ticket?.priority || "-"} disabled /></label>
                 </div>
                 <label className="grid gap-1.5 text-sm font-bold text-slate-700"><span>Keluhan</span><textarea value={ticket?.description || ""} readOnly rows={4} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none" /></label>
-                {admin ? <div className="flex items-center gap-2"><span className="text-sm font-bold">Status</span><select value={ticket?.status || "open"} onChange={(event) => updateStatus(event.target.value)} className={inputClassName}>{["open", "in_progress", "resolved", "closed"].map((item) => <option key={item}>{item}</option>)}</select></div> : null}
+                {admin ? <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-bold">Status</span><select value={ticket?.status || "open"} onChange={(event) => updateStatus(event.target.value)} className={inputClassName}>{["open", "in_progress", "resolved", "closed"].map((item) => <option key={item}>{item}</option>)}</select><span className="ml-2 text-sm font-bold">Ditugaskan</span><select value={ticket?.assigned_to || ""} onChange={(event) => assignTicket(event.target.value)} disabled={statusMutation.isPending || usersQuery.isLoading} className={inputClassName}><option value="">Belum ditugaskan</option>{assignees.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}{ticket?.assigned_to && !assignees.some((item) => item.id === ticket.assigned_to) ? <option value={ticket.assigned_to}>{ticket.assigned_name || "Admin lain"}</option> : null}</select><Button type="button" variant="outline" size="sm" onClick={() => assignTicket(user?.id || "")} disabled={statusMutation.isPending || !user?.id || ticket?.assigned_to === user?.id}>Tugaskan ke saya</Button></div> : null}
                 <div className="space-y-3">{(ticket?.messages || []).map((item) => <div key={item.id} className="border border-slate-200 p-3"><div className="flex justify-between text-xs font-bold text-slate-500"><span>{item.user_name || "User"}</span><span>{item.created_at ? new Date(item.created_at).toLocaleString("id-ID") : ""}</span></div><p className="mt-2 whitespace-pre-wrap text-sm text-slate-800">{item.message}</p></div>)}</div>
                 <form onSubmit={sendReply} className="space-y-2"><textarea value={reply} onChange={(event) => setReply(event.target.value)} className="min-h-24 w-full border border-slate-300 p-3 text-sm" placeholder="Tulis balasan" required /><div className="flex justify-end"><Button type="submit" disabled={replyMutation.isPending}>Kirim Balasan</Button></div></form>
               </>

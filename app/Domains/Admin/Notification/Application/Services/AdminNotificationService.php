@@ -51,7 +51,6 @@ final class AdminNotificationService
                 ->whereIn('roles.name', ['admin', 'super_admin'])
                 ->where('roles.is_active', true)
                 ->where('users.is_active', true)
-                ->whereNull('users.banned_at')
                 ->whereNull('users.deleted_at')
                 ->distinct()
                 ->pluck('users.id')

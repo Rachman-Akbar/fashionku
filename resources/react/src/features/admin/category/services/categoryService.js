@@ -17,7 +17,6 @@ function normalizeCategory(row) {
     sortOrder: Number(row.sort_order ?? row.sortOrder ?? 0),
     isActive: row.is_active !== false,
     isVisibleInMenu: row.is_visible_in_menu !== false,
-    description: row.description || "",
     imageUrl: row.image_url || "",
     iconUrl: row.icon_url || "",
     productsCount: Number(row.products_count ?? 0),

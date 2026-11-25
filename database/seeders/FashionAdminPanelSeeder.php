@@ -799,19 +799,19 @@ final class FashionAdminPanelSeeder extends Seeder
             ];
         }
 
-        $pendingPromotion = DB::table('promotions')->where('approval_status', 'pending')->first();
-        if ($pendingPromotion !== null) {
+        $latestPromotion = DB::table('promotions')->orderByDesc('id')->first();
+        if ($latestPromotion !== null) {
             $rows[] = [
                 'user_id' => $adminId,
                 'actor_id' => null,
                 'module' => 'promotions',
-                'type' => 'promotion.submitted',
-                'title' => 'Promosi menunggu persetujuan',
-                'message' => $pendingPromotion->name,
+                'type' => 'promotion.published',
+                'title' => 'Promosi baru tayang',
+                'message' => $latestPromotion->name,
                 'reference_type' => 'promotion',
-                'reference_id' => (string) $pendingPromotion->id,
-                'url' => '/admin/promotions?promotion='.$pendingPromotion->id,
-                'meta' => json_encode(['approval_status' => 'pending']),
+                'reference_id' => (string) $latestPromotion->id,
+                'url' => '/admin/promotions?promotion='.$latestPromotion->id,
+                'meta' => json_encode(['is_active' => (bool) $latestPromotion->is_active]),
                 'read_at' => null,
                 'created_at' => $now->subMinutes(75)->toDateTimeString(),
             ];

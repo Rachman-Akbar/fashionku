@@ -196,7 +196,6 @@ final class FashionDemoSeeder extends Seeder
             'avatar' => 'https://picsum.photos/seed/'.md5($id).'/160/160',
             'is_email_verified' => true,
             'is_active' => true,
-            'banned_at' => null,
             'created_at' => $now,
             'updated_at' => $now,
         ]);

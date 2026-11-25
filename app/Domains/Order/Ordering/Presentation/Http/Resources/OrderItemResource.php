@@ -32,6 +32,8 @@ final class OrderItemResource extends JsonResource
             'currency' => $this->read($item, 'currency') ?? 'IDR',
             'unit_price' => $this->readMoney($unitPrice),
             'subtotal' => $this->readMoney($subtotal),
+            'created_at' => $this->read($item, 'created_at'),
+            'updated_at' => $this->read($item, 'updated_at'),
         ];
     }
 

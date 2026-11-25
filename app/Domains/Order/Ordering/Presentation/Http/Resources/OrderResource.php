@@ -41,6 +41,8 @@ final class OrderResource extends JsonResource
                 'destination_id' => $this->read($subOrder, 'destinationId') ?? $this->read($subOrder, 'destination_id'),
                 'status' => $this->read($subOrder, 'status'),
                 'tracking_number' => $this->read($subOrder, 'trackingNumber') ?? $this->read($subOrder, 'tracking_number'),
+                'created_at' => $this->date($this->read($subOrder, 'createdAt') ?? $this->read($subOrder, 'created_at')),
+                'updated_at' => $this->date($this->read($subOrder, 'updatedAt') ?? $this->read($subOrder, 'updated_at')),
                 'items' => OrderItemResource::collection(collect($subItems)),
             ];
         }
@@ -62,6 +64,17 @@ final class OrderResource extends JsonResource
             'pickup_note' => $this->read($order, 'pickupNote') ?? $this->read($order, 'pickup_note'),
             'received_at' => $this->date($this->read($order, 'receivedAt') ?? $this->read($order, 'received_at')),
             'user_id' => $this->read($order, 'userId') ?? $this->read($order, 'user_id'),
+            // Nama customer diambil dari peta yang disiapkan controller
+            // (satu query per halaman, bukan N+1).
+            'user' => $this->relationRow($request, 'user', (string) $this->read($order, 'userId') ?? (string) $this->read($order, 'user_id'), [
+                'name' => 'order_user_names',
+                'email' => 'order_user_emails',
+            ]),
+            'voucher_id' => $this->read($order, 'voucherId') ?? $this->read($order, 'voucher_id'),
+            'voucher' => $this->relationRow($request, 'voucher', (string) $this->read($order, 'voucherId') ?? (string) $this->read($order, 'voucher_id'), [
+                'code' => 'order_voucher_codes',
+                'name' => 'order_voucher_names',
+            ]),
             'status' => $this->read($order, 'status'),
             'payment_status' => $this->read($order, 'paymentStatus') ?? $this->read($order, 'payment_status'),
             'subtotal' => $subtotal,
@@ -78,6 +91,29 @@ final class OrderResource extends JsonResource
             'created_at' => $this->date($this->read($order, 'createdAt') ?? $this->read($order, 'created_at')),
             'updated_at' => $this->date($this->read($order, 'updatedAt') ?? $this->read($order, 'updated_at')),
         ];
+    }
+
+
+    /**
+     * Susun satu baris relasi (user/voucher) dari peta nama yang disiapkan
+     * controller, supaya kolom relasi bisa tampil tanpa query per baris.
+     *
+     * @param  array<string, string>  $maps  peta kolom => nama atribut request
+     */
+    private function relationRow(Request $request, string $key, string $id, array $maps): ?array
+    {
+        if ($id === '') {
+            return null;
+        }
+
+        $row = ['id' => $id];
+
+        foreach ($maps as $column => $attribute) {
+            $map = (array) $request->attributes->get($attribute, []);
+            $row[$column] = $map[$id] ?? null;
+        }
+
+        return $row;
     }
 
     private function read(object|array|null $source, string $key): mixed

@@ -35,4 +35,9 @@ class OrderModel extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    public function voucher(): BelongsTo
+    {
+        return $this->belongsTo(\App\Domains\Order\Voucher\Domain\Entities\Voucher::class, 'voucher_id');
+    }
 }

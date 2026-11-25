@@ -24,12 +24,30 @@ final class Product
         private readonly int $reviewCount = 0,
         private readonly int $soldCount = 0,
         private readonly ?string $createdAt = null,
-        private readonly ?string $updatedAt = null
+        private readonly ?string $updatedAt = null,
+        private readonly ?string $code = null,
+        private readonly ?string $createdBy = null,
+        private readonly ?string $updatedBy = null
     ) {}
 
     public function id(): ?int
     {
         return $this->id;
+    }
+
+    public function code(): ?string
+    {
+        return $this->code;
+    }
+
+    public function createdBy(): ?string
+    {
+        return $this->createdBy;
+    }
+
+    public function updatedBy(): ?string
+    {
+        return $this->updatedBy;
     }
 
     public function primaryCategoryId(): ?int

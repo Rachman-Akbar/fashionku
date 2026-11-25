@@ -10,7 +10,7 @@ import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
 import { useColumnFilterState } from "@/shared/hooks";
 import { formatDateTime } from "@/core/utils/dateTime";
 import { formatPrice } from "@/shared/utils/utils";
-import { formatTableValue } from "@/shared/utils/tableData";
+import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { toTitleCase } from "@/shared/utils/textFormatter";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 
@@ -68,7 +68,7 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
     if (key === "period") return `${row.startsAt || ""} ${row.endsAt || ""}`;
     if (key === "usage") return Number(row.usedCount) || 0;
     if (key === "active") return row.isActive ? "active" : "inactive";
-    return row[key] ?? row.raw?.[key];
+    return resolveTableValue(row, key);
   }, []);
 
   const filterTypes = useMemo(() => ({ voucher: "text", discount: "text", productScope: "select", minSpend: "range", minItems: "range", terms: "text", maxDiscount: "range", period: "text", usage: "range", active: "select" }), []);
@@ -98,11 +98,13 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
     if (column.key === "maxDiscount") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Maks. Diskon" align="right" filterType="range" filterValue={columnFilters.maxDiscount || { min: "", max: "" }} onFilterChange={(value) => changeFilter("maxDiscount", value)} minPlaceholder="Min" maxPlaceholder="Max" />;
     if (column.key === "period") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Periode" filterType="text" filterValue={columnFilters.period || ""} onFilterChange={(value) => changeFilter("period", value)} placeholder="Cari tanggal" />;
     if (column.key === "usage") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Penggunaan" align="right" sortKey="usage" sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSort} filterType="range" filterValue={columnFilters.usage || { min: "", max: "" }} onFilterChange={(value) => changeFilter("usage", value)} minPlaceholder="Min" maxPlaceholder="Max" />;
-    return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Status" sortKey="active" sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSort} filterType="select" filterValue={columnFilters.active || ""} onFilterChange={(value) => changeFilter("active", value)} options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Non-Active" }]} />;
+    if (column.key === "active") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Status" sortKey="active" sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSort} filterType="select" filterValue={columnFilters.active || ""} onFilterChange={(value) => changeFilter("active", value)} options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Non-Active" }]} />;
+    // Kolom database lain yang muncul otomatis cukup diberi judul biasa.
+    return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label={column.label} filterType="text" filterValue={columnFilters[column.key] || ""} onFilterChange={(value) => changeFilter(column.key, value)} placeholder={`Cari ${String(column.label || "").toLowerCase()}`} />;
   };
 
   const renderCell = (column, row) => {
-    if (column.key.startsWith("raw:")) return <td key={column.key} className="max-w-72 truncate px-4 py-3 text-slate-600">{formatTableValue(row.raw?.[column.rawKey])}</td>;
+    if (column.key.startsWith("raw:")) return <td key={column.key} className="max-w-72 truncate px-4 py-3 text-slate-600">{formatTableValue(resolveTableValue(row, column.rawKey))}</td>;
     if (column.key === "voucher") return <td key={column.key} className="px-4 py-3"><p className="font-extrabold text-slate-900">{toTitleCase(row.name)}</p><p className="mt-1 text-xs font-bold uppercase text-emerald-700">{row.code}</p></td>;
     if (column.key === "image") return <td key={column.key} className="px-4 py-3">{row.imageUrl || row.image ? <img src={resolveMediaUrl(row.imageUrl || row.image)} alt={row.name} className="h-12 w-20 object-cover" loading="lazy" onError={(e) => { e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E"; }} /> : "-"}</td>;
     if (column.key === "discount") return <td key={column.key} className="px-4 py-3 font-bold text-slate-700">{discountLabel(row)}</td>;
@@ -121,7 +123,9 @@ export const VoucherManagementTable = memo(function VoucherManagementTable({
         {Number(row.usageLimitPerUser) > 0 ? <p className="text-xs text-slate-400">{Number(row.usedByUser || 0).toLocaleString("id-ID")} / {Number(row.usageLimitPerUser).toLocaleString("id-ID")} per user</p> : null}
       </td>
     );
-    return <td key={column.key} className="px-4 py-3" onClick={(event) => event.stopPropagation()}><InlineActiveSwitch checked={row.isActive} pending={pendingId === row.id} onChange={(checked) => onToggleActive?.(row, checked)} compact /></td>;
+    if (column.key === "active") return <td key={column.key} className="px-4 py-3" onClick={(event) => event.stopPropagation()}><InlineActiveSwitch checked={row.isActive} pending={pendingId === row.id} onChange={(checked) => onToggleActive?.(row, checked)} compact /></td>;
+    // Kolom database lain dirender apa adanya (relasi tampil sebagai nama).
+    return <td key={column.key} className="max-w-72 truncate px-4 py-3 text-slate-600">{formatTableValue(resolveTableValue(row, column.key))}</td>;
   };
 
   return (

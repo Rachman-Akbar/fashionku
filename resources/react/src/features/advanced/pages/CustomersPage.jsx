@@ -4,6 +4,7 @@ import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch"
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { ModuleFrame } from "@/features/advanced/components/ModuleFrame";
 import { DataGrid } from "@/features/advanced/components/DataGrid";
+import { buildDatabaseColumns } from "@/shared/utils/tableData";
 import { CustomerDetailForm } from "@/features/advanced/pages/CustomerDetailPage";
 import { useEntityEditor, useRefreshOnListActivation, useViewMode, useTableSelection } from "@/shared/hooks";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
@@ -61,6 +62,19 @@ export default function CustomersPage() {
     { key: "total_spent", label: "Total Belanja", render: (row) => money(row.total_spent) },
     { key: "last_order_at", label: "Pesanan Terakhir", render: (row) => row.last_order_at ? formatDate(row.last_order_at) : "-" },
     { key: "is_active", label: "Status", filterType: "select", options: [{ value: "true", label: "Aktif" }, { value: "false", label: "Nonaktif" }], render: (row) => <InlineActiveSwitch checked={row.is_active !== false} pending={activeToggleId === row.id} activeLabel="Aktif" inactiveLabel="Nonaktif" compact onChange={(next) => toggleCustomerActive(row, next)} /> },
+    // Sisa kolom database (profil, audit, verifikasi) tampil otomatis.
+    ...buildDatabaseColumns(rows, {
+      omit: ["id", "code", "name", "email", "is_manual", "orders_count", "total_spent", "last_order_at", "is_active", "created_at"],
+      labels: {
+        is_email_verified: "Email Terverifikasi",
+        note: "Catatan",
+        recipient_name: "Nama Penerima",
+        registered_at: "Terdaftar",
+        created_by_user: "Dibuat Oleh",
+        updated_by_user: "Diubah Oleh",
+        updated_at: "Diubah",
+      },
+    }),
   ];
 
   const customerCard = {

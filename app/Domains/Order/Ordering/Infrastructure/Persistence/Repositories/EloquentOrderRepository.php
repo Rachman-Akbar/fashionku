@@ -53,7 +53,7 @@ class EloquentOrderRepository implements OrderRepositoryInterface
                 }
             }
 
-            $savedModel = OrderModel::with(['subOrders.items'])->findOrFail($orderModel->id);
+            $savedModel = OrderModel::with(['subOrders.items', 'user:id,name,email', 'voucher:id,code,name'])->findOrFail($orderModel->id);
 
             return $this->mapper->toDomain($savedModel);
         });
@@ -108,14 +108,14 @@ class EloquentOrderRepository implements OrderRepositoryInterface
 
     public function findById(int $id): ?DomainOrder
     {
-        $model = OrderModel::with(['subOrders.items'])->find($id);
+        $model = OrderModel::with(['subOrders.items', 'user:id,name,email', 'voucher:id,code,name'])->find($id);
 
         return $model ? $this->mapper->toDomain($model) : null;
     }
 
     public function findByOrderNumber(string $orderNumber, bool $lock = false): ?DomainOrder
     {
-        $query = OrderModel::with(['subOrders.items'])
+        $query = OrderModel::with(['subOrders.items', 'user:id,name,email', 'voucher:id,code,name'])
             ->where('order_number', $orderNumber);
 
         if ($lock) {
@@ -129,7 +129,7 @@ class EloquentOrderRepository implements OrderRepositoryInterface
 
     public function getByUserId(string $userId): array
     {
-        return OrderModel::with(['subOrders.items'])
+        return OrderModel::with(['subOrders.items', 'user:id,name,email', 'voucher:id,code,name'])
             ->where('user_id', $userId)
             ->get()
             ->map(fn ($model) => $this->mapper->toDomain($model))
@@ -145,7 +145,7 @@ class EloquentOrderRepository implements OrderRepositoryInterface
             'filters' => $filters,
         ]));
 
-        $query = OrderModel::with(['subOrders.items']);
+        $query = OrderModel::with(['subOrders.items', 'user:id,name,email', 'voucher:id,code,name']);
 
         if ($userId) {
             $query->where('user_id', $userId);

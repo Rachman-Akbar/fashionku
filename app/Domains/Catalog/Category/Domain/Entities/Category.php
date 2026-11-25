@@ -20,6 +20,13 @@ final class Category
         private bool $isActive,
         private bool $isVisibleInMenu,
         private array $children = [],
+        private ?int $parentScopeId = null,
+        private ?array $parent = null,
+        private ?array $createdByUser = null,
+        private ?array $updatedByUser = null,
+        private ?string $createdAt = null,
+        private ?string $updatedAt = null,
+        private ?string $deletedAt = null,
     ) {}
 
     public static function createNew(
@@ -191,5 +198,40 @@ final class Category
     public function children(): array
     {
         return $this->children;
+    }
+
+    public function parentScopeId(): ?int
+    {
+        return $this->parentScopeId;
+    }
+
+    public function parent(): ?array
+    {
+        return $this->parent;
+    }
+
+    public function createdByUser(): ?array
+    {
+        return $this->createdByUser;
+    }
+
+    public function updatedByUser(): ?array
+    {
+        return $this->updatedByUser;
+    }
+
+    public function createdAt(): ?string
+    {
+        return $this->createdAt;
+    }
+
+    public function updatedAt(): ?string
+    {
+        return $this->updatedAt;
+    }
+
+    public function deletedAt(): ?string
+    {
+        return $this->deletedAt;
     }
 }

@@ -50,6 +50,56 @@ export function resolveTableValue(row, columnKey) {
   return scan(row) ?? (row && typeof row === "object" ? scan(row.raw) : undefined);
 }
 
+// Kunci yang bukan data bisnis: identitas baris (id/uuid), relasi mentah,
+// dan kolom internal tabel.
+const DATABASE_IDENTIFIER_KEYS = new Set(["id", "uuid", "raw", "children", "pivot"]);
+
+/** Normalisasi nama kolom agar `order_type` dan `orderType` dianggap sama. */
+export function normalizeColumnKey(key) {
+  return String(key ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+}
+
+/**
+ * True untuk kolom identitas / foreign key. Halaman data admin menampilkan
+ * semua kolom database kecuali kolom ID (termasuk `*_id` / `*Id`).
+ */
+export function isDatabaseIdentifierKey(key) {
+  const value = String(key ?? "").trim();
+  if (!value) return true;
+  if (DATABASE_IDENTIFIER_KEYS.has(value)) return true;
+  if (/_id$/.test(value) || /_uuid$/.test(value)) return true;
+  // foreign key camelCase: orderId, productId
+  return /[a-z0-9]Id$/.test(value);
+}
+
+/**
+ * Bangun kolom tabel dari SEMUA kolom database yang ada pada data API
+ * (termasuk kolom relasi hasil join/eager-load), kecuali kolom ID.
+ *
+ * Dipakai bersama `mergeColumns` sehingga kolom yang sudah punya render
+ * khusus di halaman tetap menang, dan kolom yang belum pernah tampil
+ * otomatis muncul dengan label dari nama kolomnya.
+ */
+export function buildDatabaseColumns(rows = [], { omit = [], labels = {} } = {}) {
+  const omitted = new Set(omit.map(normalizeColumnKey));
+  const keys = new Map();
+  rows.forEach((row) => {
+    const source = row && typeof row === "object" && row.raw && typeof row.raw === "object" ? row.raw : row;
+    Object.keys(source || {}).forEach((key) => {
+      if (isDatabaseIdentifierKey(key)) return;
+      const normalized = normalizeColumnKey(key);
+      if (omitted.has(normalized) || keys.has(normalized)) return;
+      keys.set(normalized, key);
+    });
+  });
+  return [...keys.values()].map((key) => ({
+    key,
+    rawKey: key,
+    label: labels[key] || labels[normalizeColumnKey(key)] || humanizeColumnKey(key),
+    defaultVisible: true,
+  }));
+}
+
 export function buildRawColumns(rows = [], omittedKeys = []) {
   const omitted = new Set([...excludedKeys, ...omittedKeys]);
   const keys = new Set();
@@ -106,6 +156,16 @@ export function mergeColumns(baseColumns = [], rawColumns = []) {
     ...column,
     rawKey: column.rawKey ?? String(column.key ?? "").replace(/^raw:/, ""),
   }));
-  const baseRawKeys = new Set(normalizedBase.flatMap((column) => [column.rawKey]).filter(Boolean));
-  return [...normalizedBase, ...rawColumns.filter((column) => !baseRawKeys.has(column.rawKey))];
+  // Dedupe memakai nama ternormalisasi supaya `orderType` (kolom kurasi) dan
+  // `order_type` (kolom database) tidak muncul dua kali.
+  const baseRawKeys = new Set(
+    normalizedBase
+      .flatMap((column) => [column.rawKey, column.key])
+      .filter(Boolean)
+      .map(normalizeColumnKey),
+  );
+  return [
+    ...normalizedBase,
+    ...rawColumns.filter((column) => !baseRawKeys.has(normalizeColumnKey(column.rawKey ?? column.key))),
+  ];
 }

@@ -56,7 +56,19 @@ final class VoucherResource extends JsonResource
             'isMissionReward' => $isMissionReward,
             'isOwned' => $isOwned,
             'isLocked' => $isMissionReward && ! $isOwned,
+            'createdByUser' => $this->auditName($this->created_by, $this->creator?->name),
+            'updatedByUser' => $this->auditName($this->updated_by, $this->updater?->name),
             'createdAt' => $this->created_at?->toDateTimeString(),
+            'updatedAt' => $this->updated_at?->toDateTimeString(),
         ];
+    }
+
+    private function auditName(mixed $id, ?string $name): ?array
+    {
+        if (! is_string($id) || $id === '') {
+            return null;
+        }
+
+        return ['id' => $id, 'name' => $name];
     }
 }

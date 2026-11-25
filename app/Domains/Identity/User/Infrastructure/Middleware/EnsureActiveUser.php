@@ -22,10 +22,6 @@ final class EnsureActiveUser
             return response()->json(['message' => 'Akun sedang nonaktif.'], 403);
         }
 
-        if ($user->banned_at !== null) {
-            return response()->json(['message' => 'Akun sedang diblokir.'], 403);
-        }
-
         return $next($request);
     }
 }

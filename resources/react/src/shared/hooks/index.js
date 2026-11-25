@@ -11,3 +11,4 @@ export * from "./useColumnVisibility";
 export { useListTotalCount } from "./useListTotalCount";
 export { useViewMode } from "./useViewMode";
 export { useBuyerSurface, isBuyerSurfacePath } from "./useBuyerSurface";
+export { useDatabaseTableColumns } from "./useDatabaseTableColumns";

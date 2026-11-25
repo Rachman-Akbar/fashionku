@@ -61,7 +61,6 @@ export function normalizeVoucher(voucher = {}) {
     ),
     isActive: toBoolean(voucher.isActive ?? voucher.is_active, true),
     status: voucher.status || "active",
-    approvalStatus: voucher.approvalStatus || voucher.approval_status || "approved",
     isMissionReward: toBoolean(voucher.isMissionReward ?? voucher.is_mission_reward, false),
     isOwned: toBoolean(voucher.isOwned ?? voucher.is_owned, true),
     isLocked: toBoolean(voucher.isLocked ?? voucher.is_locked, false),

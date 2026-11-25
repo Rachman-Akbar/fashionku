@@ -14,7 +14,7 @@ final class EloquentStockMovementRepository implements StockMovementRepositoryIn
     public function paginate(array $filters, int $perPage): LengthAwarePaginator
     {
         return StockMovementModel::query()
-            ->with(['product:id,name', 'variant:id,name,sku,stock', 'order:id,order_number'])
+            ->with(['product:id,name', 'variant:id,name,sku,stock,stock_reserved,stock_booked', 'order:id,order_number', 'creator:id,name', 'updater:id,name'])
             ->when(! empty($filters['type']), fn (Builder $query) => $query->where('type', $filters['type']))
             ->when(! empty($filters['product_id']), fn (Builder $query) => $query->where('product_id', (int) $filters['product_id']))
             ->when(! empty($filters['variant_id']), fn (Builder $query) => $query->where('variant_id', (int) $filters['variant_id']))

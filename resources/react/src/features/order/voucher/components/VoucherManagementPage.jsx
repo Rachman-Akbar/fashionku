@@ -15,7 +15,7 @@ import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { VoucherFormDialog } from "@/features/order/voucher/components/VoucherFormDialog";
 import { VOUCHER_TABLE_COLUMNS, VoucherManagementTable } from "@/features/order/voucher/components/VoucherManagementTable";
 import { getVoucherManagementError, useDeleteVoucher, useManagedVouchers, useUpdateVoucher } from "@/features/order/voucher/services/voucherManagementService";
-import { buildRawColumns, mergeColumns } from "@/shared/utils/tableData";
+import { buildDatabaseColumns, mergeColumns } from "@/shared/utils/tableData";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
 import { ExcelActionButtons } from "@/shared/excel";
 
@@ -37,7 +37,25 @@ export function VoucherManagementPage({ portal, children: wrap }) {
   const rows = vouchersQuery.data || [];
   const total = useListTotalCount(undefined, { fallbackTotal: rows.length, label: "Voucher" });
   const { query, setQuery, filteredRows } = useTableSearch(rows, ["name", "code", "discountType"]);
-  const columns = useMemo(() => mergeColumns(VOUCHER_TABLE_COLUMNS, buildRawColumns(rows, ["id", "code", "name", "image", "image_url", "discount_target", "discount_type", "discount_value", "min_spend", "max_discount", "starts_at", "ends_at", "usage_limit", "used_count", "is_active"])), [rows]);
+  // Kolom kurasi + semua kolom database lain (kecuali kolom ID). Kolom yang
+  // sudah tampil lewat kolom kurasi tidak diulang.
+  const columns = useMemo(() => mergeColumns(VOUCHER_TABLE_COLUMNS, buildDatabaseColumns(rows, {
+    omit: [
+      "id", "code", "name", "image", "imageUrl", "discountTarget", "discountType", "discountValue",
+      "minSpend", "minItems", "terms", "maxDiscount", "startsAt", "endsAt", "usageLimit",
+      "usedCount", "isActive", "productIds", "isMissionReward", "isOwned", "isLocked",
+    ],
+    labels: {
+      minDistinctProducts: "Min. Produk Berbeda",
+      usageLimitPerUser: "Limit per Pengguna",
+      usedByUser: "Dipakai Pengguna Ini",
+      createdByUser: "Dibuat Oleh",
+      updatedByUser: "Diubah Oleh",
+      createdAt: "Dibuat",
+      updatedAt: "Diubah",
+      deletedAt: "Dihapus",
+    },
+  })), [rows]);
   const selection = useTableSelection(filteredRows);
   const columnVisibility = useColumnVisibility(columns, `${portal}-vouchers`);
 

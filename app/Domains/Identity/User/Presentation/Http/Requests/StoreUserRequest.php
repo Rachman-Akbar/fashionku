@@ -46,7 +46,6 @@ final class StoreUserRequest extends FormRequest
             'avatar' => ['nullable', 'string', 'max:255'],
             'is_email_verified' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
-            'banned_at' => ['nullable', 'date'],
             'role_ids' => ['nullable', 'array'],
             'role_ids.*' => [
                 'integer',

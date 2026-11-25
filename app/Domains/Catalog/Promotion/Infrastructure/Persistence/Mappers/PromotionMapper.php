@@ -13,7 +13,6 @@ final class PromotionMapper
     {
         return new Promotion(
             id: (int) $model->id,
-            promotionPaymentId: $model->promotion_payment_id !== null ? (int) $model->promotion_payment_id : null,
             name: (string) $model->name,
             imageUrl: (string) $model->image_url,
             mobileImageUrl: $model->mobile_image_url,
@@ -22,6 +21,27 @@ final class PromotionMapper
             targetUrl: $model->target_url,
             sortOrder: (int) $model->sort_order,
             isActive: (bool) $model->is_active,
+            createdByUser: self::auditUser($model, 'created_by', 'creator'),
+            updatedByUser: self::auditUser($model, 'updated_by', 'updater'),
+            createdAt: $model->created_at?->toDateTimeString(),
+            updatedAt: $model->updated_at?->toDateTimeString(),
         );
+    }
+
+    /**
+     * Relasi user pada kolom audit ditampilkan sebagai nama, bukan UUID.
+     */
+    private static function auditUser(PromotionModel $model, string $column, string $relation): ?array
+    {
+        $id = $model->getAttribute($column);
+
+        if ($id === null || $id === '') {
+            return null;
+        }
+
+        return [
+            'id' => (string) $id,
+            'name' => $model->relationLoaded($relation) ? $model->{$relation}?->name : null,
+        ];
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Identity\Auth\Application\UseCases;
 
+use App\Domains\Admin\Notification\Application\Services\AdminNotificationService;
 use App\Domains\Identity\Auth\Application\Services\OtpSecurityEngine;
 use App\Domains\Identity\Auth\Domain\Enums\OtpPurpose;
 use App\Domains\Identity\Auth\Infrastructure\Persistence\Models\RegistrationChallenge;
@@ -28,6 +29,7 @@ final readonly class RegisterUserWithOtpUseCase
         private UserRepositoryInterface $userRepository,
         private BuildAuthPayloadUseCase $payload,
         private IssueApiTokenUseCase $issueToken,
+        private AdminNotificationService $adminNotifications,
     ) {}
 
     public function initiate(
@@ -169,6 +171,8 @@ final readonly class RegisterUserWithOtpUseCase
             ));
             $this->userRepository->assignRoleByName($user, 'buyer');
 
+            $this->notifyNewUser($user);
+
             $this->registrationChallengeRepository->delete($registrationChallenge->id);
 
             return $user->refresh()->load('roles:id,name,is_active');
@@ -239,6 +243,24 @@ final readonly class RegisterUserWithOtpUseCase
     public function cleanupExpired(): int
     {
         return $this->registrationChallengeRepository->cleanupExpired();
+    }
+
+    private function notifyNewUser(\App\Domains\Identity\User\Domain\Entities\User $user): void
+    {
+        try {
+            $this->adminNotifications->notifyAdmins([
+                'module' => 'users',
+                'type' => 'user.registered',
+                'title' => 'Pengguna baru',
+                'message' => ($user->name !== '' && $user->name !== null ? $user->name : 'Tanpa nama').' · '.$user->email,
+                'reference_type' => 'user',
+                'reference_id' => (string) $user->id,
+                'url' => '/admin/users?user='.$user->id,
+                'meta' => ['email' => $user->email],
+            ]);
+        } catch (\Throwable) {
+            // Notifikasi bersifat best-effort; registrasi tidak boleh gagal.
+        }
     }
 
     private function isUniqueConstraintViolation(QueryException $e): bool

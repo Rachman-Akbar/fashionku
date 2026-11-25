@@ -12,6 +12,8 @@ import { RouteOutletBoundary } from "@/shared/layout/RouteOutletBoundary";
 import { FocusModeContext, useFocusModeValue } from "@/shared/layout/FocusModeContext";
 import PageTransitionLoader from "@/shared/layout/PageTransitionLoader";
 import { AdminThemeControl } from "@/features/admin/layout/AdminThemeControl";
+import { useAdminNotifications } from "@/features/admin/notification/useAdminNotifications";
+import { AdminNotificationPanel } from "@/features/admin/notification/AdminNotificationPanel";
 import { cn } from "@/shared/utils/utils";
 
 export const ADMIN_NAV_ITEMS = [
@@ -54,6 +56,7 @@ export default function AdminShell({ children }) {
   const { resolvedMode, palette } = useTheme();
   const isChatRoute = pathname === "/admin/chat";
   const { badges } = usePanelBadges("/admin/chat");
+  const notifications = useAdminNotifications();
   const focusable = pathname.startsWith("/admin/planner") || pathname.startsWith("/admin/chat");
   const [isFocus, setIsFocus] = useState(false);
   const focusValue = useFocusModeValue(isFocus, setIsFocus);
@@ -93,6 +96,22 @@ export default function AdminShell({ children }) {
               accentTextClassName="text-[var(--color-primary-strong)]"
               avatarClassName="bg-[var(--color-primary)]"
               notificationClassName="hover:bg-slate-50"
+              notificationCount={notifications.unreadCount}
+              notificationConnected={notifications.connected}
+              notificationPanel={({ close }) => (
+                <AdminNotificationPanel
+                  items={notifications.items}
+                  loading={notifications.loading}
+                  refreshing={notifications.refreshing}
+                  connected={notifications.connected}
+                  error={notifications.error}
+                  onClose={close}
+                  onRefresh={notifications.refresh}
+                  onMarkRead={notifications.markRead}
+                  onMarkAllRead={notifications.markAllRead}
+                />
+              )}
+              onNotificationOpen={(open) => { if (open) notifications.refresh(); }}
               mobileNavigation={<PanelMobileNavigation items={ADMIN_NAV_ITEMS} badges={badges} activeClassName="bg-[var(--color-primary-soft)] text-[var(--color-primary-strong)]" />}
               modeHeader={<AdminThemeControl />}
             />}

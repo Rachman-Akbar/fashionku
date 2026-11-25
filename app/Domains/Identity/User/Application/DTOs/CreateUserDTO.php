@@ -15,7 +15,6 @@ final class CreateUserDTO
         public ?string $avatar = null,
         public bool $isEmailVerified = false,
         public bool $isActive = true,
-        public ?string $bannedAt = null,
     ) {}
 
     public static function fromArray(array $data): self
@@ -29,7 +28,6 @@ final class CreateUserDTO
             avatar: $data['avatar'] ?? null,
             isEmailVerified: (bool) ($data['is_email_verified'] ?? false),
             isActive: (bool) ($data['is_active'] ?? true),
-            bannedAt: $data['banned_at'] ?? null,
         );
     }
 }

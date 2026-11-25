@@ -156,7 +156,47 @@ class OrderingController extends Controller
             perPage: min(100, max(1, (int) $request->query('per_page', 15)))
         );
 
+        $this->attachRelationMaps($request, $orders);
+
         return OrderResource::collection($orders)->additional(['success' => true])->response();
+    }
+
+    /**
+     * Kumpulkan nama customer & kode voucher sekali per halaman lalu simpan di
+     * atribut request agar OrderResource tidak menampilkan UUID.
+     */
+    private function attachRelationMaps(Request $request, iterable $orders): void
+    {
+        $userIds = [];
+        $voucherIds = [];
+
+        foreach ($orders as $order) {
+            $userId = $order->userId ?? null;
+            $voucherId = $order->voucherId ?? null;
+
+            if (is_string($userId) && $userId !== '') {
+                $userIds[] = $userId;
+            }
+
+            if ($voucherId !== null && $voucherId !== '') {
+                $voucherIds[] = $voucherId;
+            }
+        }
+
+        $userIds = array_values(array_unique($userIds));
+        $voucherIds = array_values(array_unique($voucherIds));
+
+        if ($userIds !== []) {
+            $users = DB::table('users')->whereIn('id', $userIds)->get(['id', 'name', 'email']);
+            $request->attributes->set('order_user_names', $users->pluck('name', 'id')->all());
+            $request->attributes->set('order_user_emails', $users->pluck('email', 'id')->all());
+        }
+
+        if ($voucherIds !== []) {
+            $vouchers = DB::table('vouchers')->whereIn('id', $voucherIds)->get(['id', 'code', 'name']);
+            $request->attributes->set('order_voucher_codes', $vouchers->pluck('code', 'id')->all());
+            $request->attributes->set('order_voucher_names', $vouchers->pluck('name', 'id')->all());
+        }
     }
 
     public function getByCustomer(Request $request, string $userId): JsonResponse
@@ -188,6 +228,8 @@ class OrderingController extends Controller
         if ($role === 'buyer' && $order->userId !== (string) $request->user()->id) {
             throw new AccessDeniedHttpException('Anda tidak dapat melihat pesanan ini.');
         }
+
+        $this->attachRelationMaps($request, [$order]);
 
         return (new OrderResource($order))->additional(['success' => true])->response();
     }

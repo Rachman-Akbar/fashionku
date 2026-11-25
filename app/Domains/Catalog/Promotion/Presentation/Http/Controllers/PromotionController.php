@@ -99,7 +99,9 @@ final class PromotionController extends Controller
             );
 
             return response()->json([
-                'message' => $id ? 'Promosi berhasil diperbarui.' : 'Promosi berhasil dibuat dan langsung disetujui.',
+                'message' => $id
+                    ? 'Promosi berhasil diperbarui.'
+                    : 'Promosi berhasil dibuat dan langsung tayang.',
                 'data' => $this->present($promotion),
             ], $id ? 200 : 201);
         } catch (InvalidArgumentException $exception) {

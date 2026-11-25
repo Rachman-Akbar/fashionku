@@ -22,7 +22,6 @@ final class UserFactory extends Factory
             'name' => fake()->name(),
             'is_email_verified' => true,
             'is_active' => true,
-            'banned_at' => null,
         ];
     }
 

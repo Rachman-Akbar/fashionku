@@ -18,7 +18,7 @@ final class EloquentVoucherRepository implements VoucherRepositoryInterface
         $limit = max(1, min(100, (int) ($filters['limit'] ?? 100)));
 
         return Voucher::query()
-            ->with('voucherProducts:id')
+            ->with(['voucherProducts:id', 'creator:id,name', 'updater:id,name'])
             ->when(! $includeInactive && ! array_key_exists('is_active', $filters), fn (Builder $query) => $query->active())
             ->when(array_key_exists('is_active', $filters), fn (Builder $query) => $query->where('is_active', (bool) $filters['is_active']))
             ->when((bool) ($filters['active_now'] ?? false), function (Builder $query): void {

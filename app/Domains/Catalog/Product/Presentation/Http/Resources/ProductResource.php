@@ -43,6 +43,7 @@ final class ProductResource extends JsonResource
 
         return [
             'id' => $product->id(),
+            'code' => $product->code(),
             'store_name' => (string) ($storeProfile['name'] ?? ''),
             'store_city' => $storeProfile['city'] ?? null,
             'store_province' => $storeProfile['province'] ?? null,
@@ -72,6 +73,29 @@ final class ProductResource extends JsonResource
             'variants' => ProductVariantResource::collection($product->variants()),
             'created_at' => $product->createdAt(),
             'updated_at' => $product->updatedAt(),
+            'created_by_user' => $this->auditUser($request, 'created_by'),
+            'updated_by_user' => $this->auditUser($request, 'updated_by'),
         ];
+    }
+
+    /**
+     * Kolom audit `created_by`/`updated_by` ditampilkan sebagai nama user,
+     * bukan UUID. Peta nama disiapkan oleh query daftar produk.
+     */
+    private function auditUser(Request $request, string $column): ?array
+    {
+        $id = $this->resource instanceof ProductModel ? $this->resource->getAttribute($column) : null;
+
+        if ((! is_string($id) || $id === '') && $this->resource instanceof \App\Domains\Catalog\Product\Domain\Entities\Product) {
+            $id = $column === 'created_by' ? $this->resource->createdBy() : $this->resource->updatedBy();
+        }
+
+        if (! is_string($id) || $id === '') {
+            return null;
+        }
+
+        $names = $request->attributes->get('audit_user_names', []);
+
+        return ['id' => $id, 'name' => is_array($names) ? ($names[$id] ?? null) : null];
     }
 }

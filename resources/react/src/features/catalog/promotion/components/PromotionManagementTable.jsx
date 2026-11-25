@@ -1,5 +1,4 @@
 import { memo, useCallback, useMemo } from "react";
-import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import { isInactiveRow } from "@/shared/components/feedback/inactiveRow";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { TableSelectionCell, TableSelectionHeader } from "@/shared/components/crud/TableSelectionCell";
@@ -9,7 +8,6 @@ import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
 import { useHorizontalScroll } from "@/shared/hooks/useHorizontalScroll";
 import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
 import { useColumnFilterState } from "@/shared/hooks";
-import { formatDateTime } from "@/core/utils/dateTime";
 import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { toTitleCase } from "@/shared/utils/textFormatter";
 
@@ -20,13 +18,10 @@ export const PROMOTION_TABLE_COLUMNS = [
   { key: "image", label: "Gambar", defaultVisible: false },
   { key: "mobileImage", label: "Gambar Mobile", defaultVisible: false },
   { key: "sortOrder", label: "Urutan", defaultVisible: false, align: "right" },
-  { key: "approval", label: "Approval" },
   { key: "active", label: "Active" },
-  { key: "submittedAt", label: "Diajukan" },
-  { key: "approvedAt", label: "Disetujui", defaultVisible: false },
 ];
 
-const widths = { promotion: 240, store: 220, target: 220, image: 120, mobileImage: 110, sortOrder: 100, approval: 180, active: 130, submittedAt: 170, approvedAt: 170 };
+const widths = { promotion: 240, store: 220, target: 220, image: 120, mobileImage: 110, sortOrder: 100, active: 130 };
 
 export const PromotionManagementTable = memo(function PromotionManagementTable({
   rows,
@@ -34,8 +29,6 @@ export const PromotionManagementTable = memo(function PromotionManagementTable({
   onEdit,
   onToggleActive,
   isActiveOf,
-  onApprove,
-  onReject,
   pendingId,
   columns = PROMOTION_TABLE_COLUMNS,
   visibleSet,
@@ -59,12 +52,11 @@ export const PromotionManagementTable = memo(function PromotionManagementTable({
     if (key === "store") return row.storeName || "Platform";
     if (key === "target") return `${row.clickAction || ""} ${row.targetId ?? ""} ${row.targetUrl ?? ""}`;
     if (key === "sortOrder") return row.sortOrder;
-    if (key === "approval") return row.approvalStatus || "";
     if (key === "active") return row.isActive ? "active" : "inactive";
     return row[key] ?? row.raw?.[key];
   }, []);
 
-  const filterTypes = useMemo(() => ({ promotion: "text", store: "text", target: "text", sortOrder: "range", approval: "select", active: "select", submittedAt: "text", approvedAt: "text" }), []);
+  const filterTypes = useMemo(() => ({ promotion: "text", store: "text", target: "text", sortOrder: "range", active: "select" }), []);
   const { rows: tableRows, columnFilters, changeFilter, sortBy, sortDirection, setSort, resetFilters, resetSort } = useColumnFilterState({ rows, getValue, filterTypes });
 
   const interactiveProps = (column) => ({
@@ -87,10 +79,9 @@ export const PromotionManagementTable = memo(function PromotionManagementTable({
     if (column.key === "image") return <InteractiveTableHeader key={column.key} {...interactiveProps(column)}>Gambar</InteractiveTableHeader>;
     if (column.key === "mobileImage") return <InteractiveTableHeader key={column.key} {...interactiveProps(column)}>Gambar Mobile</InteractiveTableHeader>;
     if (column.key === "sortOrder") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Urutan" align="right" filterType="range" filterValue={columnFilters.sortOrder || { min: "", max: "" }} onFilterChange={(value) => changeFilter("sortOrder", value)} minPlaceholder="Min" maxPlaceholder="Max" />;
-    if (column.key === "approval") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Approval" sortKey="approval" sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSort} filterType="select" filterValue={columnFilters.approval || ""} onFilterChange={(value) => changeFilter("approval", value)} options={[{ value: "pending", label: "Pending" }, { value: "approved", label: "Approved" }, { value: "rejected", label: "Rejected" }]} />;
     if (column.key === "active") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Active" sortKey="active" sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSort} filterType="select" filterValue={columnFilters.active || ""} onFilterChange={(value) => changeFilter("active", value)} options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Non-Active" }]} />;
-    if (column.key === "submittedAt") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Diajukan" filterType="text" filterValue={columnFilters.submittedAt || ""} onFilterChange={(value) => changeFilter("submittedAt", value)} placeholder="Cari tanggal" />;
-    return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Disetujui" filterType="text" filterValue={columnFilters.approvedAt || ""} onFilterChange={(value) => changeFilter("approvedAt", value)} placeholder="Cari tanggal" />;
+    // Kolom database lain (mis. audit & relasi) cukup diberi judul + filter teks.
+    return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label={column.label} filterType="text" filterValue={columnFilters[column.key] || ""} onFilterChange={(value) => changeFilter(column.key, value)} placeholder={`Cari ${String(column.label || "").toLowerCase()}`} />;
   };
 
   const renderCell = (column, row) => {
@@ -101,10 +92,9 @@ export const PromotionManagementTable = memo(function PromotionManagementTable({
     if (column.key === "image") return <td key={column.key} className="px-4 py-3"><img src={row.imageUrl} alt={row.name} className="h-12 w-24 bg-slate-100 object-cover" loading="lazy" /></td>;
     if (column.key === "mobileImage") return <td key={column.key} className="px-4 py-3"><img src={row.mobileImageUrl} alt="" className="h-12 w-20 bg-slate-100 object-cover" loading="lazy" /></td>;
     if (column.key === "sortOrder") return <td key={column.key} className="px-4 py-3 text-right text-slate-600">{row.sortOrder}</td>;
-    if (column.key === "approval") return <td key={column.key} className="px-4 py-3"><div className="flex flex-col items-start gap-1.5"><StatusBadge status={row.approvalStatus} />{row.rejectionReason ? <p className="max-w-[240px] text-xs text-red-600">{row.rejectionReason}</p> : null}{isAdmin && row.approvalStatus === "pending" ? <div className="flex gap-1" onClick={(event) => event.stopPropagation()}><button type="button" onClick={() => onApprove(row)} className="h-8 bg-emerald-50 px-2.5 text-xs font-extrabold text-emerald-700 hover:bg-emerald-100">Approve</button><button type="button" onClick={() => onReject(row)} className="h-8 bg-amber-50 px-2.5 text-xs font-extrabold text-amber-700 hover:bg-amber-100">Reject</button></div> : null}</div></td>;
     if (column.key === "active") return <td key={column.key} className="px-4 py-3" onClick={(event) => event.stopPropagation()}><InlineActiveSwitch checked={isActiveOf ? isActiveOf(row) : row.isActive} pending={pendingId === row.id} onChange={(checked) => onToggleActive?.(row, checked)} compact /></td>;
-    if (column.key === "submittedAt") return <td key={column.key} className="px-4 py-3 text-slate-500">{formatDateTime(row.submittedAt)}</td>;
-    return <td key={column.key} className="px-4 py-3 text-slate-500">{formatDateTime(row.approvedAt)}</td>;
+    // Kolom database lain dirender apa adanya (objek relasi tampil sebagai nama).
+    return <td key={column.key} className="max-w-72 truncate px-4 py-3 text-slate-500">{formatTableValue(resolveTableValue(row, column.key))}</td>;
   };
 
   return (

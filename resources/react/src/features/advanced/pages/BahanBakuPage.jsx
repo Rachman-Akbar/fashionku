@@ -10,6 +10,7 @@ import {
 } from "@/features/advanced/services/advancedMarketplaceService";
 import { ModuleFrame } from "@/features/advanced/components/ModuleFrame";
 import { DataGrid } from "@/features/advanced/components/DataGrid";
+import { buildDatabaseColumns } from "@/shared/utils/tableData";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { Input } from "@/shared/components/ui/Input";
@@ -160,6 +161,11 @@ export default function BahanBakuPage() {
         </div>
       ),
     },
+    // Sisa kolom database bahan baku (timestamp & soft delete) tampil otomatis.
+    ...buildDatabaseColumns(materialRows, {
+      omit: ["id", "code", "name", "image", "unit", "stock", "minimum_stock", "average_cost", "is_active"],
+      labels: { created_at: "Dibuat", updated_at: "Diubah", deleted_at: "Dihapus" },
+    }),
   ];
 
   const materialHistoryColumns = [
@@ -170,6 +176,17 @@ export default function BahanBakuPage() {
     { key: "balance_after", label: "Saldo" },
     { key: "unit_cost", label: "Biaya/Satuan", render: (row) => money(row.unit_cost) },
     { key: "reference_number", label: "Referensi" },
+    // Sisa kolom database pergerakan stok bahan baku.
+    ...buildDatabaseColumns(materialMovements.data?.rows || [], {
+      omit: ["id", "raw_material_id", "raw_material_stock_movement_id", "occurred_at", "type", "quantity_delta", "balance_after", "unit_cost", "reference_number", "material"],
+      labels: {
+        total_cost: "Total Biaya",
+        reference_type: "Tipe Referensi",
+        notes: "Catatan",
+        created_at: "Dibuat",
+        updated_at: "Diubah",
+      },
+    }),
   ];
   const impactColumns = [
     { key: "occurred_at", label: "Waktu", render: (row) => row.occurred_at ? new Date(row.occurred_at).toLocaleString("id-ID") : "-" },
@@ -181,6 +198,21 @@ export default function BahanBakuPage() {
     { key: "new_hpp", label: "HPP Baru", render: (row) => money(row.new_hpp) },
     { key: "hpp_change_percent", label: "Kenaikan HPP", render: (row) => `${number(row.hpp_change_percent, 2)}%` },
     { key: "new_suggested_price", label: "Saran Harga Baru", render: (row) => money(row.new_suggested_price) },
+    // Sisa kolom database riwayat biaya (selisih, arah, referensi).
+    ...buildDatabaseColumns(costImpacts.data?.rows || [], {
+      omit: ["id", "raw_material_id", "raw_material_stock_movement_id", "occurred_at", "old_cost", "new_cost", "old_hpp", "new_hpp", "hpp_change_percent", "new_suggested_price", "material", "product", "cost_history"],
+      labels: {
+        change_amount: "Selisih Biaya",
+        change_percent: "Persentase Selisih",
+        direction: "Arah",
+        reference_type: "Tipe Referensi",
+        reference_number: "Referensi",
+        created_at: "Dibuat",
+        updated_at: "Diubah",
+        old_average_cost: "Biaya Rata-rata Lama",
+        new_average_cost: "Biaya Rata-rata Baru",
+      },
+    }),
   ];
 
   const materialCard = {

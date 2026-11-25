@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Catalog\Promotion\Application\Excel;
 
 use App\Domains\Catalog\Promotion\Infrastructure\Persistence\Models\PromotionModel;
-use App\Domains\Catalog\Promotion\Infrastructure\Persistence\Models\PromotionPaymentModel;
 use App\Domains\Identity\User\Domain\Entities\User;
 use App\Domains\Shared\Excel\Application\Exports\BaseExport;
 use App\Domains\Shared\Excel\Application\Imports\BaseImport;
@@ -26,15 +25,7 @@ class PromotionImport extends BaseImport
     protected int $mobileImageColumnIndex = 1;
     protected string $mobileImagePathColumn = 'mobile_image_url';
 
-    protected array $relationMappings = [
-        'pembayaran_kode' => [
-            'model' => PromotionPaymentModel::class,
-            'search_column' => 'payment_number',
-            'target_column' => 'promotion_payment_id',
-            'target_key' => 'id',
-            'create_missing' => false,
-        ],
-    ];
+    protected array $relationMappings = [];
 
     public function model(): string
     {
@@ -64,10 +55,6 @@ class PromotionImport extends BaseImport
             'target_url' => 'nullable|string|max:500',
             'urutan' => 'nullable|integer|min:0',
             'aktif' => 'nullable|in:ya,tidak,true,false,1,0',
-            'pembayaran_kode' => 'nullable|string|max:50|exists:promotion_payments,payment_number',
-            'pembayaran_user' => 'nullable|string|max:255',
-            'paket' => 'nullable|string|max:100',
-            'jumlah_bayar' => 'nullable|numeric|min:0',
         ];
     }
 
@@ -123,13 +110,6 @@ class PromotionImport extends BaseImport
             'created_by' => auth()->id(),
             'updated_by' => auth()->id(),
         ];
-
-        if (! empty($data['pembayaran_kode'])) {
-            $payment = PromotionPaymentModel::where('payment_number', $data['pembayaran_kode'])->first();
-            if ($payment) {
-                $payload['promotion_payment_id'] = $payment->id;
-            }
-        }
 
         return $payload;
     }

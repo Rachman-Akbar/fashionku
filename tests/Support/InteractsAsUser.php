@@ -32,7 +32,6 @@ trait InteractsAsUser
             'password' => 'password',
             'is_email_verified' => true,
             'is_active' => true,
-            'banned_at' => null,
         ], $attributes));
 
         $roleIds = array_map(fn (string $role): int => $this->makeRole($role)->id, $roles);

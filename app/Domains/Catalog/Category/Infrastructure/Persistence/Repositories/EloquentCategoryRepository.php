@@ -10,6 +10,7 @@ use App\Domains\Catalog\Category\Infrastructure\Persistence\Mappers\CategoryMapp
 use App\Domains\Catalog\Category\Infrastructure\Persistence\Models\CategoryModel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 final class EloquentCategoryRepository implements CategoryRepositoryInterface
@@ -17,7 +18,12 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
     public function findById(int $id, bool $includeInactive = false): ?Category
     {
         $model = $this->query($includeInactive)
-            ->with(['childrenTree' => fn ($query) => $includeInactive ? $query : $query->active()])
+            ->with([
+                'childrenTree' => fn ($query) => $includeInactive ? $query : $query->active(),
+                'parent:id,name',
+                'creator:id,name',
+                'updater:id,name',
+            ])
             ->find($id);
 
         return $model ? CategoryMapper::toEntity($model) : null;
@@ -32,7 +38,12 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
         }
 
         $model = $this->query($includeInactive)
-            ->with(['childrenTree' => fn ($query) => $includeInactive ? $query : $query->active()])
+            ->with([
+                'childrenTree' => fn ($query) => $includeInactive ? $query : $query->active(),
+                'parent:id,name',
+                'creator:id,name',
+                'updater:id,name',
+            ])
             ->where('slug', $slug)
             ->first();
 
@@ -48,7 +59,12 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
         }
 
         $model = $this->query($includeInactive)
-            ->with(['childrenTree' => fn ($query) => $includeInactive ? $query : $query->active()])
+            ->with([
+                'childrenTree' => fn ($query) => $includeInactive ? $query : $query->active(),
+                'parent:id,name',
+                'creator:id,name',
+                'updater:id,name',
+            ])
             ->where(function (Builder $query) use ($path): void {
                 $query->where('full_slug', $path);
 
@@ -69,14 +85,14 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
     public function listTree(bool $includeInactive = false): array
     {
         return $this->buildTreeFromRows(
-            $this->categoryRows(false, $includeInactive)
+            $this->withAuditInfo($this->categoryRows(false, $includeInactive))
         );
     }
 
     public function listMenuTree(): array
     {
         return $this->buildTreeFromRows(
-            $this->categoryRows(true, false)
+            $this->withAuditInfo($this->categoryRows(true, false))
         );
     }
 
@@ -216,6 +232,7 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
                     ->select([
                         'id',
                         'parent_id',
+                        'parent_scope_id',
                         'level',
                         'sort_order',
                         'is_active',
@@ -225,6 +242,10 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
                         'full_slug',
                         'image_url',
                         'icon_url',
+                        'created_by',
+                        'updated_by',
+                        'created_at',
+                        'updated_at',
                     ])
                     ->withCount([
                         'products' => fn ($query) => $includeInactive
@@ -242,6 +263,7 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
                     ->map(fn (CategoryModel $model): array => [
                         'id' => (int) $model->id,
                         'parent_id' => $model->parent_id !== null ? (int) $model->parent_id : null,
+                        'parent_scope_id' => (int) ($model->parent_scope_id ?? 0),
                         'level' => (int) $model->level,
                         'sort_order' => (int) $model->sort_order,
                         'is_active' => (bool) $model->is_active,
@@ -251,6 +273,10 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
                         'full_slug' => (string) $model->full_slug,
                         'image_url' => $model->image_url,
                         'icon_url' => $model->icon_url,
+                        'created_by' => $model->created_by,
+                        'updated_by' => $model->updated_by,
+                        'created_at' => $model->created_at?->toDateTimeString(),
+                        'updated_at' => $model->updated_at?->toDateTimeString(),
                         'products_count' => (int) ($model->products_count ?? 0),
                     ])
                     ->all();
@@ -261,12 +287,68 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
     private function categoryRowsCacheKey(bool $menuOnly, bool $includeInactive): string
     {
         if ($menuOnly) {
-            return 'catalog_categories_menu_rows_active_v3';
+            return 'catalog_categories_menu_rows_active_v4';
         }
 
         return $includeInactive
-            ? 'catalog_categories_tree_rows_manage_v3'
-            : 'catalog_categories_tree_rows_active_v3';
+            ? 'catalog_categories_tree_rows_manage_v4'
+            : 'catalog_categories_tree_rows_active_v4';
+    }
+
+    /**
+     * Lengkapi baris kategori dengan nama relasi audit & induk, supaya halaman
+     * data admin menampilkan kolom database apa adanya tanpa menampilkan UUID.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function withAuditInfo(array $rows): array
+    {
+        $names = [];
+        $userIds = [];
+
+        foreach ($rows as $row) {
+            foreach (['created_by', 'updated_by'] as $column) {
+                $value = $row[$column] ?? null;
+
+                if (is_string($value) && $value !== '') {
+                    $userIds[$value] = $value;
+                }
+            }
+        }
+
+        if ($userIds !== []) {
+            $names = DB::table('users')
+                ->whereIn('id', array_values($userIds))
+                ->pluck('name', 'id')
+                ->all();
+        }
+
+        $byId = [];
+
+        foreach ($rows as $row) {
+            $byId[(int) $row['id']] = $row['name'];
+        }
+
+        return array_map(function (array $row) use ($names, $byId): array {
+            $createdBy = $row['created_by'] ?? null;
+            $updatedBy = $row['updated_by'] ?? null;
+            $parentId = $row['parent_id'] ?? null;
+
+            $row['created_by_user'] = is_string($createdBy) && $createdBy !== ''
+                ? ['id' => $createdBy, 'name' => $names[$createdBy] ?? null]
+                : null;
+            $row['updated_by_user'] = is_string($updatedBy) && $updatedBy !== ''
+                ? ['id' => $updatedBy, 'name' => $names[$updatedBy] ?? null]
+                : null;
+            $row['parent'] = $parentId !== null && isset($byId[(int) $parentId])
+                ? ['id' => (int) $parentId, 'name' => $byId[(int) $parentId]]
+                : null;
+
+            unset($row['created_by'], $row['updated_by']);
+
+            return $row;
+        }, $rows);
     }
 
     private function buildTreeFromRows(array $rows): array
@@ -295,8 +377,8 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
 
     private function clearCache(): void
     {
-        Cache::forget('catalog_categories_tree_rows_manage_v3');
-        Cache::forget('catalog_categories_tree_rows_active_v3');
-        Cache::forget('catalog_categories_menu_rows_active_v3');
+        Cache::forget('catalog_categories_tree_rows_manage_v4');
+        Cache::forget('catalog_categories_tree_rows_active_v4');
+        Cache::forget('catalog_categories_menu_rows_active_v4');
     }
 }

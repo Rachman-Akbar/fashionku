@@ -83,7 +83,6 @@ class AccountDeletionTest extends TestCase
         $this->assertStringStartsWith('deleted_', $deletedUser->email);
         $this->assertEquals('Deleted User', $deletedUser->name);
         $this->assertFalse($deletedUser->is_active);
-        $this->assertNotNull($deletedUser->banned_at);
 
         $this->assertEquals(0, $user->tokens()->count());
     }

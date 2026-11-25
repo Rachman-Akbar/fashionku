@@ -9,6 +9,7 @@ import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { useFocusMode } from "@/shared/layout/FocusModeContext";
 import { useColumnVisibility, useTableSelection } from "@/shared/hooks";
 import { useHorizontalScroll } from "@/shared/hooks/useHorizontalScroll";
+import { buildDatabaseColumns, formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
 import { cn } from "@/shared/utils/utils";
 import {
@@ -404,7 +405,30 @@ export default function SchedulePage() {
     { key: "type", label: "Tipe" },
     { key: "status", label: "Status" },
     { key: "isActive", label: "Aktif" },
-  ]), []);
+    // Sisa kolom database jadwal tampil otomatis (kecuali kolom ID).
+    ...buildDatabaseColumns(allRows, {
+      omit: ["id", "user_id", "title", "date", "type", "status", "is_active", "start_time", "end_time"],
+      labels: {
+        description: "Deskripsi",
+        priority: "Prioritas",
+        color: "Warna",
+        is_all_day: "Seharian",
+        is_completed: "Selesai",
+        capacity: "Kapasitas",
+        assignee: "Penanggung Jawab",
+        label: "Label",
+        position: "Posisi",
+        recurrence: "Pengulangan",
+        metadata: "Metadata",
+        user_name: "Pengguna",
+        created_by_name: "Dibuat Oleh",
+        updated_by_name: "Diubah Oleh",
+        created_at: "Dibuat",
+        updated_at: "Diubah",
+        deleted_at: "Dihapus",
+      },
+    }),
+  ]), [allRows]);
   const columnVisibility = useColumnVisibility(columns, "admin-schedules");
   const visibleColumns = useMemo(() => {
     const byKey = new Map(columns.map((column) => [column.key, column]));
@@ -560,7 +584,7 @@ export default function SchedulePage() {
                                 </span>
                               </td>
                             );
-                            return <td key={column.key} className="px-4 py-3 text-slate-700">-</td>;
+                            return <td key={column.key} className="px-4 py-3 text-slate-700">{formatTableValue(resolveTableValue(item, column.key))}</td>;
                           })}
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1">

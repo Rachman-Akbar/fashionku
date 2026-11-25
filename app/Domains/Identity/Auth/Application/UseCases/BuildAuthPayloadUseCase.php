@@ -28,8 +28,6 @@ final class BuildAuthPayloadUseCase
                 'is_active' => (bool) $user->is_active,
                 'is_email_verified' => (bool) $user->is_email_verified,
                 'has_password' => (bool) $user->has_set_password,
-                'banned_at' => $user->banned_at?->toDateTimeString(),
-                'violation_message' => $user->violation_message,
             ],
             'roles' => $roles,
             'active_role' => $activeRole,

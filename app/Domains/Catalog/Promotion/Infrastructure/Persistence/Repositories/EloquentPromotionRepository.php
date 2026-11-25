@@ -16,6 +16,7 @@ final class EloquentPromotionRepository implements PromotionRepositoryInterface
     public function getAll(array $filters = [], bool $includeInactive = false): array
     {
         return $this->applyFilters(PromotionModel::query(), $filters, $includeInactive)
+            ->with(['creator:id,name', 'updater:id,name'])
             ->orderBy('sort_order')
             ->orderByDesc('id')
             ->get()
@@ -26,6 +27,7 @@ final class EloquentPromotionRepository implements PromotionRepositoryInterface
     public function findById(int $id, bool $includeInactive = true): ?Promotion
     {
         $model = PromotionModel::query()
+            ->with(['creator:id,name', 'updater:id,name'])
             ->when(! $includeInactive, fn (Builder $query) => $query->active())
             ->find($id);
 
@@ -47,7 +49,6 @@ final class EloquentPromotionRepository implements PromotionRepositoryInterface
             : new PromotionModel;
 
         $model->fill([
-            'promotion_payment_id' => $promotion->promotionPaymentId,
             'name' => $promotion->name,
             'image_url' => $promotion->imageUrl,
             'mobile_image_url' => $promotion->mobileImageUrl,
@@ -56,9 +57,11 @@ final class EloquentPromotionRepository implements PromotionRepositoryInterface
             'target_url' => $promotion->targetUrl,
             'sort_order' => $promotion->sortOrder,
             'is_active' => $promotion->isActive,
-        ])->save();
+        ]);
 
-        return PromotionMapper::toEntity($model->refresh());
+        $model->save();
+
+        return PromotionMapper::toEntity($this->loadAudit($model));
     }
 
     public function delete(int $id): bool
@@ -66,6 +69,11 @@ final class EloquentPromotionRepository implements PromotionRepositoryInterface
         $model = PromotionModel::query()->find($id);
 
         return $model ? (bool) $model->delete() : false;
+    }
+
+    private function loadAudit(PromotionModel $model): PromotionModel
+    {
+        return $model->refresh()->load(['creator:id,name', 'updater:id,name']);
     }
 
     private function applyFilters(Builder $query, array $filters, bool $includeInactive): Builder

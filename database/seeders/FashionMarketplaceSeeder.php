@@ -468,8 +468,7 @@ final class FashionMarketplaceSeeder extends Seeder
                     'avatar' => sprintf('https://randomuser.me/api/portraits/%s/%d.jpg', $index % 2 === 0 ? 'women' : 'men', ($index % 50) + 1),
                     'is_email_verified' => true,
                     'is_active' => true,
-                    'banned_at' => null,
-                    'created_at' => $now->subDays(150 - $index)->toDateTimeString(),
+                            'created_at' => $now->subDays(150 - $index)->toDateTimeString(),
                     'updated_at' => $now->toDateTimeString(),
                 ]
             );

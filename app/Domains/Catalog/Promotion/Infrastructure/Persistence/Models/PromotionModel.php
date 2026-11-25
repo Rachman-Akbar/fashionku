@@ -20,7 +20,6 @@ final class PromotionModel extends Model
     protected $table = 'promotions';
 
     protected $fillable = [
-        'promotion_payment_id',
         'name',
         'image_url',
         'mobile_image_url',
@@ -34,17 +33,11 @@ final class PromotionModel extends Model
     ];
 
     protected $casts = [
-        'promotion_payment_id' => 'integer',
         'target_id' => 'integer',
         'sort_order' => 'integer',
         'is_active' => 'boolean',
         'deleted_at' => 'datetime',
     ];
-
-    public function payment(): BelongsTo
-    {
-        return $this->belongsTo(PromotionPaymentModel::class, 'promotion_payment_id');
-    }
 
     protected function name(): Attribute
     {

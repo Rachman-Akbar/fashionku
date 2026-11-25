@@ -5,6 +5,7 @@ import { advancedError, useAdjustRawMaterial, useAdjustStock, useDeleteRawMateri
 import { normalizeSellerProduct } from "@/features/seller/product/services/sellerProductService";
 import { ModuleFrame } from "@/features/advanced/components/ModuleFrame";
 import { DataGrid } from "@/features/advanced/components/DataGrid";
+import { buildDatabaseColumns } from "@/shared/utils/tableData";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { StockChartPanel } from "@/shared/charts/ChartPanels";
 import { Field, FormModal } from "@/features/advanced/components/FormModal";
@@ -363,6 +364,28 @@ export default function StockPage() {
     { key: "is_active", label: "Status", filterType: "select", options: [{ value: "true", label: "Aktif" }, { value: "false", label: "Non-Aktif" }], render: (row) => (row.__kind === "material"
       ? <InlineActiveSwitch checked={row.is_active !== false} pending={activeToggleId === row.raw_id} activeLabel="Aktif" inactiveLabel="Non-Aktif" compact showLabel={false} onChange={(next) => toggleMaterialActive(rawMaterial(row), next)} />
       : <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-extrabold text-emerald-700">Aktif</span>) },
+    // Sisa kolom database varian produk & bahan baku (kolom ID otomatis dibuang).
+    ...buildDatabaseColumns(stockRows, {
+      omit: ["__kind", "raw_id", "kind_label", "code", "name", "variant", "unit", "stock", "minimum_stock", "average_cost", "hpp_impact", "is_active", "product_id", "product_name"],
+      labels: {
+        sku: "SKU",
+        price: "Harga",
+        price_original: "Harga Awal",
+        price_sale: "Harga Diskon",
+        hpp: "HPP",
+        po_stock: "Stok PO",
+        stock_reserved: "Stok Dipesan",
+        stock_booked: "Stok Terkunci",
+        stock_preorder: "Stok Preorder",
+        max_order_qty: "Maks. Order",
+        min_stock: "Min. Stok",
+        is_default: "Varian Utama",
+        image: "Gambar",
+        created_at: "Dibuat",
+        updated_at: "Diubah",
+        deleted_at: "Dihapus",
+      },
+    }),
   ];
   const historyDateColumns = [
     { key: "occurred_at", label: "Tanggal", render: (row) => (row.occurred_at ? new Date(row.occurred_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "-"), filterType: "text" },
@@ -389,6 +412,21 @@ export default function StockPage() {
     { key: "new_hpp", label: "HPP Baru", render: (row) => money(row.new_hpp) },
     { key: "hpp_change_percent", label: "Kenaikan HPP", render: (row) => `${number(row.hpp_change_percent, 2)}%` },
     { key: "new_suggested_price", label: "Saran Harga Baru", render: (row) => money(row.new_suggested_price) },
+    // Sisa kolom database riwayat biaya bahan baku.
+    ...buildDatabaseColumns(costImpacts.data?.rows || [], {
+      omit: ["id", "raw_material_id", "raw_material_stock_movement_id", "occurred_at", "material", "product", "cost_history", "old_cost", "new_cost", "old_hpp", "new_hpp", "hpp_change_percent", "new_suggested_price"],
+      labels: {
+        change_amount: "Selisih Biaya",
+        change_percent: "Persentase Selisih",
+        direction: "Arah",
+        reference_type: "Tipe Referensi",
+        reference_number: "Referensi",
+        old_average_cost: "Biaya Rata-rata Lama",
+        new_average_cost: "Biaya Rata-rata Baru",
+        created_at: "Dibuat",
+        updated_at: "Diubah",
+      },
+    }),
   ];
 
   // Peta dampak HPP terakhir per bahan baku (untuk kolom "Kenaikan HPP").

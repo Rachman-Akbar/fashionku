@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Catalog\Promotion\Application\Excel;
 
 use App\Domains\Catalog\Promotion\Infrastructure\Persistence\Models\PromotionModel;
-use App\Domains\Catalog\Promotion\Infrastructure\Persistence\Models\PromotionPaymentModel;
-use App\Domains\Identity\User\Domain\Entities\User;
 use App\Domains\Shared\Excel\Application\Exports\BaseExport;
 use App\Domains\Shared\Excel\Application\Imports\BaseImport;
 use App\Domains\Shared\Excel\Application\Templates\BaseTemplateExport;
@@ -30,10 +28,6 @@ class PromotionTemplateExport extends BaseTemplateExport
             'target_url',
             'urutan',
             'aktif',
-            'pembayaran_kode',
-            'pembayaran_user',
-            'paket',
-            'jumlah_bayar',
         ];
     }
 
@@ -49,10 +43,6 @@ class PromotionTemplateExport extends BaseTemplateExport
                 '',
                 1,
                 'ya',
-                'PAY-202411001',
-                'Budi Santoso',
-                'Gold',
-                500000,
             ],
             [
                 '',
@@ -63,10 +53,6 @@ class PromotionTemplateExport extends BaseTemplateExport
                 '',
                 2,
                 'ya',
-                'PAY-202411002',
-                'Siti Rahayu',
-                'Silver',
-                300000,
             ],
             [
                 '',
@@ -77,10 +63,6 @@ class PromotionTemplateExport extends BaseTemplateExport
                 'https://fashionku.com/promo',
                 3,
                 'ya',
-                '',
-                '',
-                '',
-                0,
             ],
         ];
     }
@@ -96,10 +78,6 @@ class PromotionTemplateExport extends BaseTemplateExport
             ['target_url', 'Opsional', 'URL', 'URL untuk jenis klik url. Wajib jika jenis_klik=url. Contoh: https://fashionku.com/promo.'],
             ['urutan', 'Opsional', 'Angka', 'Urutan tampil. Default: 0.'],
             ['aktif', 'Opsional', 'ya/tidak', 'Status aktif. Default: ya.'],
-            ['pembayaran_kode', 'Opsional', 'Kode Pembayaran', 'Kode pembayaran promosi (promotion_payments.payment_number). Jika diisi, promosi terkait pembayaran.'],
-            ['pembayaran_user', 'Opsional', 'Teks', 'Nama user pembayar (referensi saja).'],
-            ['paket', 'Opsional', 'Teks', 'Nama paket promosi (referensi).'],
-            ['jumlah_bayar', 'Opsional', 'Angka', 'Jumlah pembayaran (referensi).'],
         ];
     }
 

@@ -12,7 +12,7 @@ import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { InfiniteScrollSentinel } from "@/shared/components/ui/InfiniteScrollSentinel";
 import { useColumnVisibility, useTableSelection } from "@/shared/hooks";
 import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
-import { buildRawColumns, mergeColumns } from "@/shared/utils/tableData";
+import { buildDatabaseColumns, mergeColumns } from "@/shared/utils/tableData";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import OrderPrintSheet from "@/features/seller/order/components/OrderPrintSheet";
@@ -44,9 +44,36 @@ export default function AdminOrdersPage() {
   const total = useListTotalCount(ordersQuery.data?.meta, { label: "Pesanan" });
   const editor = useEntityEditor({ getEditLabel: (row) => row.orderNumber || row.order_number || row.subOrderNumber || `Order #${row.id}` });
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: ordersQuery.refetch });
-  const columns = useMemo(() => [
-    ...mergeColumns(ORDER_TABLE_COLUMNS, buildRawColumns(rows, ["id", "order_id", "order_number", "sub_order_number", "store_name", "grand_total", "total", "total_items_price", "shipping_cost", "status", "payment_status", "tracking_number"]))
-  ], [rows]);
+  // Kolom kurasi + semua kolom database lain (kecuali kolom ID). Kolom yang
+  // sudah ditampilkan lewat kolom kurasi disembunyikan agar tidak dobel.
+  const columns = useMemo(() => mergeColumns(ORDER_TABLE_COLUMNS, buildDatabaseColumns(rows, {
+    omit: ["id", "order_id", "order_number", "sub_order_number", "store_name", "grand_total", "total", "total_items_price", "shipping_cost", "status", "payment_status", "tracking_number", "items", "sub_orders", "user", "created_at", "order_type", "is_preorder"],
+    labels: {
+      user_name: "Customer",
+      voucher: "Voucher",
+      voucher_code: "Kode Voucher",
+      discount_amount: "Diskon",
+      shipping_discount_amount: "Diskon Ongkir",
+      shipping_address: "Alamat Kirim",
+      shipping_method: "Metode Kirim",
+      shipping_courier: "Kurir",
+      payment_method: "Metode Bayar",
+      payment_proof: "Bukti Bayar",
+      pickup_note: "Catatan Ambil",
+      notes: "Catatan",
+      cancel_reason: "Alasan Batal",
+      reject_reason: "Alasan Tolak",
+      scheduled_at: "Jadwal",
+      pickup_at: "Ambil di Toko",
+      received_at: "Diterima",
+      preorder_release_at: "Rilis Preorder",
+      completed_at: "Selesai",
+      cancelled_at: "Dibatalkan",
+      created_at: "Dibuat",
+      updated_at: "Diubah",
+      deleted_at: "Dihapus",
+    },
+  })), [rows]);
   const selection = useTableSelection(rows);
   const columnVisibility = useColumnVisibility(columns, "admin-orders");
   const orderCard = useMemo(() => orderCardDefinition({ onPrint: setPrintRow }), []);

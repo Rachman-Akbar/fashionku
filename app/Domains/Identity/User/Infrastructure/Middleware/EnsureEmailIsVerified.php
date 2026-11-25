@@ -18,7 +18,7 @@ final class EnsureEmailIsVerified
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        if (! (bool) $user->is_active || $user->banned_at !== null) {
+        if (! (bool) $user->is_active) {
             return response()->json(['message' => 'Akun tidak memiliki akses aktif.'], 403);
         }
 

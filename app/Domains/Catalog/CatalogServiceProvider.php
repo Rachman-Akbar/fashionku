@@ -16,20 +16,15 @@ use App\Domains\Catalog\Product\Infrastructure\Persistence\Repositories\Eloquent
 use App\Domains\Catalog\Product\Infrastructure\Persistence\Repositories\EloquentProductImageRepository;
 use App\Domains\Catalog\Product\Infrastructure\Persistence\Repositories\EloquentProductRepository;
 use App\Domains\Catalog\Product\Infrastructure\Persistence\Repositories\EloquentProductVariantRepository;
-use App\Domains\Catalog\Promotion\Application\Policies\PromotionPaymentPolicy;
-use App\Domains\Catalog\Promotion\Domain\Repositories\PromotionPaymentRepositoryInterface;
 use App\Domains\Catalog\Promotion\Domain\Repositories\PromotionRepositoryInterface;
-use App\Domains\Catalog\Promotion\Infrastructure\Persistence\Models\PromotionPaymentModel;
-use App\Domains\Catalog\Promotion\Infrastructure\Persistence\Repositories\EloquentPromotionPaymentRepository;
 use App\Domains\Catalog\Promotion\Infrastructure\Persistence\Repositories\EloquentPromotionRepository;
-use Illuminate\Support\Facades\Gate;
+
 use Illuminate\Support\ServiceProvider;
 
 final class CatalogServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        Gate::policy(PromotionPaymentModel::class, PromotionPaymentPolicy::class);
     }
 
     public function register(): void
@@ -41,6 +36,5 @@ final class CatalogServiceProvider extends ServiceProvider
         $this->app->bind(ProductAttributeValueRepositoryInterface::class, EloquentProductAttributeValueRepository::class);
         $this->app->bind(ProductVariantRepositoryInterface::class, EloquentProductVariantRepository::class);
         $this->app->bind(PromotionRepositoryInterface::class, EloquentPromotionRepository::class);
-        $this->app->bind(PromotionPaymentRepositoryInterface::class, EloquentPromotionPaymentRepository::class);
     }
 }

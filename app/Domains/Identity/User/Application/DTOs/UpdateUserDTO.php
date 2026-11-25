@@ -15,9 +15,6 @@ final class UpdateUserDTO
         public ?bool $isEmailVerified = null,
         public ?array $roleIds = null,
         public ?bool $isActive = null,
-        public ?string $bannedAt = null,
-        public bool $hasBannedAt = false,
-        public ?string $violationMessage = null,
         public bool $hasAvatar = false,
     ) {}
 
@@ -39,9 +36,6 @@ final class UpdateUserDTO
             isActive: array_key_exists('is_active', $data)
                 ? (bool) $data['is_active']
                 : null,
-            bannedAt: $data['banned_at'] ?? null,
-            hasBannedAt: array_key_exists('banned_at', $data),
-            violationMessage: $data['violation_message'] ?? null,
             hasAvatar: $hasAvatar,
         );
     }
