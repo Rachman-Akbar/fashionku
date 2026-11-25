@@ -25,6 +25,27 @@ export async function listUsers(params = {}) {
   return unwrapCollection(response.data).map(normalizeUser);
 }
 
+/**
+ * Varian list yang tetap membawa `meta` (total baris) supaya toolbar bisa
+ * menampilkan jumlah data di samping switch tab tampilan.
+ */
+function extractMeta(payload, rowCount) {
+  const meta = payload?.meta || payload?.data?.meta || {};
+  const total = Number(meta.total ?? payload?.total ?? rowCount);
+  return {
+    total: Number.isFinite(total) ? total : rowCount,
+    current_page: Number(meta.current_page ?? 1) || 1,
+    last_page: Number(meta.last_page ?? 1) || 1,
+    per_page: Number(meta.per_page ?? rowCount) || rowCount,
+  };
+}
+
+export async function listUsersPage(params = {}) {
+  const response = await apiClient.get(BASE_URL, { params });
+  const rows = unwrapCollection(response.data).map(normalizeUser);
+  return { rows, meta: extractMeta(response.data, rows.length) };
+}
+
 export async function createUser(values) {
   const response = await apiClient.post(BASE_URL, values);
   return normalizeUser(unwrapApiData(response.data));
@@ -46,6 +67,14 @@ export function useUsers(params = {}, options = {}) {
     queryFn: () => listUsers(params),
     staleTime: 60000,
     enabled: options.enabled !== false,
+  });
+}
+
+export function useUsersPage(params = {}) {
+  return useQuery({
+    queryKey: [...keys.list, "page", params],
+    queryFn: () => listUsersPage(params),
+    staleTime: 60000,
   });
 }
 

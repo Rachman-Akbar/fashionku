@@ -87,9 +87,9 @@ export default function HppReportPage() {
   }, [rows]);
 
   const columns = useMemo(() => [
-    { key: "occurred_at", label: "Waktu", filterType: "text", render: (row) => (row.occurred_at ? new Date(row.occurred_at).toLocaleString("id-ID") : "-") },
-    { key: "material", label: "Bahan Baku", filterType: "text", render: (row) => `${row.material?.code ? `${row.material.code} · ` : ""}${row.material?.name || "-"}` },
-    { key: "product", label: "Produk Terdampak", filterType: "text", render: (row) => toTitleCase(row.product?.name) || "-" },
+    { key: "occurred_at", label: "Waktu", filterType: "text", valueOf: (row) => (row.occurred_at ? new Date(row.occurred_at).toLocaleString("id-ID") : ""), render: (row) => (row.occurred_at ? new Date(row.occurred_at).toLocaleString("id-ID") : "-") },
+    { key: "material", label: "Bahan Baku", filterType: "text", valueOf: (row) => `${row.material?.code ? `${row.material.code} · ` : ""}${row.material?.name || ""}`, render: (row) => `${row.material?.code ? `${row.material.code} · ` : ""}${row.material?.name || "-"}` },
+    { key: "product", label: "Produk Terdampak", filterType: "text", valueOf: (row) => toTitleCase(row.product?.name) || "", render: (row) => toTitleCase(row.product?.name) || "-" },
     { key: "old_cost", label: "Biaya Lama", align: "right", render: (row) => money(row.cost_history?.old_average_cost ?? row.costHistory?.old_average_cost) },
     { key: "new_cost", label: "Biaya Baru", align: "right", render: (row) => money(row.cost_history?.new_average_cost ?? row.costHistory?.new_average_cost) },
     { key: "old_hpp", label: "HPP Lama", align: "right", render: (row) => money(row.old_hpp) },

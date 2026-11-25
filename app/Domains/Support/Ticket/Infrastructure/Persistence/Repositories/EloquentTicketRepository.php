@@ -7,6 +7,7 @@ namespace App\Domains\Support\Ticket\Infrastructure\Persistence\Repositories;
 use App\Domains\Support\Ticket\Domain\Repositories\TicketRepositoryInterface;
 use App\Domains\Support\Ticket\Infrastructure\Persistence\Models\SupportTicketModel;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 
 final class EloquentTicketRepository implements TicketRepositoryInterface
 {

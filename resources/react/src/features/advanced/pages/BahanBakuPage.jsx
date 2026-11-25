@@ -141,7 +141,7 @@ export default function BahanBakuPage() {
   const materialColumns = [
     { key: "code", label: "Kode", filterType: "text" },
     { key: "name", label: "Bahan Baku", filterType: "text" },
-    { key: "image", label: "Gambar", filterType: "none", render: (row) => row.image ? <img src={resolveMediaUrl(row.image)} alt="" className="h-10 w-10 rounded object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span> },
+    { key: "image", label: "Gambar", filterType: "text", render: (row) => row.image ? <img src={resolveMediaUrl(row.image)} alt="" className="h-10 w-10 rounded object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span> },
     { key: "unit", label: "Satuan", filterType: "select", options: unitOptions },
     { key: "stock", label: "Stok", filterType: "range" },
     { key: "minimum_stock", label: "Minimum", filterType: "range" },

@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
 
 final class EloquentUserVoucherRepository implements UserVoucherRepositoryInterface
 {
-    private const VOUCHER_FIELDS = 'id,code,name,image,discount_target,discount_type,discount_value,min_spend,min_items,min_distinct_products,terms,max_discount,starts_at,ends_at,usage_limit,used_count,is_active,created_at';
+    private const VOUCHER_FIELDS = 'id,code,name,image,discount_target,discount_type,discount_value,min_spend,min_items,min_distinct_products,min_same_product_qty,terms,max_discount,starts_at,ends_at,usage_limit,used_count,is_active,created_at';
 
     private function baseQuery()
     {

@@ -30,14 +30,9 @@ export const ADMIN_NAV_ITEMS = [
   { href: "/admin/stock", label: "Stock", icon: "warehouse", group: "Operasional" },
   { href: "/admin/hpp-report", label: "Laporan HPP", icon: "trending_up", group: "Operasional" },
   { href: "/admin/cashflow", label: "Keuangan", icon: "account_balance_wallet", group: "Operasional" },
-  // Tanpa entri ini URL /admin/receivables-payables tidak cocok dengan menu
-  // mana pun, sehingga tab induk tidak pernah terbuat dan halamannya tampil
-  // kosong (sama seperti kasus /admin/help di bawah).
-  { href: "/admin/receivables-payables", label: "Hutang/Piutang", icon: "payments", group: "Operasional" },
 
-  { href: "/admin/vouchers", label: "Voucher", icon: "confirmation_number", group: "Marketing" },
-  { href: "/admin/promotions", label: "Promosi", icon: "campaign", group: "Marketing" },
-  { href: "/admin/reviews", label: "Ulasan", icon: "rate_review", group: "Marketing" },
+  { href: "/admin/vouchers", label: "Voucher", icon: "confirmation_number", group: "Operasional" },
+  { href: "/admin/promotions", label: "Promosi", icon: "campaign", group: "Operasional" },
 
   { href: "/admin/users", label: "Manajemen User", icon: "manage_accounts", group: "Manajemen User" },
 
@@ -131,12 +126,6 @@ export default function AdminShell({ children }) {
             </main>
           </div>
         </div>
-        {isFocus ? (
-          <button type="button" onClick={() => setIsFocus(false)} className="fixed right-3 top-3 z-[70] inline-flex h-9 items-center gap-1 rounded-[10px] bg-slate-900/90 px-3 text-xs font-bold text-white shadow-lg hover:bg-slate-900">
-            <span className="material-symbols-outlined text-[18px]">close_fullscreen</span>
-            Keluar fokus
-          </button>
-        ) : null}
       </div>
       </FocusModeContext.Provider>
     </PanelTabsProvider>

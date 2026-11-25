@@ -11,6 +11,7 @@ import { ProductImageFields } from "@/features/seller/product/components/Product
 import { ProductStockFields } from "@/features/seller/product/components/ProductStockFields";
 import { ProductCostingFields } from "@/features/seller/product/components/ProductCostingFields";
 import { ProductVariantFields } from "@/features/seller/product/components/ProductVariantFields";
+import { ProductReviewTab } from "@/features/seller/product/components/ProductReviewTab";
 import { createClientId } from "@/core/utils/clientId";
 import { toTitleCase } from "@/shared/utils/textFormatter";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
@@ -339,8 +340,8 @@ export function SellerProductEditor({
 
     try {
       const saved = product
-        ? await updateMutation.mutateAsync({ id: product.id, values })
-        : await createMutation.mutateAsync(values);
+        ? await updateMutation.mutateAsync({ id: product.id, values, options: { includeAdminFields: isAdmin } })
+        : await createMutation.mutateAsync({ values, options: { includeAdminFields: isAdmin } });
 
       if (!product && hasCosting(values.costing)) {
         try {
@@ -592,6 +593,10 @@ export function SellerProductEditor({
                 <ProductCostingFields productId={null} value={values.costing} onChange={(costing) => setField("costing", costing)} />
               )}
             </div>
+          ) : null}
+
+          {activeSection === "review" ? (
+            <ProductReviewTab productId={product?.id} />
           ) : null}
 
         </div>

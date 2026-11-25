@@ -24,7 +24,30 @@ function formatReviewDate(value) {
   return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "long", year: "numeric" }).format(date);
 }
 
-export function ReviewSection({ reviews = [], summary = null, loading = false }) {
+function ProductHeader({ product }) {
+  if (!product) return null;
+  const image = product.image || product.thumbnail || product.images?.[0];
+  return (
+    <div className="flex items-start gap-4 p-4 bg-slate-50 border-b border-slate-200">
+      <div className="flex-shrink-0 h-20 w-20 rounded-lg border border-slate-200 bg-white overflow-hidden">
+        {image ? (
+          <img src={resolveMediaUrl(image)} alt={product.name} className="h-full w-full object-cover" loading="lazy" />
+        ) : (
+          <div className="flex h-full items-center justify-center text-slate-300">
+            <span className="material-symbols-outlined text-4xl">inventory_2</span>
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3 className="text-base font-extrabold text-slate-950 truncate">{product.name}</h3>
+        <p className="mt-1 text-xs text-slate-500">SKU: {product.sku || "-"}</p>
+        <p className="mt-1 text-xs text-slate-500">Status: {product.status || "published"}</p>
+      </div>
+    </div>
+  );
+}
+
+export function ReviewSection({ product = null, reviews = [], summary = null, loading = false }) {
   const rows = Array.isArray(reviews) ? reviews : [];
   const location = useLocation();
   const [ratingFilter, setRatingFilter] = useState(0);
@@ -94,6 +117,8 @@ export function ReviewSection({ reviews = [], summary = null, loading = false })
         <h2 className="text-base font-extrabold text-slate-950">Ulasan dan Rating Produk</h2>
         <p className="mt-1 text-xs text-slate-500">Penilaian hanya berasal dari buyer yang menyelesaikan atau menerima pesanan.</p>
       </header>
+
+      {product && <ProductHeader product={product} />}
 
       <div className="grid gap-6 p-5 lg:grid-cols-[240px_1fr]">
         <div className="border border-slate-200 bg-slate-50 p-5">

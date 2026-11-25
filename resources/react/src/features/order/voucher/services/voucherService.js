@@ -59,6 +59,9 @@ export function normalizeVoucher(voucher = {}) {
     minDistinctProducts: toNumber(
       voucher.minDistinctProducts ?? voucher.min_distinct_products,
     ),
+    minSameProductQty: toNumber(
+      voucher.minSameProductQty ?? voucher.min_same_product_qty,
+    ),
     isActive: toBoolean(voucher.isActive ?? voucher.is_active, true),
     status: voucher.status || "active",
     isMissionReward: toBoolean(voucher.isMissionReward ?? voucher.is_mission_reward, false),

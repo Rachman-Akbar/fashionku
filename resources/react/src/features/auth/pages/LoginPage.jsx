@@ -96,6 +96,44 @@ export default function LoginPage({ portal = "buyer" }) {
   const redirectHandledRef = useRef(false);
   const message = localError;
   const busy = loading || googleBusy || submittingOtp;
+  const isAdmin = config.role === "admin";
+  const theme = isAdmin
+    ? {
+        accent: "text-red-400",
+        heading: "text-white",
+        body: "text-slate-400",
+        strong: "text-slate-200",
+        label: "text-slate-200",
+        field:
+          "border-slate-700 bg-slate-800/70 text-white placeholder:text-slate-500 focus:bg-slate-800 focus:ring-red-500",
+        error: "border-red-500/30 bg-red-500/10 text-red-300",
+        button:
+          "bg-red-600 shadow-[0_14px_30px_rgba(220,38,38,0.28)] hover:bg-red-700 focus-visible:ring-red-500",
+        link: "text-red-400",
+        mutedLink: "text-slate-400 hover:text-slate-200",
+        divider: "border-slate-700",
+        dividerLabel: "bg-[#111A2C] text-slate-500",
+        google:
+          "border-slate-700 text-slate-200 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-300",
+      }
+    : {
+        accent: "text-[#10B981]",
+        heading: "text-slate-950",
+        body: "text-slate-500",
+        strong: "text-slate-700",
+        label: "text-slate-700",
+        field:
+          "border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-[#10B981]",
+        error: "border-red-100 bg-red-50 text-red-600",
+        button:
+          "bg-[#10B981] shadow-[0_14px_30px_rgba(3,172,14,0.24)] hover:bg-[#059669] focus-visible:ring-[#10B981]",
+        link: "text-[#10B981]",
+        mutedLink: "text-slate-500 hover:text-slate-700",
+        divider: "border-slate-200",
+        dividerLabel: "bg-white text-slate-400",
+        google:
+          "border-slate-200 text-slate-700 hover:border-[#10B981]/40 hover:bg-[#ECFDF5] hover:text-[#10B981]",
+      };
 
   const getRedirectPath = useCallback(() => {
     const query = new URLSearchParams(location.search);
@@ -330,23 +368,16 @@ export default function LoginPage({ portal = "buyer" }) {
     return (
       <div>
         <div className="mb-8">
-          <Link to="/" className="hidden items-center gap-2 lg:inline-flex">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#10B981] text-lg font-black text-white">
-              M
-            </span>
-            <span className="text-xl font-black text-[#10B981]">MarketKu</span>
-          </Link>
-
-          <div className="mt-8">
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#10B981]">
+          <div>
+            <p className={`text-sm font-bold uppercase tracking-[0.2em] ${theme.accent}`}>
               Verifikasi OTP
             </p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+            <h1 className={`mt-3 text-2xl font-black tracking-tight ${theme.heading}`}>
               Masukkan kode verifikasi
             </h1>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
+            <p className={`mt-2 text-sm leading-6 ${theme.body}`}>
               Kode 6 digit telah dikirim ke{" "}
-              <strong className="text-slate-700">{otpEmail || "email Anda"}</strong>{" "}
+              <strong className={theme.strong}>{otpEmail || "email Anda"}</strong>{" "}
               untuk menyelesaikan login.
             </p>
           </div>
@@ -354,7 +385,7 @@ export default function LoginPage({ portal = "buyer" }) {
 
         <form onSubmit={handleVerifyOtp} className="space-y-5">
           <div>
-            <label className="mb-2 block text-sm font-bold text-slate-700">
+            <label className={`mb-2 block text-sm font-bold ${theme.label}`}>
               Kode OTP
             </label>
             <Input
@@ -366,12 +397,12 @@ export default function LoginPage({ portal = "buyer" }) {
                 setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6));
                 setLocalError("");
               }}
-              className="h-12 rounded-xl border-slate-200 bg-slate-50 px-4 text-center text-lg font-black tracking-[0.4em] focus:bg-white focus:ring-[#10B981]"
+              className={`h-12 rounded-xl px-4 text-center text-lg font-black tracking-[0.4em] ${theme.field}`}
             />
           </div>
 
           {message && (
-            <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+            <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${theme.error}`}>
               {message}
             </div>
           )}
@@ -380,7 +411,7 @@ export default function LoginPage({ portal = "buyer" }) {
             type="submit"
             size="lg"
             disabled={busy || otpCode.replace(/\D/g, "").length !== 6}
-            className="h-12 w-full rounded-xl bg-[#10B981] font-black shadow-[0_14px_30px_rgba(3,172,14,0.24)] hover:bg-[#059669] focus-visible:ring-[#10B981] disabled:cursor-not-allowed disabled:opacity-70"
+            className={`h-12 w-full rounded-xl font-black disabled:cursor-not-allowed disabled:opacity-70 ${theme.button}`}
           >
             {submittingOtp ? "Memverifikasi..." : "Verifikasi & Masuk"}
           </Button>
@@ -390,7 +421,7 @@ export default function LoginPage({ portal = "buyer" }) {
               type="button"
               onClick={handleResendOtp}
               disabled={busy || resendRemaining > 0}
-              className="font-bold text-[#10B981] hover:underline disabled:opacity-60"
+              className={`font-bold hover:underline disabled:opacity-60 ${theme.link}`}
             >
               {resendRemaining > 0
                 ? `Kirim ulang dalam ${String(Math.floor(resendRemaining / 60)).padStart(2, "0")}:${String(resendRemaining % 60).padStart(2, "0")}`
@@ -404,7 +435,7 @@ export default function LoginPage({ portal = "buyer" }) {
                 setOtpCode("");
                 setLocalError("");
               }}
-              className="font-bold text-slate-500 hover:text-slate-700"
+              className={`font-bold ${theme.mutedLink}`}
             >
               Kembali
             </button>
@@ -417,21 +448,14 @@ export default function LoginPage({ portal = "buyer" }) {
   return (
     <div>
       <div className="mb-8">
-        <Link to="/" className="hidden items-center gap-2 lg:inline-flex">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#10B981] text-lg font-black text-white">
-            M
-          </span>
-          <span className="text-xl font-black text-[#10B981]">MarketKu</span>
-        </Link>
-
-        <div className="mt-8">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#10B981]">
+        <div>
+          <p className={`text-sm font-bold uppercase tracking-[0.2em] ${theme.accent}`}>
             {config.eyebrow}
           </p>
-          <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+          <h1 className={`mt-3 text-2xl font-black tracking-tight ${theme.heading}`}>
             {config.title}
           </h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
+          <p className={`mt-2 text-sm leading-6 ${theme.body}`}>
             {config.description}
           </p>
         </div>
@@ -439,7 +463,7 @@ export default function LoginPage({ portal = "buyer" }) {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label className="mb-2 block text-sm font-bold text-slate-700">
+          <label className={`mb-2 block text-sm font-bold ${theme.label}`}>
             Email
           </label>
           <Input
@@ -449,18 +473,18 @@ export default function LoginPage({ portal = "buyer" }) {
             value={form.email}
             onChange={handleChange}
             autoComplete="email"
-            className="h-12 rounded-xl border-slate-200 bg-slate-50 px-4 focus:bg-white focus:ring-[#10B981]"
+            className={`h-12 rounded-xl px-4 ${theme.field}`}
           />
         </div>
 
         <div>
           <div className="mb-2 flex items-center justify-between gap-3">
-            <label className="block text-sm font-bold text-slate-700">
+            <label className={`block text-sm font-bold ${theme.label}`}>
               Password
             </label>
             <Link
               to="/auth/forgot-password"
-              className="text-xs font-black text-[#10B981] hover:underline"
+              className={`text-xs font-black hover:underline ${theme.link}`}
             >
               Lupa password?
             </Link>
@@ -471,7 +495,7 @@ export default function LoginPage({ portal = "buyer" }) {
             value={form.password}
             onChange={handleChange}
             autoComplete="current-password"
-            className="h-12 rounded-xl border-slate-200 bg-slate-50 px-4 focus:bg-white focus:ring-[#10B981]"
+            className={`h-12 rounded-xl px-4 ${theme.field}`}
           />
         </div>
 
@@ -485,7 +509,7 @@ export default function LoginPage({ portal = "buyer" }) {
           type="submit"
           size="lg"
           disabled={busy}
-          className="h-12 w-full rounded-xl bg-[#10B981] font-black shadow-[0_14px_30px_rgba(3,172,14,0.24)] hover:bg-[#059669] focus-visible:ring-[#10B981] disabled:cursor-not-allowed disabled:opacity-70"
+          className={`h-12 w-full rounded-xl font-black disabled:cursor-not-allowed disabled:opacity-70 ${theme.button}`}
         >
           {loading ? "Memproses..." : config.submitLabel}
         </Button>
@@ -494,10 +518,10 @@ export default function LoginPage({ portal = "buyer" }) {
           <>
             <div className="relative py-1">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200" />
+                <div className={`w-full border-t ${theme.divider}`} />
               </div>
               <div className="relative flex justify-center text-xs text-slate-400">
-                <span className="bg-white px-3 font-semibold">
+                <span className={`px-3 font-semibold ${theme.dividerLabel}`}>
                   atau masuk dengan
                 </span>
               </div>
@@ -508,7 +532,7 @@ export default function LoginPage({ portal = "buyer" }) {
               variant="outline"
               disabled={busy}
               onClick={handleGoogleLogin}
-              className="h-12 w-full rounded-xl border-slate-200 font-bold text-slate-700 hover:border-[#10B981]/40 hover:bg-[#ECFDF5] hover:text-[#10B981] disabled:cursor-not-allowed disabled:opacity-70"
+              className={`h-12 w-full rounded-xl border font-bold disabled:cursor-not-allowed disabled:opacity-70 ${theme.google}`}
             >
               {googleBusy ? "Menghubungkan Google..." : "Google"}
             </Button>
@@ -516,23 +540,14 @@ export default function LoginPage({ portal = "buyer" }) {
         )}
       </form>
 
-      {config.showRegister ? (
-        <p className="mt-6 text-center text-sm text-slate-500">
+      {config.showRegister && (
+        <p className={`mt-6 text-center text-sm ${theme.body}`}>
           Belum punya akun?{" "}
           <Link
             to="/auth/register"
-            className="font-black text-[#10B981] hover:underline"
+            className={`font-black hover:underline ${theme.link}`}
           >
             Daftar sekarang
-          </Link>
-        </p>
-      ) : (
-        <p className="mt-6 text-center text-sm text-slate-500">
-          <Link
-            to="/auth/login"
-            className="font-black text-[#10B981] hover:underline"
-          >
-            Kembali ke login pengguna
           </Link>
         </p>
       )}

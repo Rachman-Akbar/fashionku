@@ -21,6 +21,11 @@ final class ProductReviewService
         return $this->repository->paginate($filters, $perPage, $userId);
     }
 
+    public function summary(int $productId): array
+    {
+        return $this->repository->summary($productId);
+    }
+
     public function create(array $data, string $userId): ProductReviewModel
     {
         return DB::transaction(function () use ($data, $userId): ProductReviewModel {

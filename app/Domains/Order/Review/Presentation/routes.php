@@ -6,6 +6,7 @@ use App\Domains\Order\Review\Presentation\Http\Controllers\ProductReviewControll
 use Illuminate\Support\Facades\Route;
 
 Route::get('products/{productId}/reviews', [ProductReviewController::class, 'publicIndex'])->whereNumber('productId');
+Route::get('products/{productId}/reviews/summary', [ProductReviewController::class, 'summary'])->whereNumber('productId');
 
 Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'permission:reviews.create,reviews.manage'])
     ->prefix('reviews')

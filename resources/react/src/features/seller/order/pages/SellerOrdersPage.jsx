@@ -35,7 +35,7 @@ export default function SellerOrdersPage() {
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: ordersQuery.refetch });
   // Kolom kurasi + semua kolom database lain (kecuali kolom ID).
   const columns = useMemo(() => mergeColumns(ORDER_TABLE_COLUMNS.filter((column) => column.key !== "store"), buildDatabaseColumns(rows, {
-    omit: ["id", "order_id", "order_number", "sub_order_number", "store_name", "grand_total", "total", "total_items_price", "shipping_cost", "status", "payment_status", "tracking_number", "items", "sub_orders", "user", "created_at", "order_type", "is_preorder"],
+    omit: ["id", "order_id", "order_number", "sub_order_number", "snap_token", "store_name", "grand_total", "total", "total_items_price", "shipping_cost", "status", "payment_status", "tracking_number", "items", "sub_orders", "user", "created_at", "order_type", "is_preorder"],
     labels: {
       user_name: "Customer",
       voucher: "Voucher",

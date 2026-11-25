@@ -4,22 +4,34 @@ import { ActionIconButton } from "@/shared/components/crud/ActionIconButton";
 import { cn } from "@/shared/utils/utils";
 
 export const ColumnVisibilityMenu = memo(function ColumnVisibilityMenu({ columns = [], visibleKeys = [], onToggle, onShowAll, onReset, onApplyDefault, onMoveColumn, selectionEnabled = false, selectedCount = 0, onToggleSelection }) {
-  const [open, setOpen] = useState(false);
+const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const [dragKey, setDragKey] = useState("");
   const [dropKey, setDropKey] = useState("");
+  const [defaultApplied, setDefaultApplied] = useState(false);
+  const [defaultApplying, setDefaultApplying] = useState(false);
+
   const rootRef = useRef(null);
   const menuRef = useRef(null);
   const visibleSet = new Set(visibleKeys);
   const selectableColumns = columns;
   const hasColumns = selectableColumns.length > 0;
   const normalizedQuery = query.trim().toLowerCase();
-  // Urutan baris SELALU mengikuti urutan kolom yang diberikan (urutan kanonik
-  // dari useColumnVisibility). Sebelumnya kolom yang dicentang dikumpulkan di
-  // atas sehingga baris melompat-lompat setiap kali di-toggle.
   const orderedColumns = selectableColumns.filter((column) => column && column.key);
   const filteredColumns = normalizedQuery ? orderedColumns.filter((column) => String(column.label).toLowerCase().includes(normalizedQuery)) : orderedColumns;
+
+  const handleApplyDefault = async () => {
+    if (!onApplyDefault || defaultApplying) return;
+    setDefaultApplying(true);
+    try {
+      await onApplyDefault();
+      setDefaultApplied(true);
+      setTimeout(() => setDefaultApplied(false), 2000);
+    } finally {
+      setDefaultApplying(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return undefined;
@@ -30,11 +42,11 @@ export const ColumnVisibilityMenu = memo(function ColumnVisibilityMenu({ columns
       const width = 288;
       const margin = 8;
       const left = Math.max(margin, Math.min(rect.right - width, window.innerWidth - width - margin));
-      const menuHeight = menuRef.current?.getBoundingClientRect().height || 420;
+      const menuHeight = Math.min(menuRef.current?.getBoundingClientRect().height || 420, window.innerHeight - margin * 2);
       const below = rect.bottom + 5;
       const above = rect.top - 5 - menuHeight;
       const top = below + menuHeight > window.innerHeight - margin && above > margin ? above : Math.max(margin, below);
-      setPosition({ top, left });
+      setPosition({ top, left, maxHeight: window.innerHeight - margin * 2 });
     };
 
     const close = (event) => {
@@ -79,7 +91,7 @@ export const ColumnVisibilityMenu = memo(function ColumnVisibilityMenu({ columns
       />
 
       {open && typeof document !== "undefined" ? createPortal(
-        <div ref={menuRef} className="fixed z-[300] w-72 overflow-hidden rounded-[10px] bg-white shadow-xl ring-1 ring-slate-200" style={{ top: position.top, left: position.left }}>
+        <div ref={menuRef} className="fixed z-[300] w-72 overflow-y-auto rounded-[10px] bg-white shadow-xl ring-1 ring-slate-200" style={{ top: position.top, left: position.left, maxHeight: position.maxHeight }}>
           {onToggleSelection ? (
             <div className="border-b border-slate-100 p-2">
               <button
@@ -188,11 +200,16 @@ export const ColumnVisibilityMenu = memo(function ColumnVisibilityMenu({ columns
                   <button
                     type="button"
                     title="Jadikan pilihan kolom saat ini sebagai tampilan default"
-                    onClick={onApplyDefault}
-                    className="flex h-9 w-full items-center justify-center gap-[5px] bg-slate-800 px-3 text-xs font-extrabold text-white transition-colors hover:bg-slate-700"
+                    onClick={handleApplyDefault}
+                    disabled={defaultApplying}
+                    className={cn(
+                      "flex h-9 w-full items-center justify-center gap-[5px] px-3 text-xs font-extrabold text-white transition-colors",
+                      defaultApplied ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-800 hover:bg-slate-700",
+                      defaultApplying && "opacity-50 cursor-not-allowed",
+                    )}
                   >
-                    <span className="material-symbols-outlined text-[16px]">bookmark</span>
-                    Terapkan sebagai Default
+                    <span className="material-symbols-outlined text-[16px]">{defaultApplied ? "check" : "bookmark"}</span>
+                    {defaultApplying ? "Menerapkan..." : defaultApplied ? "Berhasil disimpan!" : "Terapkan sebagai Default"}
                   </button>
                 </div>
               ) : null}

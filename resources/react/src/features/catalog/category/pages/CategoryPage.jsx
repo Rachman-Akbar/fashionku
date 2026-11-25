@@ -19,6 +19,68 @@ const INITIAL_FILTERS = {
   maxPrice: "",
 };
 
+// Carousel component for Level 3 categories on Level 2 pages
+function Level3CategoryCarousel({ categories }) {
+  const [active, setActive] = useState(0);
+  const scrollerRef = useRef(null);
+  const count = categories.length;
+
+  if (count === 0) return null;
+
+  const go = (idx) => {
+    setActive(Math.max(0, Math.min(idx, count - 1)));
+    scrollerRef.current?.scrollTo({
+      left: idx * 200, // approximate card width + gap
+      behavior: "smooth",
+    });
+  };
+
+  return (
+    <div className="relative">
+      <div
+        ref={scrollerRef}
+        className="flex gap-4 overflow-x-auto hide-scrollbar pb-4 scroll-smooth"
+      >
+        {categories.map((child) => (
+          <Link
+            key={child.id || child.slug}
+            to={getCategoryHref(child)}
+            className="flex-shrink-0 w-40 sm:w-44 group"
+          >
+            <div className="aspect-square overflow-hidden rounded-xl bg-slate-100">
+              {child.image_url ? (
+                <img
+                  src={child.image_url}
+                  alt={child.name}
+                  className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-slate-300">
+                  <span className="material-symbols-outlined text-4xl">category</span>
+                </div>
+              )}
+            </div>
+            <p className="mt-2 text-center text-sm font-semibold text-slate-800 group-hover:text-[#047857] line-clamp-1">
+              {child.name}
+            </p>
+          </Link>
+        ))}
+      </div>
+      {count > 3 && (
+        <button
+          type="button"
+          className="absolute right-0 top-1/2 -translate-y-1/2 w-8 h-8 bg-white text-slate-700 rounded-full shadow-lg flex items-center justify-center hover:bg-slate-100 transition-colors"
+          onClick={() => go(active + 1)}
+          aria-label="Berikutnya"
+        >
+          <span className="material-symbols-outlined text-sm">chevron_right</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
 function titleFromSlug(slug = "") {
   return slug
     .split("-")
@@ -41,7 +103,6 @@ function mapSort(value) {
 export default function CategoryPage() {
   const params = useParams();
   const slug = params["*"] || params.slug || "";
-  const scrollerRef = useRef(null);
   const loadMoreRef = useRef(null);
   const [sort, setSort] = useState("relevance");
   const [filters, setFilters] = useState(INITIAL_FILTERS);
@@ -99,7 +160,6 @@ export default function CategoryPage() {
   const categoryName = category?.name || titleFromSlug(slug) || "Kategori";
   const childCategories = category?.children || [];
   const categoryLevel = Number(category?.level || 1);
-  const categoryBubbles = categoryLevel === 2 ? [] : childCategories.filter((item) => item.image_url);
   const levelThreeCards = categoryLevel === 2
     ? childCategories.filter((item) => Number(item.level || 3) === 3)
     : [];
@@ -143,31 +203,13 @@ export default function CategoryPage() {
       <section className="bg-[#10B981] text-white py-10">
         <div className="max-w-[1200px] mx-auto px-6">
           <h2 className="text-2xl font-bold mb-8">{categoryName}</h2>
-          {levelThreeCards.length ? (
-            <div className="mb-8 grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6">
-              {levelThreeCards.map((child) => (
-                <Link
-                  key={child.id || child.slug}
-                  to={getCategoryHref(child)}
-                  className="group overflow-hidden rounded-xl bg-white ring-1 ring-slate-200 transition hover:ring-emerald-300"
-                >
-                  <div className="aspect-square overflow-hidden bg-slate-100">
-                    {child.image_url ? (
-                      <img src={child.image_url} alt={child.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" loading="lazy" />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-slate-300">
-                        <span className="material-symbols-outlined text-4xl">category</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="px-3 py-3 text-center text-sm font-extrabold text-slate-800 group-hover:text-emerald-700">
-                    {child.name}
-                  </div>
-                </Link>
-              ))}
+          {categoryLevel === 2 && levelThreeCards.length ? (
+            <div className="mb-8">
+              <h3 className="text-lg font-bold text-white/90 mb-4">Sub Kategori</h3>
+              <Level3CategoryCarousel categories={levelThreeCards} />
             </div>
           ) : null}
-          {!!categoryBubbles.length && (
+          {categoryLevel !== 2 && categoryLevel !== 3 && categoryBubbles.length ? (
             <div className="relative group">
               <div
                 ref={scrollerRef}
@@ -206,7 +248,7 @@ export default function CategoryPage() {
                 </span>
               </button>
             </div>
-          )}
+          ) : null}
         </div>
       </section>
 

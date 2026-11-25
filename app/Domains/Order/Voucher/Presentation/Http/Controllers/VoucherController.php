@@ -36,7 +36,7 @@ final class VoucherController extends Controller
 
         $vouchers = $this->useCase->listVouchers($filters);
         $authUser = auth('sanctum')->user();
-        $userId = $authUser?->getAuthIdentifier();
+        $userId = (string) ($authUser?->getAuthIdentifier() ?? '');
 
         $missionRewardIds = [];
 
@@ -261,6 +261,7 @@ final class VoucherController extends Controller
             'min_spend' => (float) $data['min_spend'],
             'min_items' => isset($data['min_items']) && $data['min_items'] !== '' ? (int) $data['min_items'] : null,
             'min_distinct_products' => isset($data['min_distinct_products']) && $data['min_distinct_products'] !== '' ? (int) $data['min_distinct_products'] : null,
+            'min_same_product_qty' => isset($data['min_same_product_qty']) && $data['min_same_product_qty'] !== '' ? (int) $data['min_same_product_qty'] : 0,
             'terms' => isset($data['terms']) && trim((string) $data['terms']) !== '' ? trim((string) $data['terms']) : null,
             'max_discount' => isset($data['max_discount']) && $data['max_discount'] !== '' ? (float) $data['max_discount'] : null,
             'starts_at' => (string) $data['starts_at'],

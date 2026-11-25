@@ -37,11 +37,8 @@ Operasional
     1. Pesanan dan Penjualan
     2. Stock
     3. Keuangan
-
-Marketing
-    1. Voucher
-    2. Promo
-    3. Ulasan
+    4. Voucher
+    5. Promo
 
 Manajemen User
 

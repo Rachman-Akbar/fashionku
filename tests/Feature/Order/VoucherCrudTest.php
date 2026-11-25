@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Order;
 
+use App\Domains\Order\Voucher\Application\Services\VoucherCheckoutService;
 use App\Domains\Order\Voucher\Domain\Entities\Voucher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
+use RuntimeException;
 use Tests\Support\InteractsAsUser;
 use Tests\TestCase;
 
@@ -29,6 +31,7 @@ class VoucherCrudTest extends TestCase
             'starts_at' => '2026-08-01 00:00:00',
             'ends_at' => '2026-12-31 23:59:59',
             'usage_limit' => 100,
+            'min_same_product_qty' => 2,
             'is_active' => 1,
         ], $overrides);
     }
@@ -43,6 +46,8 @@ class VoucherCrudTest extends TestCase
         $id = $create->json('data.id');
         $this->assertNotNull($id);
         $this->assertSame('sale10', Voucher::query()->find($id)->code);
+        $this->assertSame(2, Voucher::query()->find($id)->min_same_product_qty);
+        $create->assertJsonPath('data.minSameProductQty', 2);
 
         $this->getJson('/api/v1/order/vouchers/admin/manage/list')
             ->assertOk()
@@ -59,6 +64,40 @@ class VoucherCrudTest extends TestCase
 
         $this->deleteJson("/api/v1/order/vouchers/admin/{$id}")->assertOk();
         $this->assertSoftDeleted('vouchers', ['id' => $id]);
+    }
+
+    public function test_min_same_product_qty_requires_quantity_from_one_product(): void
+    {
+        $user = $this->makeUser([], ['buyer']);
+
+        Voucher::query()->create([
+            'code' => 'SAME3',
+            'name' => 'Wajib 3 pcs produk sama',
+            'discount_target' => 'product',
+            'discount_type' => 'percentage',
+            'discount_value' => 10,
+            'min_spend' => 0,
+            'min_same_product_qty' => 3,
+            'starts_at' => now()->subDay(),
+            'ends_at' => now()->addDay(),
+            'usage_limit' => 0,
+            'is_active' => true,
+        ]);
+
+        $service = app(VoucherCheckoutService::class);
+
+        $eligible = $service->evaluate((string) $user->id, 'SAME3', 300000, 0, [
+            ['product_id' => 1, 'price' => 100000, 'quantity' => 3],
+        ]);
+        $this->assertSame(30000.0, $eligible['discount']);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('minimal 3 pcs untuk satu produk yang sama');
+
+        $service->evaluate((string) $user->id, 'SAME3', 300000, 0, [
+            ['product_id' => 1, 'price' => 100000, 'quantity' => 2],
+            ['product_id' => 2, 'price' => 100000, 'quantity' => 1],
+        ]);
     }
 
     public function test_create_validates_required_fields(): void

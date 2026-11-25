@@ -10,6 +10,7 @@ import { useEntityEditor, useRefreshOnListActivation, useViewMode, useTableSelec
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import { ExcelActionButtons } from "@/shared/excel";
+import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 
 function money(value) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -55,12 +56,24 @@ export default function CustomersPage() {
 
   const columns = [
     { key: "code", label: "Kode" },
-    { key: "name", label: "Nama" },
+    { key: "name", label: "Nama", render: (row) => {
+      const avatar = resolveMediaUrl(row.avatar || "");
+      return (
+        <div className="flex min-w-0 items-center gap-2">
+          {avatar ? (
+            <img src={avatar} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-slate-200" />
+          ) : (
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-extrabold text-slate-500 ring-1 ring-slate-200">{(row.name || "?").slice(0, 1).toUpperCase()}</span>
+          )}
+          <span className="truncate font-bold text-slate-900">{row.name || "-"}</span>
+        </div>
+      );
+    } },
     { key: "email", label: "Email" },
-    { key: "is_manual", label: "Sumber", render: (row) => row.is_manual ? <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-extrabold uppercase text-teal-700">Manual</span> : <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-extrabold uppercase text-slate-500">Transaksi</span> },
+    { key: "is_manual", label: "Sumber", filterType: "select", options: [{ value: "Manual", label: "Manual" }, { value: "Transaksi", label: "Transaksi" }], valueOf: (row) => (row.is_manual ? "Manual" : "Transaksi"), render: (row) => row.is_manual ? <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-extrabold uppercase text-teal-700">Manual</span> : <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-extrabold uppercase text-slate-500">Transaksi</span> },
     { key: "orders_count", label: "Jumlah Pesanan" },
     { key: "total_spent", label: "Total Belanja", render: (row) => money(row.total_spent) },
-    { key: "last_order_at", label: "Pesanan Terakhir", render: (row) => row.last_order_at ? formatDate(row.last_order_at) : "-" },
+    { key: "last_order_at", label: "Pesanan Terakhir", valueOf: (row) => row.last_order_at ? formatDate(row.last_order_at) : "", render: (row) => row.last_order_at ? formatDate(row.last_order_at) : "-" },
     { key: "is_active", label: "Status", filterType: "select", options: [{ value: "true", label: "Aktif" }, { value: "false", label: "Nonaktif" }], render: (row) => <InlineActiveSwitch checked={row.is_active !== false} pending={activeToggleId === row.id} activeLabel="Aktif" inactiveLabel="Nonaktif" compact onChange={(next) => toggleCustomerActive(row, next)} /> },
     // Sisa kolom database (profil, audit, verifikasi) tampil otomatis.
     ...buildDatabaseColumns(rows, {

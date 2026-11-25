@@ -54,7 +54,7 @@ export default function ReviewsPage() {
     { key: "user_name", label: "Buyer" },
     { key: "rating", label: "Rating", render: (row) => `${"★".repeat(Number(row.rating || 0))}${"☆".repeat(Math.max(0, 5 - Number(row.rating || 0)))}` },
     { key: "review", label: "Review" },
-    { key: "is_active", label: "Status", filterable: false, render: (row) => <InlineActiveSwitch checked={row.is_active !== false} pending={activeToggleId === row.id} activeLabel="Aktif" inactiveLabel="Nonaktif" compact onChange={(next) => toggleReviewActive(row, next)} /> },
+    { key: "is_active", label: "Status", filterType: "select", options: [{ value: "true", label: "Aktif" }, { value: "false", label: "Nonaktif" }], render: (row) => <InlineActiveSwitch checked={row.is_active !== false} pending={activeToggleId === row.id} activeLabel="Aktif" inactiveLabel="Nonaktif" compact onChange={(next) => toggleReviewActive(row, next)} /> },
     { key: "created_at", label: "Tanggal", render: (row) => row.created_at ? new Date(row.created_at).toLocaleString("id-ID") : "-" },
     // Sisa kolom database review (relasi produk/user/order sudah ada di atas).
     ...buildDatabaseColumns(rows, {

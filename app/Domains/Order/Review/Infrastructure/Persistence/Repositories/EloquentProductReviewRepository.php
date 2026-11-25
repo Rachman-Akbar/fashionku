@@ -30,6 +30,35 @@ final class EloquentProductReviewRepository implements ProductReviewRepositoryIn
             ->paginate($perPage);
     }
 
+    public function summary(int $productId): array
+    {
+        $reviews = ProductReviewModel::query()
+            ->where('product_id', $productId)
+            ->where('is_active', true)
+            ->selectRaw('
+                COUNT(*) as total,
+                COALESCE(AVG(rating), 0) as average,
+                SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) as rating_5,
+                SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) as rating_4,
+                SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) as rating_3,
+                SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) as rating_2,
+                SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as rating_1
+            ')
+            ->first();
+
+        return [
+            'total' => (int) $reviews->total,
+            'average' => round((float) $reviews->average, 1),
+            'distribution' => [
+                5 => (int) $reviews->rating_5,
+                4 => (int) $reviews->rating_4,
+                3 => (int) $reviews->rating_3,
+                2 => (int) $reviews->rating_2,
+                1 => (int) $reviews->rating_1,
+            ],
+        ];
+    }
+
     public function find(int $id): ?ProductReviewModel
     {
         return ProductReviewModel::query()->with(['product', 'user:id,name,avatar', 'order:id,order_number', 'creator:id,name', 'updater:id,name'])->find($id);

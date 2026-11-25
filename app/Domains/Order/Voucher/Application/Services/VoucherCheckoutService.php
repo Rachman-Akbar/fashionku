@@ -104,11 +104,16 @@ final class VoucherCheckoutService
         // --- Syarat item (hanya item yang masuk scope) ---
         $totalItems = 0;
         $products = [];
+        $quantitiesByProduct = [];
         foreach ($eligibleItems as $item) {
-            $totalItems += (int) ($item['quantity'] ?? 0);
-            $products[(int) ($item['product_id'] ?? 0)] = true;
+            $quantity = (int) ($item['quantity'] ?? 0);
+            $productId = (int) ($item['product_id'] ?? 0);
+            $totalItems += $quantity;
+            $products[$productId] = true;
+            $quantitiesByProduct[$productId] = ($quantitiesByProduct[$productId] ?? 0) + $quantity;
         }
         $distinctProducts = count($products);
+        $maxSameProductQty = $quantitiesByProduct === [] ? 0 : max($quantitiesByProduct);
 
         if ((int) $voucher->min_items > 0 && $totalItems < (int) $voucher->min_items) {
             throw new RuntimeException("Voucher membutuhkan minimal {$voucher->min_items} item dalam pesanan.");
@@ -116,6 +121,12 @@ final class VoucherCheckoutService
 
         if ((int) $voucher->min_distinct_products > 0 && $distinctProducts < (int) $voucher->min_distinct_products) {
             throw new RuntimeException("Voucher hanya berlaku untuk minimal {$voucher->min_distinct_products} item produk berbeda.");
+        }
+
+        // --- Syarat kuantitas satu produk yang sama ---
+        $minSameProductQty = (int) ($voucher->min_same_product_qty ?? 0);
+        if ($minSameProductQty > 0 && $maxSameProductQty < $minSameProductQty) {
+            throw new RuntimeException("Voucher hanya berlaku jika membeli minimal {$minSameProductQty} pcs untuk satu produk yang sama.");
         }
 
         $target = strtolower((string) $voucher->discount_target);

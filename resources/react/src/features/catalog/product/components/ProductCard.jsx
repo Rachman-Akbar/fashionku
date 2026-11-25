@@ -13,6 +13,57 @@ import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 
 const EMPTY_VARIANTS = [];
 
+const BURST_POINTS =
+  "55,2 65,12 79,6 82,20 96,21 93,35 105,44 94,54 101,68 86,72 86,86 71,83 62,97 51,88 38,94 34,80 20,81 22,67 8,61 16,49 5,39 19,31 15,17 30,18 37,5 47,13";
+
+function DiscountBurst({ percent }) {
+  const value = Math.max(0, Math.round(Number(percent) || 0));
+
+  return (
+    <svg
+      viewBox="0 0 110 100"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className="h-[78px] w-[84px] drop-shadow-[3px_4px_3px_rgba(0,0,0,0.28)]"
+    >
+      <polygon points={BURST_POINTS} fill="#7f1d1d" transform="translate(4 3)" />
+      <polygon points={BURST_POINTS} fill="#ffffff" />
+      <polygon
+        points={BURST_POINTS}
+        fill="#ef4444"
+        stroke="#b91c1c"
+        strokeWidth="1.5"
+      />
+      <text
+        x="55"
+        y="52"
+        textAnchor="middle"
+        fontFamily="Arial, sans-serif"
+        fontSize={value > 99 ? 23 : 28}
+        fontWeight="900"
+        fill="#ffffff"
+      >
+        {value}
+        <tspan fontSize="15" dy="-10">
+          %
+        </tspan>
+      </text>
+      <text
+        x="55"
+        y="69"
+        textAnchor="middle"
+        fontFamily="Arial, sans-serif"
+        fontSize="15"
+        fontWeight="900"
+        fontStyle="italic"
+        fill="#fee2e2"
+      >
+        OFF
+      </text>
+    </svg>
+  );
+}
+
 function getVariantId(variant) {
   return Number(variant?.id ?? variant?.variant_id ?? 0);
 }
@@ -590,12 +641,13 @@ export const ProductCard = memo(function ProductCard({
             </div>
           )}
 
-          {displayDiscount ? (
-            <div className="absolute left-0 top-2 z-10">
-              <div className="relative rounded-r-[7px] bg-[#10B981] px-[7px] py-[3px] text-[11px] font-extrabold leading-none text-white shadow-sm">
-                {displayDiscount}
-                <span className="absolute -bottom-[4px] left-0 h-0 w-0 border-l-[4px] border-t-[4px] border-l-transparent border-t-[#047857]" />
-              </div>
+          {discountPercent > 0 ? (
+            <div className="absolute -left-1 -top-1 z-10 origin-top-left transition-transform duration-200 ease-out group-hover:-translate-y-0.5 group-hover:scale-110">
+              <DiscountBurst percent={discountPercent} />
+            </div>
+          ) : displayDiscount ? (
+            <div className="absolute left-2 top-2 z-10 rounded-md bg-[#111827]/90 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wider text-white shadow">
+              {displayDiscount}
             </div>
           ) : null}
 

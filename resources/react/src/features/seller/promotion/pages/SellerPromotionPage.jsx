@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { SellerPanelShell } from "@/features/seller/dashboard/components/SellerPanelShell";
 import { useTableSearch } from "@/core/hooks/useTableSearch";
@@ -38,6 +38,13 @@ export default function SellerPromotionPage() {
   const rows = promotionsQuery.data || [];
   const total = useListTotalCount(undefined, { fallbackTotal: rows.length, label: "Promosi" });
   const { query, setQuery, filteredRows } = useTableSearch(rows, ["name", "targetUrl"]);
+  // Baris hasil filter kolom dari header tabel (mode kartu/grafik memakai
+  // header yang sama sebagai filter), agar kartu menampilkan data tersaring.
+  const [columnFilteredRows, setColumnFilteredRows] = useState(null);
+  useEffect(() => { setColumnFilteredRows(null); }, [filteredRows]);
+  // Identitas callback harus stabil agar efek di dalam tabel tidak berulang.
+  const handleColumnFilterState = useCallback((state) => setColumnFilteredRows(state?.filteredRows || []), []);
+  const gridRows = columnFilteredRows ?? filteredRows;
   // Kolom kurasi + semua kolom database lain (kecuali kolom ID).
   const columns = useMemo(() => mergeColumns(PROMOTION_TABLE_COLUMNS.filter((column) => column.key !== "store"), buildDatabaseColumns(rows, {
     omit: ["id", "name", "image_url", "mobile_image_url", "click_action", "target_id", "target_url", "sort_order", "is_active", "store_name", "resolved_url"],
@@ -153,16 +160,17 @@ export default function SellerPromotionPage() {
             <>
             {/* Header tabel tetap tampil di mode kartu sebagai filter & sort. */}
             <PromotionManagementTable
-              rows={[]}
+              rows={filteredRows}
               columns={columns}
               portal={portal}
               headerOnly
+              onFilterStateChange={handleColumnFilterState}
               visibleSet={columnVisibility.visibleSet}
               columnOrder={columnVisibility.visibleKeys}
               onOrderChange={columnVisibility.syncVisibleOrder}
             />
             <RecordCardGrid
-              rows={filteredRows}
+              rows={gridRows}
               columns={columns}
               card={promotionCard}
               onRowClick={editor.edit}

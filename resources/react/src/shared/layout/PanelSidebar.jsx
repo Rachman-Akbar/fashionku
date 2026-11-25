@@ -10,7 +10,6 @@ const GROUP_ICONS = {
   Finance: "account_balance_wallet",
   Toko: "store",
   Operasional: "event_note",
-  Marketing: "campaign",
   "Master Data": "database",
   Bantuan: "support_agent",
   Manajemen: "admin_panel_settings",

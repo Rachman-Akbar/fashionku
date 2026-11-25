@@ -5,7 +5,6 @@ import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
-import { SpecialActionButton } from "@/shared/components/crud/SpecialActionButton";
 import { FormModal } from "@/features/advanced/components/FormModal";
 import { Input } from "@/shared/components/ui/Input";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
@@ -42,12 +41,18 @@ export default function AdminOrdersPage() {
   const updateMutation = useUpdateOrderStatus();
   const rows = ordersQuery.data?.rows || [];
   const total = useListTotalCount(ordersQuery.data?.meta, { label: "Pesanan" });
+  // Callback stabil: dipanggil efek di dalam tabel, jadi identitasnya tidak
+  // boleh berubah tiap render agar tidak memicu setState berulang.
+  const handleOrderFilterState = useCallback((state) => {
+    total.onFilterStateChange(state);
+    setFilteredOrders(state?.filteredRows || []);
+  }, [total]);
   const editor = useEntityEditor({ getEditLabel: (row) => row.orderNumber || row.order_number || row.subOrderNumber || `Order #${row.id}` });
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: ordersQuery.refetch });
   // Kolom kurasi + semua kolom database lain (kecuali kolom ID). Kolom yang
   // sudah ditampilkan lewat kolom kurasi disembunyikan agar tidak dobel.
   const columns = useMemo(() => mergeColumns(ORDER_TABLE_COLUMNS, buildDatabaseColumns(rows, {
-    omit: ["id", "order_id", "order_number", "sub_order_number", "store_name", "grand_total", "total", "total_items_price", "shipping_cost", "status", "payment_status", "tracking_number", "items", "sub_orders", "user", "created_at", "order_type", "is_preorder"],
+    omit: ["id", "order_id", "order_number", "sub_order_number", "snap_token", "store_name", "grand_total", "total", "total_items_price", "shipping_cost", "status", "payment_status", "tracking_number", "items", "sub_orders", "user", "created_at", "order_type", "is_preorder"],
     labels: {
       user_name: "Customer",
       voucher: "Voucher",
@@ -142,21 +147,6 @@ toolbar={(
                     allowExport={true}
                     allowDelete={false}
                   />
-                  <SpecialActionButton
-                    icon="swap_horiz"
-                    label="Ubah Status Pesanan"
-                    title={selection.selectedCount ? `Ubah status ${selection.selectedCount} pesanan terpilih` : "Aktifkan pilih baris, centang pesanan, lalu ubah statusnya"}
-                    onClick={() => {
-                      setStatusDraft("");
-                      setStatusReason("");
-                      if (!selection.selectedCount && !selection.enabled) {
-                        selection.toggleEnabled();
-                        toastError("Ubah Status Pesanan", "Mode pilih baris diaktifkan. Centang pesanan yang ingin diubah statusnya.");
-                        return;
-                      }
-                      setStatusDialogOpen(true);
-                    }}
-                  />
                 </>
               }
               onRefresh={() => ordersQuery.refetch()}
@@ -216,7 +206,7 @@ toolbar={(
                 visibleSet={columnVisibility.visibleSet}
                 columnOrder={columnVisibility.visibleKeys}
                 onOrderChange={columnVisibility.syncVisibleOrder}
-                onFilterStateChange={(state) => setFilteredOrders(state?.filteredRows || [])}
+                onFilterStateChange={handleOrderFilterState}
                 onEdit={editor.edit}
                 onPrint={setPrintRow}
               />
@@ -224,21 +214,37 @@ toolbar={(
             </>
           ) : null}
           {rows.length && viewMode === "grid" ? (
-            <RecordCardGrid
-              rows={rows}
-              columns={columns}
-              card={orderCard}
-              onRowClick={editor.edit}
-              selectionEnabled={selection.enabled}
-              selectedIds={selection.selectedIds}
-              onToggleRow={selection.toggleRow}
-              rowKey={(row) => row.id}
-            />
+            <>
+              {/* Header + filter kolom tetap tampil di mode kartu (grid). */}
+              <OrderManagementTable
+                rows={rows}
+                columns={columns}
+                portal="admin"
+                headerOnly
+                pendingId={updateMutation.variables?.id}
+                visibleSet={columnVisibility.visibleSet}
+                columnOrder={columnVisibility.visibleKeys}
+                onOrderChange={columnVisibility.syncVisibleOrder}
+                onFilterStateChange={handleOrderFilterState}
+                onEdit={editor.edit}
+                onPrint={setPrintRow}
+              />
+              <RecordCardGrid
+                rows={filteredOrders.length ? filteredOrders : rows}
+                columns={columns}
+                card={orderCard}
+                onRowClick={editor.edit}
+                selectionEnabled={selection.enabled}
+                selectedIds={selection.selectedIds}
+                onToggleRow={selection.toggleRow}
+                rowKey={(row) => row.id}
+              />
+            </>
           ) : null}
           {rows.length && viewMode !== "grid" && viewMode !== "chart" ? (
             <OrderManagementTable
               rows={rows}
-              onFilterStateChange={(state) => { total.onFilterStateChange(state); setFilteredOrders(state?.filteredRows || []); }}
+              onFilterStateChange={handleOrderFilterState}
               columns={columns}
               portal="admin"
               pendingId={updateMutation.variables?.id}

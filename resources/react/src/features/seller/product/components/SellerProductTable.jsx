@@ -6,6 +6,7 @@ import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch"
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { TableSelectionCell, TableSelectionHeader } from "@/shared/components/crud/TableSelectionCell";
 import { TableHeaderFilter } from "@/shared/components/crud/TableHeaderFilter";
+import { ColumnFilterHeader } from "@/shared/components/crud/ColumnFilterHeader";
 import { InteractiveColGroup, InteractiveTableHeader } from "@/shared/components/table/InteractiveTableHeader";
 import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
 import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
@@ -14,7 +15,6 @@ import { toTitleCase } from "@/shared/utils/textFormatter";
 export const PRODUCT_TABLE_COLUMNS = [
   { key: "expand", label: "Open", width: 60, minWidth: 56 },
   { key: "product", label: "Produk" },
-  { key: "store", label: "Toko", defaultVisible: false },
   { key: "mode", label: "Mode" },
   { key: "price", label: "Harga" },
   { key: "stock", label: "Stok" },
@@ -22,7 +22,7 @@ export const PRODUCT_TABLE_COLUMNS = [
   { key: "active", label: "Status Seller" },
 ];
 
-const widths = { expand: 60, product: 330, store: 220, mode: 160, price: 170, stock: 150, status: 180, active: 180 };
+const widths = { expand: 60, product: 330, mode: 160, price: 170, stock: 150, status: 180, active: 180 };
 
 export const SellerProductTable = memo(function SellerProductTable({
   rows,
@@ -44,10 +44,11 @@ export const SellerProductTable = memo(function SellerProductTable({
   sortDirection = "desc",
   onSortChange,
   columnFilters = {},
+  columnFilterTypes = {},
+  columnFilterOptions = {},
   onColumnFilterChange,
   onClearAllFilters,
   onResetSort,
-  storeOptions = [],
   columnOrder = [],
   isLoading = false,
   // Mode "header saja": dipakai saat tampilan kartu (grid), header + filter
@@ -56,7 +57,7 @@ export const SellerProductTable = memo(function SellerProductTable({
 }) {
   const admin = portal === "admin";
   const [expandedIds, setExpandedIds] = useState(() => new Set());
-  const activeColumns = useMemo(() => columns.filter((column) => (!visibleSet || visibleSet.has(column.key)) && (column.key !== "store" || admin) && (column.key !== "status" || admin)).map((column) => ({ ...column, width: widths[column.key] || 190 })), [admin, columns, visibleSet]);
+  const activeColumns = useMemo(() => columns.filter((column) => (!visibleSet || visibleSet.has(column.key)) && (column.key !== "status" || admin)).map((column) => ({ ...column, width: widths[column.key] || 190 })), [admin, columns, visibleSet]);
   const layout = useTableColumnLayout({ storageKey: `${portal}.products`, columns: activeColumns, preferredOrder: columnOrder, onOrderChange });
   const applyOrder = layout.applyOrder;
   const tableWidth = layout.totalWidth + (selectionEnabled ? 44 : 0);
@@ -167,12 +168,14 @@ export const SellerProductTable = memo(function SellerProductTable({
     }
     if (column.key.startsWith("raw:")) return <InteractiveTableHeader key={column.key} columnKey={column.key} headerProps={layout.getHeaderProps(column.key)} style={layout.getColumnStyle(column.key)} onResizeStart={layout.startResize} onResetWidth={layout.resetWidth} dragging={layout.dragKey === column.key} dropTarget={layout.dropKey === column.key}>{column.label}</InteractiveTableHeader>;
     if (column.key === "product") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Produk" sortKey="name" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} filterType="text" filterValue={columnFilters.product || ""} onFilterChange={changeFilter("product")} placeholder="Cari nama produk" />;
-    if (column.key === "store") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Toko" sortKey="store_name" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} filterType="select" filterValue={columnFilters.store || ""} onFilterChange={changeFilter("store")} options={storeOptions} />;
     if (column.key === "mode") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Mode" sortKey="mode" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} filterType="select" filterValue={columnFilters.mode || ""} onFilterChange={changeFilter("mode")} options={[{ value: "simple", label: "Tanpa Variant" }, { value: "variant", label: "Dengan Variant" }]} />;
     if (column.key === "price") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Harga" sortKey="price" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} filterType="range" filterValue={columnFilters.price || { min: "", max: "" }} onFilterChange={changeFilter("price")} minPlaceholder="Harga min" maxPlaceholder="Harga max" />;
     if (column.key === "stock") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Stok" sortKey="stock" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} filterType="range" filterValue={columnFilters.stock || { min: "", max: "", status: "" }} onFilterChange={changeFilter("stock")} minPlaceholder="Stok min" maxPlaceholder="Stok max" extraRangeFilter={{ label: "Status stok", options: [{ value: "low", label: "Stok rendah" }, { value: "safe", label: "Stok aman" }] }} />;
     if (column.key === "status") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Status Admin" sortKey="status" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} filterType="select" filterValue={columnFilters.status || ""} onFilterChange={changeFilter("status")} options={[{ value: "draft", label: "Draft" }, { value: "published", label: "Published" }, { value: "archived", label: "Archived" }]} />;
-    return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Status Seller" sortKey="is_active" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} filterType="select" filterValue={columnFilters.active || ""} onFilterChange={changeFilter("active")} options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Non-Active" }]} />;
+    if (column.key === "active") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Status Seller" sortKey="is_active" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} filterType="select" filterValue={columnFilters.active || ""} onFilterChange={changeFilter("active")} options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Non-Active" }]} />;
+    // Kolom database lain (relasi & audit) tetap punya filter sendiri, jadi
+    // semua kolom data bisa disaring tanpa header "Status Seller" berulang.
+    return <ColumnFilterHeader key={column.key} column={column} filterType={columnFilterTypes[column.key] || "text"} filterValue={columnFilters[column.key]} options={columnFilterOptions[column.key] || []} onFilterChange={changeFilter(column.key)} headerProps={layout.getHeaderProps(column.key)} columnStyle={layout.getColumnStyle(column.key)} onResizeStart={layout.startResize} onResetWidth={layout.resetWidth} dragging={layout.dragKey === column.key} dropTarget={layout.dropKey === column.key} onClearAllFilters={onClearAllFilters} onResetSort={onResetSort} />;
   };
 
   const renderCell = (column, product) => {
@@ -209,7 +212,6 @@ export const SellerProductTable = memo(function SellerProductTable({
         </td>
       );
     }
-    if (column.key === "store") return <td key={column.key} className="truncate px-4 py-3 font-bold text-slate-700">{toTitleCase(product.storeName) || "-"}</td>;
     if (column.key === "mode") return <td key={column.key} className="truncate px-4 py-3 text-slate-600">{product.mode === "variant" ? `${product.variants.length} variant` : "Tanpa variant"}</td>;
     if (column.key === "price") return <td key={column.key} className="px-4 py-3 font-bold text-slate-800">{formatPrice(product.price)}</td>;
     if (column.key === "stock") return <td key={column.key} className="px-4 py-3"><div className="flex items-center gap-[5px]"><p className="text-sm font-extrabold text-slate-800">{product.stock.toLocaleString("id-ID")}</p>{product.minStock > 0 && Number(product.stock) <= Number(product.minStock) ? <span title={`Di bawah minimal stok ${product.minStock.toLocaleString("id-ID")}`} className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-700"><span className="material-symbols-outlined text-[12px]">priority_high</span>Restock</span> : null}</div>{product.poStock > 0 ? <p className="text-[11px] font-bold text-amber-600">PO {product.poStock.toLocaleString("id-ID")}</p> : null}<p className="text-[11px] text-slate-400">Total {product.totalStock.toLocaleString("id-ID")}{product.minStock > 0 ? ` · Min ${product.minStock.toLocaleString("id-ID")}` : ""}</p></td>;
@@ -249,7 +251,7 @@ export const SellerProductTable = memo(function SellerProductTable({
   };
 
   return (
-    <div className={headerOnly ? "mb-3" : undefined}>
+    <div className={headerOnly ? "sticky top-[var(--list-toolbar-h,0px)] z-30 mb-3 bg-white" : undefined}>
       {/* Scrollbar horizontal selalu terjangkau di atas header tabel. */}
       {hasHorizontalOverflow ? (
         <div

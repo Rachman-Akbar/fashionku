@@ -11,6 +11,8 @@ interface ProductReviewRepositoryInterface
 {
     public function paginate(array $filters, int $perPage, ?string $userId): LengthAwarePaginator;
 
+    public function summary(int $productId): array;
+
     public function find(int $id): ?ProductReviewModel;
 
     public function save(ProductReviewModel $model): ProductReviewModel;

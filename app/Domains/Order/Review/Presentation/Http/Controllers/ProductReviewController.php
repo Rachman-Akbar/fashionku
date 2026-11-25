@@ -29,6 +29,13 @@ final class ProductReviewController extends Controller
         return ProductReviewResource::collection($rows)->additional(['success' => true])->response();
     }
 
+    public function summary(int $productId, ProductReviewService $service): JsonResponse
+    {
+        $summary = $service->summary($productId);
+
+        return response()->json(['success' => true, 'data' => $summary]);
+    }
+
     public function index(Request $request, ProductReviewService $service): JsonResponse
     {
         $isAdmin = $this->hasActiveRole($request, 'admin');

@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { advancedError, useDeleteFinance, useFinance, useFinanceDashboard, useFinancePaymentHistory, useRecordFinancePayment, useSaveFinance } from "@/features/advanced/services/advancedMarketplaceService";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { ModuleFrame } from "@/features/advanced/components/ModuleFrame";
@@ -27,14 +28,14 @@ function nowInput() {
   return date.toISOString().slice(0, 16);
 }
 
-function initialForm(type, mode) {
+function initialForm(type) {
   return {
     type,
     title: "",
     description: "",
     amount: "",
     paid_amount: "0",
-    status: mode === "cashflow" ? "posted" : "open",
+    status: isDebtTransaction(type) ? "open" : "posted",
     due_date: "",
     occurred_at: nowInput(),
     is_active: true,
@@ -58,6 +59,23 @@ function typeLabel(type) {
   return ({ income: "Pemasukan", expense: "Pengeluaran", receivable: "Piutang", payable: "Hutang" })[type] || type;
 }
 
+// Piutang/hutang punya siklus status sendiri (open/partial/paid), sedangkan
+// pemasukan/pengeluaran memakai draft/posted. Dua-duanya hidup di satu tabel
+// keuangan, jadi status harus ditentukan dari jenis transaksi (bukan dari mode
+// halaman) agar form, filter, dan tabel selalu konsisten.
+export const DEBT_TYPES = ["receivable", "payable"];
+export const CASH_STATUSES = ["draft", "posted", "cancelled"];
+export const DEBT_STATUSES = ["open", "partial", "paid", "cancelled"];
+export const ALL_FINANCE_TYPES = ["income", "expense", "receivable", "payable"];
+
+export function isDebtTransaction(type) {
+  return DEBT_TYPES.includes(String(type));
+}
+
+export function statusOptionsFor(type) {
+  return isDebtTransaction(type) ? DEBT_STATUSES : CASH_STATUSES;
+}
+
 const TYPE_BADGE = {
   receivable: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   payable: "bg-rose-50 text-rose-700 ring-rose-200",
@@ -69,7 +87,6 @@ function FinanceFormContent({
   form,
   setForm,
   allowedTypes,
-  mode,
   selectedOrder,
   orderOptions,
   applyOrder,
@@ -85,13 +102,13 @@ function FinanceFormContent({
     <>
     <div className="grid gap-4 md:grid-cols-2">
       <Field label="Jenis" required>
-        <select value={form.type} onChange={(event) => { const nextType = event.target.value; setForm((current) => ({ ...current, type: nextType, reference_number: current.reference_number === autoReference(current.type) || !String(current.reference_number).trim() ? autoReference(nextType) : current.reference_number })); }} className={inputClassName} required>
+        <select value={form.type} onChange={(event) => { const nextType = event.target.value; setForm((current) => ({ ...current, type: nextType, status: statusOptionsFor(nextType).includes(current.status) ? current.status : statusOptionsFor(nextType)[0], reference_number: current.reference_number === autoReference(current.type) || !String(current.reference_number).trim() ? autoReference(nextType) : current.reference_number })); }} className={inputClassName} required>
           {allowedTypes.map((item) => <option key={item} value={item}>{typeLabel(item)}</option>)}
         </select>
       </Field>
       <Field label="Status" required>
         <select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))} className={inputClassName}>
-          {(mode === "cashflow" ? ["draft", "posted", "cancelled"] : ["open", "partial", "paid", "cancelled"]).map((item) => <option key={item}>{item}</option>)}
+          {statusOptionsFor(form.type).map((item) => <option key={item}>{item}</option>)}
         </select>
       </Field>
     </div>
@@ -119,10 +136,10 @@ function FinanceFormContent({
     </div>
     <div className="grid gap-4 md:grid-cols-2">
       <Field label="Tanggal Transaksi" required><Input type="datetime-local" value={form.occurred_at} onChange={(event) => setForm((current) => ({ ...current, occurred_at: event.target.value }))} required /></Field>
-      {mode !== "cashflow" ? <Field label="Jatuh Tempo"><Input type="date" value={form.due_date} onChange={(event) => setForm((current) => ({ ...current, due_date: event.target.value }))} /></Field> : <div />}
+      {isDebtTransaction(form.type) ? <Field label="Jatuh Tempo"><Input type="date" value={form.due_date} onChange={(event) => setForm((current) => ({ ...current, due_date: event.target.value }))} /></Field> : <div />}
     </div>
     <Field label="Bukti Tanda Terima (Gambar)" hint="Wajib diisi minimal 1 gambar sebagai bukti transaksi. Maksimal 5 gambar.">
-      <MultiImagePicker value={proofImages} onChange={setProofImages} scope={mode === "cashflow" ? "finance/cashflow" : "finance/payments"} maxFiles={5} />
+      <MultiImagePicker value={proofImages} onChange={setProofImages} scope={isDebtTransaction(form.type) ? "finance/payments" : "finance/cashflow"} maxFiles={5} />
     </Field>
     </>
   );
@@ -198,7 +215,9 @@ function PaymentHistoryTab({ financeId, paymentHistoryQuery, money }) {
 }
 
 export default function FinancePage({ mode = "cashflow" }) {
-  const allowedTypes = useMemo(() => (mode === "cashflow" ? ["income", "expense"] : ["receivable", "payable"]), [mode]);
+  // Halaman Keuangan menampilkan seluruh jenis transaksi; halaman Hutang/Piutang
+  // hanyalah pintasan yang menyaring dua jenis hutang-piutang.
+  const allowedTypes = useMemo(() => (mode === "cashflow" ? ALL_FINANCE_TYPES : DEBT_TYPES), [mode]);
   const isDebtMode = mode !== "cashflow";
   const [viewMode, setViewMode] = useState("list");
   const viewModeOptions = [
@@ -228,7 +247,13 @@ export default function FinancePage({ mode = "cashflow" }) {
     ],
   };
   const [query, setQuery] = useState("");
-  const [form, setForm] = useState(() => initialForm(allowedTypes[0], mode));
+  // Aksi cepat dashboard (mis. /admin/cashflow?new=expense) membuka formulir
+  // dengan jenis tertentu; jenis pilihan disimpan di ref agar efek reset
+  // formulir tidak perlu bergantung pada state tambahan.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const presetTypeRef = useRef(null);
+  const [pendingType, setPendingType] = useState(null);
+  const [form, setForm] = useState(() => initialForm(allowedTypes[0]));
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [localPaymentOpen, setLocalPaymentOpen] = useState(false);
   const [payPickerOpen, setPayPickerOpen] = useState(false);
@@ -301,6 +326,7 @@ export default function FinancePage({ mode = "cashflow" }) {
     if (!editor.open) {
       setInitialFormData(null);
       setProofImages([]);
+      presetTypeRef.current = null;
       return;
     }
     const row = editor.entity;
@@ -310,17 +336,40 @@ export default function FinancePage({ mode = "cashflow" }) {
       description: row.description || "",
       amount: String(row.amount || ""),
       paid_amount: String(row.paid_amount || 0),
-      status: row.status || (mode === "cashflow" ? "posted" : "open"),
+      status: row.status || (isDebtTransaction(row.type) ? "open" : "posted"),
       due_date: row.due_date || "",
       occurred_at: row.occurred_at ? new Date(row.occurred_at).toISOString().slice(0, 16) : nowInput(),
       is_active: row.is_active !== false,
       order_id: row.order_id ? String(row.order_id) : "",
       reference_number: row.reference_number || autoReference(row.type || allowedTypes[0]),
-    } : initialForm(allowedTypes[0], mode);
+    } : initialForm(presetTypeRef.current || allowedTypes[0]);
     setForm(newForm);
     setInitialFormData(newForm);
     setProofImages(row?.proof_images || []);
   }, [allowedTypes, editor.open, editor.entity, mode]);
+
+  // Dijalankan SETELAH efek reset formulir di atas. Dashboard mengirim
+  // `?new=<jenis>` (mis. expense) untuk membuka formulir "Tambah" langsung:
+  // 1. jenis pilihan disimpan, parameter dihapus dari URL (form tidak ikut
+  //    terbuka lagi saat tab dibuka ulang), lalu
+  // 2. pada render berikutnya formulir dibuka — menunggu satu commit agar
+  //    tab induk halaman sudah terdaftar di PanelTabs (efek parent berjalan
+  //    setelah efek child saat mount).
+  useEffect(() => {
+    const requested = searchParams.get("new");
+    if (!requested || !allowedTypes.includes(requested)) return;
+    setPendingType(requested);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("new");
+    setSearchParams(nextParams, { replace: true });
+  }, [allowedTypes, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!pendingType) return;
+    presetTypeRef.current = pendingType;
+    editor.create();
+    setPendingType(null);
+  }, [pendingType, editor]);
 
   const columns = useMemo(() => {
     const typeColumn = {
@@ -341,7 +390,12 @@ export default function FinancePage({ mode = "cashflow" }) {
       { key: "title", label: "Keterangan" },
       { key: "order_number", label: "Pesanan" },
       { key: "amount", label: "Nominal", render: (row) => <span className="font-bold text-slate-900">{money(row.amount)}</span> },
-      { key: "paid_progress", label: "Terbayar / Sisa", width: 200, minWidth: 160, render: (row) => {
+      { key: "paid_progress", label: "Terbayar / Sisa", width: 200, minWidth: 160, valueOf: (row) => {
+        const amount = Number(row.amount || 0);
+        const paid = Number(row.paid_amount || 0);
+        const pct = amount > 0 ? Math.min(Math.round((paid / amount) * 100), 100) : 0;
+        return `${money(paid)} / ${money(amount)} · ${pct}%`;
+      }, render: (row) => {
         const amount = Number(row.amount || 0);
         const paid = Number(row.paid_amount || 0);
         const outstanding = Number(row.outstanding_amount || 0);
@@ -361,8 +415,8 @@ export default function FinancePage({ mode = "cashflow" }) {
           </div>
         );
       } },
-      { key: "status", label: "Status", filterType: "select", options: (isDebtMode ? ["open", "partial", "paid", "cancelled"] : ["draft", "posted", "cancelled"]).map((item) => ({ value: item, label: item })), render: (row) => <span className="font-bold uppercase text-slate-600">{row.status}</span> },
-      { key: "occurred_at", label: "Tanggal", render: (row) => row.occurred_at ? new Date(row.occurred_at).toLocaleDateString("id-ID") : "-" },
+      { key: "status", label: "Status", filterType: "select", options: [...new Set(allowedTypes.flatMap((type) => statusOptionsFor(type)))].map((item) => ({ value: item, label: item })), render: (row) => <span className="font-bold uppercase text-slate-600">{row.status}</span> },
+      { key: "occurred_at", label: "Tanggal", valueOf: (row) => row.occurred_at ? new Date(row.occurred_at).toLocaleDateString("id-ID") : "", render: (row) => row.occurred_at ? new Date(row.occurred_at).toLocaleDateString("id-ID") : "-" },
       // Sisa kolom database transaksi (kategori, deskripsi, audit, relasi).
       ...buildDatabaseColumns(rows, {
         omit: ["id", "order_id", "user_id", "type", "reference_number", "title", "order_number", "amount", "paid_amount", "outstanding_amount", "status", "occurred_at", "order", "counterparty"],
@@ -382,23 +436,25 @@ export default function FinancePage({ mode = "cashflow" }) {
       }),
     ];
     return [typeColumn, ...list];
-  }, [allowedTypes, isDebtMode, rows]);
+  }, [allowedTypes, rows]);
 
   const tableColumns = useMemo(() => {
     const bayarColumn = {
       key: "bayar",
       label: "Bayar",
       defaultVisible: true,
+      filterable: false,
       render: (row) => {
         const isDebtType = ["receivable", "payable"].includes(row.type);
         const canPay = isDebtType && Number(row.outstanding_amount) > 0 && !["paid", "cancelled"].includes(String(row.status || "").toLowerCase());
+        if (!isDebtType) return null;
         return (
           <button
             type="button"
             disabled={!canPay}
             onClick={(event) => { event.stopPropagation(); recordPaymentRef.current?.(row); }}
-            className="inline-flex h-8 items-center gap-1.5 bg-emerald-600 px-3 text-xs font-extrabold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
-            title={canPay ? "Catat pembayaran/cicilan" : isDebtType ? "Transaksi sudah lunas" : "Hanya untuk Hutang/Piutang"}
+            className="inline-flex h-8 items-center gap-1.5 px-3 text-xs font-extrabold text-emerald-700 transition-colors hover:text-emerald-800 disabled:cursor-not-allowed disabled:text-slate-300"
+            title={canPay ? "Catat pembayaran/cicilan" : "Transaksi sudah lunas"}
           >
             <span className="material-symbols-outlined text-[16px]">payments</span>
             Bayar
@@ -407,7 +463,7 @@ export default function FinancePage({ mode = "cashflow" }) {
       },
     };
     return [...columns, bayarColumn];
-  }, [columns, mode]);
+  }, [columns]);
 
   const columnVisibility = useColumnVisibility(tableColumns, `advanced.finance.${mode}-v2`);
   const cardView = {
@@ -532,7 +588,7 @@ export default function FinancePage({ mode = "cashflow" }) {
     }
   }
 
-  const title = mode === "cashflow" ? "Pemasukan-Pengeluaran" : "Hutang-Piutang";
+  const title = isDebtMode ? "Hutang-Piutang" : "Keuangan";
   return (
     <>
       {editor.isListActive ? (
@@ -548,7 +604,7 @@ export default function FinancePage({ mode = "cashflow" }) {
           totalTitle={total.totalTitle}
           onCreate={editor.create}
           createLabel="Tambah Data Keuangan"
-          placeholder={isDebtMode ? "Cari hutang/piutang, referensi, pesanan, atau toko" : "Cari pemasukan/pengeluaran, referensi, pesanan, atau toko"}
+          placeholder={isDebtMode ? "Cari hutang/piutang, referensi, pesanan, atau toko" : "Cari transaksi, referensi, pesanan, atau toko"}
           selectionEnabled={selection.enabled}
           selectedCount={selection.selectedCount}
           onToggleSelection={selection.toggleEnabled}
@@ -589,7 +645,7 @@ export default function FinancePage({ mode = "cashflow" }) {
               columns={tableColumns}
               rows={rows}
               storageKey={`advanced.finance.${mode}-v2`}
-              emptyText={listQuery.isLoading ? "" : isDebtMode ? "Belum ada data hutang atau piutang." : "Belum ada data pemasukan atau pengeluaran."}
+              emptyText={listQuery.isLoading ? "" : isDebtMode ? "Belum ada data hutang atau piutang." : "Belum ada data keuangan."}
               selectionEnabled={selection.enabled}
               selectedIds={selection.selectedIds}
               allSelected={selection.allSelected}
@@ -686,7 +742,7 @@ export default function FinancePage({ mode = "cashflow" }) {
         busy={false}
         onDelete={editor.entity ? () => { setDeleteTarget(editor.entity); editor.close(); } : undefined}
         extraActions={(
-          editor.entity && mode !== "cashflow" && Number(editor.entity.outstanding_amount) > 0
+          editor.entity && isDebtTransaction(editor.entity.type) && Number(editor.entity.outstanding_amount) > 0
             ? [{ icon: "payments", label: "Bayar", tone: "teal", onClick: () => { const row = editor.entity; editor.close(); recordPayment(row); } }]
             : []
         )}
@@ -708,7 +764,6 @@ export default function FinancePage({ mode = "cashflow" }) {
                           form={form}
                           setForm={setForm}
                           allowedTypes={allowedTypes}
-                          mode={mode}
                           selectedOrder={selectedOrder}
                           orderOptions={orderOptions}
                           applyOrder={applyOrder}
@@ -744,7 +799,6 @@ export default function FinancePage({ mode = "cashflow" }) {
                 form={form}
                 setForm={setForm}
                 allowedTypes={allowedTypes}
-                mode={mode}
                 selectedOrder={selectedOrder}
                 orderOptions={orderOptions}
                 applyOrder={applyOrder}
@@ -763,7 +817,6 @@ export default function FinancePage({ mode = "cashflow" }) {
             form={form}
             setForm={setForm}
             allowedTypes={allowedTypes}
-            mode={mode}
             selectedOrder={selectedOrder}
             orderOptions={orderOptions}
             applyOrder={applyOrder}

@@ -35,6 +35,9 @@ final class StoreVoucherRequest extends FormRequest
             'min_spend' => ['required', 'numeric', 'min:0'],
             'min_items' => ['nullable', 'integer', 'min:0'],
             'min_distinct_products' => ['nullable', 'integer', 'min:1'],
+            // 0/kosong = tanpa syarat. Diisi = wajib membeli minimal N pcs
+            // untuk satu produk yang sama.
+            'min_same_product_qty' => ['nullable', 'integer', 'min:0'],
             // Kosong = voucher berlaku untuk semua produk. Diisi = syarat & dasar
             // diskon hanya dihitung dari produk tersebut (tidak tercampur).
             'product_ids' => ['nullable', 'array'],

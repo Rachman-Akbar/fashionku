@@ -203,13 +203,13 @@ export async function getSellerProducts(params = {}) {
   return normalizePagination(response.data);
 }
 
-export async function createSellerProduct(values) {
-  const response = await apiClient.post("/api/v1/catalog/seller/products", serializeSellerProduct(values));
+export async function createSellerProduct(values, options = {}) {
+  const response = await apiClient.post("/api/v1/catalog/seller/products", serializeSellerProduct(values, options));
   return normalizeSellerProduct(unwrapApiData(response.data));
 }
 
-export async function updateSellerProduct(id, values) {
-  const response = await apiClient.put(`/api/v1/catalog/seller/products/${id}`, serializeSellerProduct(values));
+export async function updateSellerProduct(id, values, options = {}) {
+  const response = await apiClient.put(`/api/v1/catalog/seller/products/${id}`, serializeSellerProduct(values, options));
   return normalizeSellerProduct(unwrapApiData(response.data));
 }
 
@@ -277,7 +277,7 @@ function refreshSellerProductQueries(queryClient) {
 export function useCreateSellerProduct() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: createSellerProduct,
+    mutationFn: ({ values, options }) => createSellerProduct(values, options),
     onSettled: () => refreshSellerProductQueries(queryClient),
   });
 }
@@ -285,7 +285,7 @@ export function useCreateSellerProduct() {
 export function useUpdateSellerProduct() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, values }) => updateSellerProduct(id, values),
+    mutationFn: ({ id, values, options }) => updateSellerProduct(id, values, options),
     onMutate: ({ id, values }) => beginOptimisticEntityUpdate(
       queryClient,
       sellerProductKeys.all,

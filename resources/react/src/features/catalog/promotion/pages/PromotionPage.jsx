@@ -17,7 +17,7 @@ function VoucherCard({ voucher }) {
   return (
     <Link
       to={`/profile/vouchers?code=${voucher.code}`}
-      className="group relative block aspect-[16/9] w-72 shrink-0 snap-start overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-500 shadow-sm"
+      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-500 shadow-sm"
     >
       {voucher.imageUrl ? (
         <img
@@ -110,7 +110,7 @@ export default function PromotionPage() {
             emptyText="Belum ada voucher aktif saat ini."
           />
           {vouchers.length ? (
-            <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2 scrollbar-thin">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {vouchers.map((voucher) => (
                 <VoucherCard key={voucher.id} voucher={voucher} />
               ))}

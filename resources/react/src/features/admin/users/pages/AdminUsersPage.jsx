@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
@@ -7,18 +7,21 @@ import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/com
 import { FormPageLayout } from "@/shared/components/crud/FormPageLayout";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { useDatabaseTableColumns, useTableSelection, useViewMode } from "@/shared/hooks";
+import { useColumnFilterState } from "@/shared/hooks";
+import { buildColumnFilterConfig } from "@/shared/utils/columnFilters";
+import { ColumnFilterHeader } from "@/shared/components/crud/ColumnFilterHeader";
 import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { useActiveToggle } from "@/shared/hooks/useActiveToggle";
 import { cn } from "@/shared/utils/utils";
-import { InteractiveColGroup, InteractiveTableHeader } from "@/shared/components/table/InteractiveTableHeader";
+import { InteractiveColGroup } from "@/shared/components/table/InteractiveTableHeader";
 import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
 import { useHorizontalScroll } from "@/shared/hooks/useHorizontalScroll";
 import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
 import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
 import { ImageFilePicker } from "@/shared/components/form/ImageFilePicker";
-import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@/features/admin/users/services/usersService";
+import { useUsersPage, useCreateUser, useUpdateUser, useDeleteUser } from "@/features/admin/users/services/usersService";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
@@ -255,13 +258,13 @@ export default function AdminUsersPage() {
   const editor = useEntityEditor({ getEditLabel: (row) => row.name || row.email || "Pengguna" });
   const editUser = editor.entity;
   const deferredQuery = useDeferredValue(query.trim());
-  const usersQuery = useUsers({ ...(deferredQuery ? { search: deferredQuery } : {}), per_page: 100 });
+  const usersQuery = useUsersPage({ ...(deferredQuery ? { search: deferredQuery } : {}), per_page: 100 });
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: usersQuery.refetch });
-  const rows = usersQuery.data || [];
-  const total = useListTotalCount(usersQuery.meta || {}, { label: "Pengguna" });
+  const rows = usersQuery.data?.rows || [];
+  const total = useListTotalCount(usersQuery.data?.meta || {}, { label: "Pengguna", fallbackTotal: rows.length });
   // Kolom kurasi + semua kolom database lain (kecuali kolom ID).
   const curatedColumns = useMemo(
     () => [
@@ -269,8 +272,8 @@ export default function AdminUsersPage() {
       { key: "email", label: "Email", filterable: true },
       { key: "role", label: "Role", filterable: true },
       { key: "status", label: "Status", filterable: true },
-      { key: "createdAt", label: "Daftar", filterable: false },
-      { key: "avatar", label: "Avatar", filterable: false },
+      { key: "createdAt", label: "Daftar", filterable: true },
+      { key: "avatar", label: "Avatar", filterable: true },
     ],
     [],
   );
@@ -288,7 +291,50 @@ export default function AdminUsersPage() {
       updated_at: "Diubah",
     },
   });
-  const selection = useTableSelection(rows);
+
+  // ── Filter per kolom ────────────────────────────────────────────────────
+  const userFilterValue = useCallback((row, key) => {
+    const columnKey = String(key);
+    if (columnKey.startsWith("raw:")) return row?.raw?.[columnKey.slice(4)];
+    if (columnKey === "name") return row.name;
+    if (columnKey === "email") return row.email;
+    if (columnKey === "role") return roleLabel(row.role);
+    if (columnKey === "status") return row.isActive ? "Aktif" : "Nonaktif";
+    if (columnKey === "createdAt") return formatDate(row.createdAt);
+    if (columnKey === "avatar") return row.avatar || row.raw?.avatar || "";
+    return resolveTableValue(row, columnKey);
+  }, []);
+  const filterConfig = useMemo(
+    () => buildColumnFilterConfig(columnVisibility.allColumns, rows, userFilterValue),
+    [columnVisibility.allColumns, rows, userFilterValue],
+  );
+  const filterTypes = useMemo(() => ({
+    ...filterConfig.types,
+    name: "text",
+    email: "text",
+    role: "select",
+    status: "select",
+    createdAt: "text",
+    avatar: "text",
+  }), [filterConfig.types]);
+  const filterOptions = useMemo(() => ({
+    ...filterConfig.options,
+    role: [...new Set(["buyer", "seller", "admin"])].map((role) => ({ value: roleLabel(role), label: roleLabel(role) })),
+    status: [{ value: "Aktif", label: "Aktif" }, { value: "Nonaktif", label: "Nonaktif" }],
+  }), [filterConfig.options]);
+  const filterState = useColumnFilterState({ rows, getValue: userFilterValue, filterTypes });
+  const filteredRows = filterState.rows;
+  // Jumlah data di toolbar mengikuti filter kolom yang aktif, sama seperti
+  // halaman daftar lain (mis. "12 dari 98 data sesuai filter").
+  const { onFilterStateChange: reportFilterState } = total;
+  useEffect(() => {
+    reportFilterState({
+      activeCount: Object.keys(filterState.columnFilters).length,
+      filteredCount: filteredRows.length,
+      loadedCount: rows.length,
+    });
+  }, [filterState.columnFilters, filteredRows.length, reportFilterState, rows.length]);
+  const selection = useTableSelection(filteredRows);
 
   const tableLayout = useTableColumnLayout({
     storageKey: "admin-users-table",
@@ -425,7 +471,7 @@ export default function AdminUsersPage() {
           <AsyncState loading={usersQuery.isLoading} error={usersQuery.error ? String(usersQuery.error) : ""} empty={!usersQuery.isLoading && !rows.length} emptyText="Pengguna belum tersedia." />
           {!usersQuery.isLoading && !usersQuery.error && rows.length ? (
             <>
-              <div className={viewMode === "grid" ? "[&_tbody]:hidden" : ""}>
+              <div className={viewMode === "grid" ? "sticky top-[var(--list-toolbar-h,0px)] z-30 bg-white [&_tbody]:hidden" : ""}>
               <TopScrollbar {...hScroll} visible={hScroll.hasOverflow} width={hScroll.metrics.scrollWidth} />
                 <div ref={hScroll.scrollRef} onScroll={hScroll.handleTableScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] border border-slate-200 bg-white">
                   <table className="table-fixed text-left text-sm border-collapse" style={{ width: Math.max(tableLayout.totalWidth, 760), minWidth: "100%" }}>
@@ -433,24 +479,28 @@ export default function AdminUsersPage() {
                     <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-50">
                       <tr className="bg-slate-50">
                         {tableLayout.orderedColumns.map((column) => (
-                          <InteractiveTableHeader
+                          <ColumnFilterHeader
                             key={column.key}
-                            columnKey={column.key}
+                            column={column}
+                            filterType={filterTypes[column.key] || "text"}
+                            filterValue={filterState.columnFilters[column.key]}
+                            options={filterOptions[column.key] || []}
+                            onFilterChange={(value) => filterState.changeFilter(column.key, value)}
                             headerProps={tableLayout.getHeaderProps(column.key)}
-                            style={tableLayout.getColumnStyle(column.key)}
+                            columnStyle={tableLayout.getColumnStyle(column.key)}
                             onResizeStart={tableLayout.startResize}
                             onResetWidth={tableLayout.resetWidth}
                             dragging={tableLayout.dragKey === column.key}
                             dropTarget={tableLayout.dropKey === column.key}
+                            onClearAllFilters={filterState.resetFilters}
+                            onResetSort={filterState.resetSort}
                             className="bg-slate-50 px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]"
-                          >
-                            {column.label}
-                          </InteractiveTableHeader>
+                          />
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.map((user) => (
+                      {filteredRows.map((user) => (
                         <tr key={user.id} onClick={() => editor.edit(user)} className={cn("cursor-pointer border-b border-slate-100 hover:bg-slate-50 group", !activeToggle.isActive(user) && "bg-slate-50 text-slate-400 [&_td]:opacity-70")}>
                           {tableLayout.orderedColumns.map((column) => {
                             const value = resolveTableValue(user, column.key);
@@ -489,7 +539,7 @@ export default function AdminUsersPage() {
               </div>
               {viewMode === "grid" ? (
                 <RecordCardGrid
-                  rows={rows}
+                  rows={filteredRows}
                   columns={visibleColumns}
                   card={userCard}
                   onRowClick={(user) => editor.edit(user)}

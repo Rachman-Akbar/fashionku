@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import { SellerPanelShell } from "@/features/seller/dashboard/components/SellerPanelShell";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
@@ -8,9 +8,15 @@ import { CrudDialog } from "@/shared/components/crud/CrudDialog";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { useFocusMode } from "@/shared/layout/FocusModeContext";
 import { useColumnVisibility, useTableSelection } from "@/shared/hooks";
+import { useColumnFilterState } from "@/shared/hooks";
+import { buildColumnFilterConfig } from "@/shared/utils/columnFilters";
+import { ColumnFilterHeader } from "@/shared/components/crud/ColumnFilterHeader";
 import { useHorizontalScroll } from "@/shared/hooks/useHorizontalScroll";
 import { buildDatabaseColumns, formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
+import { ActionIconButton } from "@/shared/components/crud/ActionIconButton";
+import { Input } from "@/shared/components/ui/Input";
+import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { cn } from "@/shared/utils/utils";
 import {
   getScheduleError,
@@ -20,10 +26,11 @@ import {
   useUpdateSchedule,
 } from "@/features/admin/schedule/services/scheduleService";
 
+// Tab tampilan cukup ikon; label tetap dipakai sebagai tooltip & aria-label.
 const VIEW_OPTIONS = [
-  { key: "kanban", icon: "view_kanban", label: "Kanban board", text: "Kanban" },
-  { key: "list", icon: "view_list", label: "Tampilan list", text: "List" },
-  { key: "kalender", icon: "calendar_month", label: "Kalender", text: "Kalender" },
+  { key: "kanban", icon: "view_kanban", label: "Kanban board" },
+  { key: "list", icon: "view_list", label: "Tampilan list" },
+  { key: "kalender", icon: "calendar_month", label: "Kalender" },
 ];
 
 const STATUS_COLUMNS = [
@@ -99,111 +106,86 @@ function ScheduleEditor({ open, schedule, onClose, onSave, saving }) {
           event.preventDefault();
           onSave(form);
         }}
-        className="space-y-4 p-5"
+        className="space-y-5 p-5"
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2 sm:col-span-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Judul</label>
-            <input
-              required
-              value={form.title}
-              onChange={(e) => set("title", e.target.value)}
-              className="h-9 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
-              disabled={saving}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Tanggal</label>
-            <input
-              required
-              type="date"
-              value={form.date}
-              onChange={(e) => set("date", e.target.value)}
-              className="h-9 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
-              disabled={saving}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Tipe</label>
-            <select
+          <label className="space-y-1.5 sm:col-span-2">
+            <span className="block text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500">Judul</span>
+            <Input required value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="Contoh: Cek stok gudang" disabled={saving} className="h-10 rounded-[10px]" />
+          </label>
+          <label className="space-y-1.5">
+            <span className="block text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500">Tanggal</span>
+            <Input required type="date" value={form.date} onChange={(e) => set("date", e.target.value)} disabled={saving} className="h-10 rounded-[10px]" />
+          </label>
+          <div className="space-y-1.5">
+            <span className="block text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500">Tipe</span>
+            <SearchableSelect
               value={form.type}
-              onChange={(e) => set("type", e.target.value)}
-              className="h-9 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
+              onChange={(next) => set("type", next)}
+              options={TYPE_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
+              clearable={false}
               disabled={saving}
-            >
-              {TYPE_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Mulai</label>
-            <input
-              type="time"
-              value={form.start_time || ""}
-              onChange={(e) => set("start_time", e.target.value)}
-              className="h-9 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
-              disabled={saving || form.is_all_day}
+              buttonClassName="h-10 rounded-[10px]"
             />
           </div>
-          <div className="space-y-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Selesai</label>
-            <input
-              type="time"
-              value={form.end_time || ""}
-              onChange={(e) => set("end_time", e.target.value)}
-              className="h-9 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
-              disabled={saving || form.is_all_day}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Status</label>
-            <select
+          <label className="space-y-1.5">
+            <span className="block text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500">Mulai</span>
+            <Input type="time" value={form.start_time || ""} onChange={(e) => set("start_time", e.target.value)} disabled={saving || form.is_all_day} className="h-10 rounded-[10px]" />
+          </label>
+          <label className="space-y-1.5">
+            <span className="block text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500">Selesai</span>
+            <Input type="time" value={form.end_time || ""} onChange={(e) => set("end_time", e.target.value)} disabled={saving || form.is_all_day} className="h-10 rounded-[10px]" />
+          </label>
+          <div className="space-y-1.5">
+            <span className="block text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500">Status</span>
+            <SearchableSelect
               value={form.status}
-              onChange={(e) => {
-                const next = e.target.value;
+              onChange={(next) => {
                 set("status", next);
                 set("is_completed", next === "done");
               }}
-              className="h-9 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
+              options={STATUS_COLUMNS.map((s) => ({ value: s.key, label: s.label }))}
+              clearable={false}
               disabled={saving}
-            >
-              {STATUS_COLUMNS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-            </select>
+              buttonClassName="h-10 rounded-[10px]"
+            />
           </div>
-          <div className="space-y-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Prioritas</label>
-            <select
+          <div className="space-y-1.5">
+            <span className="block text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500">Prioritas</span>
+            <SearchableSelect
               value={form.priority}
-              onChange={(e) => set("priority", e.target.value)}
-              className="h-9 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
+              onChange={(next) => set("priority", next)}
+              options={PRIORITY_OPTIONS}
+              clearable={false}
               disabled={saving}
-            >
-              {PRIORITY_OPTIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-            </select>
+              buttonClassName="h-10 rounded-[10px]"
+            />
           </div>
-          <div className="space-y-2 sm:col-span-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Deskripsi</label>
+          <label className="space-y-1.5 sm:col-span-2">
+            <span className="block text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500">Deskripsi</span>
             <textarea
               value={form.description}
               onChange={(e) => set("description", e.target.value)}
               rows={3}
-              className="w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
+              placeholder="Detail agenda atau catatan tambahan (opsional)"
+              className="w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
               disabled={saving}
             />
-          </div>
-          <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+          </label>
+          <div className="flex flex-wrap items-center gap-5 sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
               <input type="checkbox" checked={form.is_all_day} onChange={(e) => set("is_all_day", e.target.checked)} className="h-4 w-4 accent-emerald-600" disabled={saving} />
               Seharian
             </label>
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
               <input type="checkbox" checked={form.is_active} onChange={(e) => set("is_active", e.target.checked)} className="h-4 w-4 accent-emerald-600" disabled={saving} />
               Aktif
             </label>
           </div>
         </div>
-        <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-[10px] border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60">Batal</button>
-          <button type="submit" disabled={saving} className="h-10 rounded-[10px] bg-emerald-600 px-4 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60">
+        <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+          <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-[10px] border border-slate-200 px-4 text-sm font-extrabold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60">Batal</button>
+          <button type="submit" disabled={saving} className="h-10 rounded-[10px] bg-emerald-600 px-4 text-sm font-extrabold text-white transition hover:bg-emerald-700 disabled:opacity-60">
             {saving ? "Menyimpan..." : "Simpan"}
           </button>
         </div>
@@ -215,25 +197,26 @@ function ScheduleEditor({ open, schedule, onClose, onSave, saving }) {
 function ScheduleCard({ item, onEdit, onDelete, onMove, compact = false }) {
   const status = normalizeStatus(item);
   return (
-    <div className={cn("rounded-[10px] border border-slate-200 bg-white p-3 shadow-sm", compact ? "" : "min-h-[96px]")}>
+    <div className={cn("rounded-[10px] border border-slate-200 bg-white p-3.5 transition hover:border-emerald-200 hover:shadow-sm", compact ? "" : "min-h-[96px]")}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-extrabold text-slate-900" title={item.title}>{item.title}</p>
-          <p className="mt-0.5 text-[11px] text-slate-500">
+          <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-500">
+            <span className="material-symbols-outlined text-[14px] leading-none text-slate-400">schedule</span>
             {formatDate(item.date)}{item.startTime ? ` · ${item.startTime}${item.endTime ? `-${item.endTime}` : ""}` : item.isAllDay ? " · Seharian" : ""}
           </p>
         </div>
-        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{item.type || "Umum"}</span>
+        <span className="shrink-0 rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-slate-600 ring-1 ring-inset ring-slate-200">{item.type || "Umum"}</span>
       </div>
-      {item.description ? <p className="mt-2 line-clamp-2 text-xs text-slate-600">{item.description}</p> : null}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+      {item.description ? <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-600">{item.description}</p> : null}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
         <div className="flex items-center gap-1">
           {STATUS_COLUMNS.filter((s) => s.key !== status).slice(0, 2).map((s) => (
             <button
               key={s.key}
               type="button"
               onClick={() => onMove(item, s.key)}
-              className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-200"
+              className="rounded-[6px] bg-slate-100 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700"
               title={`Pindah ke ${s.label}`}
             >
               {s.label}
@@ -241,10 +224,10 @@ function ScheduleCard({ item, onEdit, onDelete, onMove, compact = false }) {
           ))}
         </div>
         <div className="flex items-center gap-1">
-          <button type="button" onClick={() => onEdit(item)} className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-emerald-50 hover:text-emerald-700" aria-label="Edit">
+          <button type="button" onClick={() => onEdit(item)} className="flex h-7 w-7 items-center justify-center rounded-[6px] text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700" aria-label="Edit">
             <span className="material-symbols-outlined text-[16px]">edit</span>
           </button>
-          <button type="button" onClick={() => onDelete(item)} className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-red-50 hover:text-red-700" aria-label="Hapus">
+          <button type="button" onClick={() => onDelete(item)} className="flex h-7 w-7 items-center justify-center rounded-[6px] text-slate-500 transition hover:bg-red-50 hover:text-red-700" aria-label="Hapus">
             <span className="material-symbols-outlined text-[16px]">delete</span>
           </button>
         </div>
@@ -264,21 +247,21 @@ function KanbanView({ rows, onEdit, onDelete, onMove }) {
   }, [rows]);
 
   return (
-    <div className="grid gap-3 md:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-3">
       {STATUS_COLUMNS.map((col) => (
-        <div key={col.key} className="flex min-h-[420px] flex-col rounded-[10px] border border-slate-200 bg-slate-50/70">
-          <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2.5">
+        <div key={col.key} className="flex min-h-[420px] flex-col rounded-[12px] border border-slate-200 bg-slate-50/70">
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div className="flex items-center gap-2">
-              <span className={cn("h-2.5 w-2.5 rounded-full", col.key === "done" ? "bg-emerald-500" : col.key === "in_progress" ? "bg-amber-500" : "bg-slate-400")} />
-              <h3 className="text-sm font-extrabold text-slate-800">{col.label}</h3>
+              <span className={cn("h-2 w-2 rounded-full", col.key === "done" ? "bg-emerald-500" : col.key === "in_progress" ? "bg-amber-500" : "bg-slate-400")} />
+              <h3 className="text-xs font-extrabold uppercase tracking-wide text-slate-500">{col.label}</h3>
             </div>
-            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-slate-600 ring-1 ring-slate-200">{grouped[col.key]?.length || 0}</span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-extrabold tabular-nums text-slate-600 ring-1 ring-inset ring-slate-200">{grouped[col.key]?.length || 0}</span>
           </div>
-          <div className="flex-1 space-y-2 overflow-auto p-2">
+          <div className="flex-1 space-y-2 overflow-auto p-2.5">
             {(grouped[col.key] || []).length ? grouped[col.key].map((item) => (
               <ScheduleCard key={item.id} item={item} onEdit={onEdit} onDelete={onDelete} onMove={onMove} />
             )) : (
-              <div className="rounded-[10px] border border-dashed border-slate-300 bg-white/60 p-4 text-center text-xs text-slate-500">Belum ada jadwal.</div>
+              <div className="rounded-[10px] border border-dashed border-slate-300 bg-white/60 p-4 text-center text-xs font-semibold text-slate-400">Belum ada jadwal.</div>
             )}
           </div>
         </div>
@@ -319,23 +302,23 @@ function CalendarView({ rows, onEdit }) {
   const weekDays = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
 
   return (
-    <div className="rounded-[10px] border border-slate-200 bg-white">
+    <div className="rounded-[12px] border border-slate-200 bg-white">
       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setMonthOffset((v) => v - 1)} className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50" aria-label="Bulan sebelumnya">
+          <button type="button" onClick={() => setMonthOffset((v) => v - 1)} className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-slate-200 text-slate-600 transition hover:bg-slate-50" aria-label="Bulan sebelumnya">
             <span className="material-symbols-outlined text-[18px]">chevron_left</span>
           </button>
-          <button type="button" onClick={() => setMonthOffset(0)} className="h-8 rounded-md border border-slate-200 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50">Hari ini</button>
-          <button type="button" onClick={() => setMonthOffset((v) => v + 1)} className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50" aria-label="Bulan berikutnya">
+          <button type="button" onClick={() => setMonthOffset(0)} className="h-9 rounded-[8px] border border-slate-200 px-3 text-xs font-extrabold text-slate-700 transition hover:bg-slate-50">Hari ini</button>
+          <button type="button" onClick={() => setMonthOffset((v) => v + 1)} className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-slate-200 text-slate-600 transition hover:bg-slate-50" aria-label="Bulan berikutnya">
             <span className="material-symbols-outlined text-[18px]">chevron_right</span>
           </button>
         </div>
         <h3 className="text-sm font-extrabold capitalize text-slate-900">{monthLabel}</h3>
         <div className="w-[120px]" />
       </div>
-      <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
+      <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-100">
         {weekDays.map((d) => (
-          <div key={d} className="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{d}</div>
+          <div key={d} className="px-2 py-2 text-center text-[11px] font-extrabold uppercase tracking-wide text-slate-500">{d}</div>
         ))}
       </div>
       <div className="grid grid-cols-7">
@@ -347,8 +330,8 @@ function CalendarView({ rows, onEdit }) {
           return (
             <div key={key} className="min-h-[110px] border-b border-r border-slate-100 p-1.5">
               <div className="mb-1 flex items-center justify-between">
-                <span className={cn("flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold", isToday ? "bg-emerald-600 text-white" : "text-slate-700")}>{day}</span>
-                {items.length ? <span className="text-[10px] font-bold text-slate-400">{items.length}</span> : null}
+                <span className={cn("flex h-6 w-6 items-center justify-center rounded-full text-xs font-extrabold", isToday ? "bg-emerald-600 text-white" : "text-slate-700")}>{day}</span>
+                {items.length ? <span className="text-[10px] font-extrabold tabular-nums text-slate-400">{items.length}</span> : null}
               </div>
               <div className="space-y-1">
                 {items.slice(0, 3).map((item) => (
@@ -356,7 +339,7 @@ function CalendarView({ rows, onEdit }) {
                     key={item.id}
                     type="button"
                     onClick={() => onEdit(item)}
-                    className="block w-full truncate rounded-md px-1.5 py-1 text-left text-[10px] font-bold text-white"
+                    className="block w-full truncate rounded-[6px] px-1.5 py-1 text-left text-[10px] font-extrabold text-white transition hover:opacity-90"
                     style={{ backgroundColor: item.color || "#10B981" }}
                     title={`${item.title}${item.startTime ? ` (${item.startTime})` : ""}`}
                   >
@@ -364,7 +347,7 @@ function CalendarView({ rows, onEdit }) {
                   </button>
                 ))}
                 {items.length > 3 ? (
-                  <div className="px-1 text-[10px] font-semibold text-slate-500">+{items.length - 3} lainnya</div>
+                  <div className="px-1 text-[10px] font-extrabold text-slate-500">+{items.length - 3} lainnya</div>
                 ) : null}
               </div>
             </div>
@@ -397,7 +380,6 @@ export default function SchedulePage() {
     });
   }, [allRows, deferredQuery]);
 
-  const selection = useTableSelection(rows);
   const columns = useMemo(() => ([
     { key: "title", label: "Judul" },
     { key: "date", label: "Tanggal" },
@@ -435,6 +417,41 @@ export default function SchedulePage() {
     const ordered = columnVisibility.visibleKeys.map((key) => byKey.get(key)).filter(Boolean);
     return ordered.length ? ordered : columns.filter((c) => columnVisibility.visibleSet.has(c.key));
   }, [columnVisibility.visibleKeys, columnVisibility.visibleSet, columns]);
+
+  // ── Filter per kolom ────────────────────────────────────────────────────
+  const scheduleFilterValue = useCallback((row, key) => {
+    const columnKey = String(key);
+    if (columnKey.startsWith("raw:")) return row?.raw?.[columnKey.slice(4)];
+    if (columnKey === "title") return row.title;
+    if (columnKey === "date") return row.date ? formatDate(row.date) : "";
+    if (columnKey === "time") return row.isAllDay ? "Seharian" : [row.startTime, row.endTime].filter(Boolean).join(" - ");
+    if (columnKey === "type") return row.type;
+    if (columnKey === "status") return statusLabel(normalizeStatus(row));
+    if (columnKey === "isActive") return Boolean(row.isActive);
+    return resolveTableValue(row, columnKey);
+  }, []);
+  const filterConfig = useMemo(
+    () => buildColumnFilterConfig(columnVisibility.allColumns, allRows, scheduleFilterValue),
+    [columnVisibility.allColumns, allRows, scheduleFilterValue],
+  );
+  const filterTypes = useMemo(() => ({
+    ...filterConfig.types,
+    title: "text",
+    date: "text",
+    time: "text",
+    type: "select",
+    status: "select",
+    isActive: "select",
+  }), [filterConfig.types]);
+  const filterOptions = useMemo(() => ({
+    ...filterConfig.options,
+    type: TYPE_OPTIONS.map((value) => ({ value, label: value })),
+    status: STATUS_COLUMNS.map((item) => ({ value: item.label, label: item.label })),
+    isActive: [{ value: "true", label: "Aktif" }, { value: "false", label: "Nonaktif" }],
+  }), [filterConfig.options]);
+  const filterState = useColumnFilterState({ rows, getValue: scheduleFilterValue, filterTypes });
+  const filteredRows = filterState.rows;
+  const selection = useTableSelection(filteredRows);
   const hScroll = useHorizontalScroll();
 
   const saving = createMutation.isPending || updateMutation.isPending;
@@ -527,10 +544,12 @@ export default function SchedulePage() {
               onChangeViewMode={setViewMode}
               viewModeOptions={VIEW_OPTIONS}
               extraActions={(
-                <button type="button" onClick={toggleFocus} className={cn("inline-flex h-7 items-center gap-1 rounded-[8px] border px-2 text-[11px] font-bold transition-colors", isFocus ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50")}>
-                  <span className="material-symbols-outlined text-[15px]">{isFocus ? "close_fullscreen" : "center_focus_strong"}</span>
-                  {isFocus ? "Keluar fokus" : "Fokus"}
-                </button>
+                <ActionIconButton
+                  icon={isFocus ? "close_fullscreen" : "center_focus_strong"}
+                  title={isFocus ? "Keluar mode fokus" : "Mode fokus"}
+                  onClick={toggleFocus}
+                  variant={isFocus ? "primary" : "default"}
+                />
               )}
             />
           </div>
@@ -545,46 +564,56 @@ export default function SchedulePage() {
         {!schedulesQuery.isLoading && !schedulesQuery.error ? (
           <>
             {viewMode === "kanban" ? (
-              <KanbanView rows={rows} onEdit={openEdit} onDelete={setDeleteTarget} onMove={handleMoveStatus} />
+              <KanbanView rows={filteredRows} onEdit={openEdit} onDelete={setDeleteTarget} onMove={handleMoveStatus} />
             ) : null}
             {viewMode === "list" ? (
               <div>
                 <TopScrollbar {...hScroll} visible={hScroll.hasOverflow} width={hScroll.metrics.scrollWidth} />
-                <div ref={hScroll.scrollRef} onScroll={hScroll.handleTableScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] border border-slate-200 bg-white">
+                <div ref={hScroll.scrollRef} onScroll={hScroll.handleTableScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] bg-white ring-1 ring-slate-200">
                 <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-                  <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-50">
-                    <tr className="bg-slate-50">
+                  <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-100">
+                    <tr className="bg-slate-100">
                       {visibleColumns.map((column) => (
-                        <th key={column.key} className="bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">{column.label}</th>
+                        <ColumnFilterHeader
+                          key={column.key}
+                          column={column}
+                          filterType={filterTypes[column.key] || "text"}
+                          filterValue={filterState.columnFilters[column.key]}
+                          options={filterOptions[column.key] || []}
+                          onFilterChange={(value) => filterState.changeFilter(column.key, value)}
+                          onClearAllFilters={filterState.resetFilters}
+                          onResetSort={filterState.resetSort}
+                          className="bg-slate-100 px-4 py-3 text-xs font-extrabold text-slate-600 shadow-[inset_0_-1px_0_0_#e2e8f0]"
+                        />
                       ))}
-                      <th className="w-24 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">Aksi</th>
+                      <th className="w-24 bg-slate-100 px-4 py-3 text-xs font-extrabold text-slate-600 shadow-[inset_0_-1px_0_0_#e2e8f0]">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((item) => {
+                    {filteredRows.map((item) => {
                       const st = normalizeStatus(item);
                       return (
                         <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50">
                           {visibleColumns.map((column) => {
-                            if (column.key === "title") return <td key={column.key} className="px-4 py-3 font-semibold text-slate-900">{item.title || "-"}</td>;
-                            if (column.key === "date") return <td key={column.key} className="px-4 py-3 text-slate-700">{formatDate(item.date)}</td>;
-                            if (column.key === "time") return <td key={column.key} className="px-4 py-3 text-slate-700">{item.isAllDay ? "Seharian" : [item.startTime, item.endTime].filter(Boolean).join(" - ") || "-"}</td>;
-                            if (column.key === "type") return <td key={column.key} className="px-4 py-3 text-slate-700">{item.type || "-"}</td>;
+                            if (column.key === "title") return <td key={column.key} className="px-4 py-3 font-extrabold text-slate-900">{item.title || "-"}</td>;
+                            if (column.key === "date") return <td key={column.key} className="px-4 py-3 text-slate-600">{formatDate(item.date)}</td>;
+                            if (column.key === "time") return <td key={column.key} className="px-4 py-3 text-slate-600">{item.isAllDay ? "Seharian" : [item.startTime, item.endTime].filter(Boolean).join(" - ") || "-"}</td>;
+                            if (column.key === "type") return <td key={column.key} className="px-4 py-3 text-slate-600">{item.type || "-"}</td>;
                             if (column.key === "status") return (
                               <td key={column.key} className="px-4 py-3">
-                                <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold", st === "done" ? "bg-emerald-50 text-emerald-700" : st === "in_progress" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-700")}>
+                                <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ring-1 ring-inset", st === "done" ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : st === "in_progress" ? "bg-amber-50 text-amber-700 ring-amber-200" : "bg-slate-100 text-slate-700 ring-slate-200")}>
                                   {statusLabel(st)}
                                 </span>
                               </td>
                             );
                             if (column.key === "isActive") return (
                               <td key={column.key} className="px-4 py-3">
-                                <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold", item.isActive ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600")}>
+                                <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ring-1 ring-inset", item.isActive ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-slate-100 text-slate-600 ring-slate-200")}>
                                   {item.isActive ? "Aktif" : "Nonaktif"}
                                 </span>
                               </td>
                             );
-                            return <td key={column.key} className="px-4 py-3 text-slate-700">{formatTableValue(resolveTableValue(item, column.key))}</td>;
+                            return <td key={column.key} className="px-4 py-3 text-slate-600">{formatTableValue(resolveTableValue(item, column.key))}</td>;
                           })}
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1">
@@ -605,7 +634,7 @@ export default function SchedulePage() {
               </div>
             ) : null}
             {viewMode === "kalender" ? (
-              <CalendarView rows={rows} onEdit={openEdit} onDelete={setDeleteTarget} />
+              <CalendarView rows={filteredRows} onEdit={openEdit} onDelete={setDeleteTarget} />
             ) : null}
           </>
         ) : null}

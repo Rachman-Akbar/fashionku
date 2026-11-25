@@ -76,7 +76,10 @@ function PanelHeaderComponent({
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur">
+      {/* Harus di atas PanelTabBar (z-50, sticky top-16). Kalau header lebih
+          rendah, popover notifikasi/tema yang menempel di bawah header
+          tertimpa bar tab dan ikut tertutup saat kursor menyentuh area tab. */}
+      <header className="sticky top-0 z-[60] bg-white/95 backdrop-blur">
         <div className="flex h-16 items-center justify-between gap-4 px-3 sm:px-4 lg:px-6">
           <div className="min-w-0">
             <p className={cn("text-xs font-bold uppercase tracking-[0.22em]", accentTextClassName)}>{eyebrow}</p>

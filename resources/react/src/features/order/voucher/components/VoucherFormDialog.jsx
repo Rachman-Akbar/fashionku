@@ -134,6 +134,7 @@ function initialValues(entity) {
     minSpend: entity?.minSpend || 0,
     minItems: entity?.minItems ?? "",
     minDistinctProducts: entity?.minDistinctProducts ?? "",
+    minSameProductQty: entity?.minSameProductQty ?? "",
     terms: entity?.terms || "",
     maxDiscount: entity?.maxDiscount ?? "",
     startsAt: toDateTimeLocal(entity?.startsAt) || toDateTimeLocal(new Date()),
@@ -278,6 +279,9 @@ export function VoucherFormDialog({ open, entity, portal, onClose, onSaved, onDe
           </FormField>
           <FormField label="Item produk berbeda" hint="Minimal jumlah produk berbeda dalam transaksi (mis. 2 = wajib 2 barang berbeda).">
             <input type="number" min="0" value={values.minDistinctProducts} onChange={(event) => setField("minDistinctProducts", event.target.value)} className={inputClassName} />
+          </FormField>
+          <FormField label="Min. pcs produk yang sama" hint="Wajib membeli minimal N pcs dari satu produk yang sama (mis. 3 = 3 pcs produk yang sama). Kosongkan jika tanpa syarat.">
+            <input type="number" min="0" value={values.minSameProductQty} onChange={(event) => setField("minSameProductQty", event.target.value)} className={inputClassName} />
           </FormField>
           <FormField label="Syarat & ketentuan" hint="Ketentuan tambahan yang ditampilkan ke pembeli.">
             <textarea value={values.terms} onChange={(event) => setField("terms", event.target.value)} rows={2} className={inputClassName} />

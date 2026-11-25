@@ -351,7 +351,7 @@ export default function StockPage() {
     { key: "stock", label: "Stok", filterType: "range" },
     { key: "minimum_stock", label: "Minimum", filterType: "range", render: (row) => (row.minimum_stock === null || row.minimum_stock === undefined ? "-" : number(row.minimum_stock)) },
     { key: "average_cost", label: "Biaya Rata-rata", filterType: "range", render: (row) => money(row.average_cost), align: "right" },
-    { key: "hpp_impact", label: "Kenaikan HPP", filterable: false, align: "right", render: (row) => {
+    { key: "hpp_impact", label: "Kenaikan HPP", filterType: "range", valueOf: (row) => hppImpactOf(row)?.percent ?? "", align: "right", render: (row) => {
       const impact = hppImpactOf(row);
       if (!impact) return <span className="text-slate-400">-</span>;
       const positive = impact.percent >= 0;

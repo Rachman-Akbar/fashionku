@@ -34,6 +34,19 @@ export function getVoucherEligibleSubtotal(voucher, items = []) {
   }, 0);
 }
 
+function getMaxSameProductQty(items = []) {
+  const quantities = new Map();
+
+  items.forEach((item) => {
+    const productId = normalizeProductId(item);
+    if (!productId) return;
+    const quantity = Math.max(1, toNumber(item.quantity, 1));
+    quantities.set(productId, (quantities.get(productId) || 0) + quantity);
+  });
+
+  return quantities.size ? Math.max(...quantities.values()) : 0;
+}
+
 function getVoucherEligibleItems(voucher, items = []) {
   const scopedIds = Array.isArray(voucher?.productIds)
     ? voucher.productIds.map(Number).filter((id) => id > 0)
@@ -89,6 +102,8 @@ export function calculateCheckoutVoucherDiscount({
   ).size;
   const minItems = Math.max(0, toNumber(voucher.minItems));
   const minDistinct = Math.max(0, toNumber(voucher.minDistinctProducts));
+  const minSameProductQty = Math.max(0, toNumber(voucher.minSameProductQty));
+  const maxSameProductQty = getMaxSameProductQty(eligibleItems);
 
   if (minItems > 0 && itemCount < minItems) {
     return {
@@ -109,6 +124,17 @@ export function calculateCheckoutVoucherDiscount({
       eligibleSubtotal,
       eligible: false,
       message: `Voucher hanya berlaku untuk minimal ${minDistinct} item produk berbeda.`,
+    };
+  }
+
+  if (minSameProductQty > 0 && maxSameProductQty < minSameProductQty) {
+    return {
+      discount: 0,
+      productDiscount: 0,
+      shippingDiscount: 0,
+      eligibleSubtotal,
+      eligible: false,
+      message: `Voucher hanya berlaku jika membeli minimal ${minSameProductQty} pcs untuk satu produk yang sama.`,
     };
   }
 
@@ -197,6 +223,8 @@ export function getCheckoutVoucherValidity(voucher, items = [], now = new Date()
   ).size;
   const minItems = Math.max(0, toNumber(voucher.minItems));
   const minDistinct = Math.max(0, toNumber(voucher.minDistinctProducts));
+  const minSameProductQty = Math.max(0, toNumber(voucher.minSameProductQty));
+  const maxSameProductQty = getMaxSameProductQty(eligibleItems);
 
   if (minItems > 0 && itemCount < minItems) {
     return { valid: false, reason: `Voucher membutuhkan minimal ${minItems} item dalam pesanan.` };
@@ -206,6 +234,13 @@ export function getCheckoutVoucherValidity(voucher, items = [], now = new Date()
     return {
       valid: false,
       reason: `Voucher hanya berlaku untuk minimal ${minDistinct} item produk berbeda.`,
+    };
+  }
+
+  if (minSameProductQty > 0 && maxSameProductQty < minSameProductQty) {
+    return {
+      valid: false,
+      reason: `Voucher hanya berlaku jika membeli minimal ${minSameProductQty} pcs untuk satu produk yang sama.`,
     };
   }
 

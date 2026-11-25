@@ -1,4 +1,4 @@
-import { useEffect, useDeferredValue, useMemo, useState } from "react";
+import { useCallback, useEffect, useDeferredValue, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { SellerPanelShell } from "@/features/seller/dashboard/components/SellerPanelShell";
 import { PRODUCT_TABLE_COLUMNS, SellerProductTable } from "@/features/seller/product/components/SellerProductTable";
@@ -14,14 +14,17 @@ import { useActiveToggle } from "@/shared/hooks/useActiveToggle";
 import { useEntityEditor } from "@/shared/hooks/useEntityEditor";
 import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
 import { useColumnVisibility, useTableSelection } from "@/shared/hooks";
-import { buildDatabaseColumns, mergeColumns } from "@/shared/utils/tableData";
+import { resolveTableValue } from "@/shared/utils/tableData";
+import { buildColumnFilterConfig, filterRowsByColumnFilters } from "@/shared/utils/columnFilters";
 import { useRefreshOnListActivation } from "@/shared/hooks/useRefreshOnListActivation";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
 import { getSellerProductError, useDeleteSellerProduct, useSellerProducts, useUpdateSellerProduct } from "@/features/seller/product/services/sellerProductService";
 import { ExcelActionButtons } from "@/shared/excel";
 
 const PER_PAGE = 20;
-const EMPTY_COLUMN_FILTERS = { product: "", mode: "", price: { min: "", max: "" }, stock: { min: "", max: "", status: "" }, active: "" };
+const EMPTY_COLUMN_FILTERS = { product: "", mode: "", price: { min: "", max: "" }, stock: { min: "", max: "", status: "" }, active: "", status: "" };
+// Kolom yang filternya sudah dikirim ke API; sisanya (kolom database) disaring di client.
+const SERVER_FILTER_KEYS = ["product", "mode", "price", "stock", "active", "status"];
 
 export default function SellerProductsPage() {
   const [columnFilters, setColumnFilters] = useState(EMPTY_COLUMN_FILTERS);
@@ -37,6 +40,9 @@ export default function SellerProductsPage() {
   const notifications = useNotificationCenter();
   const location = useLocation();
   const navigate = useNavigate();
+  // /admin/products = tampilan admin, /seller/products = tampilan operator toko.
+  const portal = location.pathname.startsWith("/admin") ? "admin" : "seller";
+  const isAdmin = portal === "admin";
   const productsQuery = useSellerProducts({
     per_page: PER_PAGE,
     sort_by: sort.by,
@@ -49,6 +55,7 @@ export default function SellerProductsPage() {
     ...(columnFilters.stock.min !== "" ? { stock_min: columnFilters.stock.min } : {}),
     ...(columnFilters.stock.max !== "" ? { stock_max: columnFilters.stock.max } : {}),
     ...(columnFilters.active ? { is_active: columnFilters.active === "active" } : {}),
+    ...(columnFilters.status ? { status: columnFilters.status } : {}),
     ...(columnFilters.stock.status === "low" ? { low_stock: true } : {}),
     ...(columnFilters.stock.status === "safe" ? { safe_stock: true } : {}),
   });
@@ -65,28 +72,23 @@ export default function SellerProductsPage() {
   };
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: productsQuery.refetch });
   const rows = productsQuery.data?.rows || [];
-  // Kolom kurasi + semua kolom database produk (kecuali kolom ID).
-  const columns = useMemo(() => mergeColumns(PRODUCT_TABLE_COLUMNS.filter((column) => column.key !== "store" && column.key !== "status"), buildDatabaseColumns(rows, {
-    omit: ["id", "name", "thumbnail", "variants", "images", "price", "stock", "status", "is_active", "sku"],
-    labels: {
-      code: "Kode",
-      slug: "Slug",
-      description: "Deskripsi",
-      brand: "Merek",
-      average_rating: "Rating Rata-rata",
-      review_count: "Jumlah Review",
-      sold_count: "Terjual",
-      category_ids: "Kategori",
-      attribute_values: "Atribut",
-      created_by_user: "Dibuat Oleh",
-      updated_by_user: "Diubah Oleh",
-      created_at: "Dibuat",
-      updated_at: "Diubah",
-      deleted_at: "Dihapus",
-    },
-  })), [rows]);
-  const columnVisibility = useColumnVisibility(columns, "seller-products");
-  const selection = useTableSelection(rows);
+  // Nilai kolom untuk filter client-side.
+  const filterValueOf = useCallback((row, key) => resolveTableValue(row, key), []);
+  // Hanya kolom yang relevan untuk marketplace single-store. Kolom teknis dari
+  // API (kode, kota toko, maks. order, audit, dll.) sengaja tidak ditampilkan.
+  const columns = useMemo(
+    () => PRODUCT_TABLE_COLUMNS.filter((column) => isAdmin || column.key !== "status"),
+    [isAdmin],
+  );
+  // Penyimpanan pilihan kolom dipisah: susunan kolom admin dan toko berbeda.
+  const columnVisibility = useColumnVisibility(columns, isAdmin ? "admin-products" : "seller-products");
+  // Tipe + opsi filter untuk semua kolom (teks / pilihan / rentang angka).
+  const columnFilterConfig = useMemo(() => buildColumnFilterConfig(columns, rows, filterValueOf), [columns, filterValueOf, rows]);
+  const filteredRows = useMemo(
+    () => filterRowsByColumnFilters(rows, columnFilters, columnFilterConfig.types, { getValue: filterValueOf, excludeKeys: SERVER_FILTER_KEYS }),
+    [columnFilterConfig.types, columnFilters, filterValueOf, rows],
+  );
+  const selection = useTableSelection(filteredRows);
 
   // Toggle aktif langsung berubah (optimistic); kegagalan masuk notifikasi.
   const activeToggle = useActiveToggle({
@@ -97,6 +99,18 @@ export default function SellerProductsPage() {
     openDetail: (product) => editor.edit(product),
   });
   const toggleActive = (product, isActive) => activeToggle.toggle(product, isActive);
+
+  // Ubah status publikasi produk langsung dari kolom Status Admin (khusus admin).
+  const changeStatus = async (product, nextStatus) => {
+    if (!isAdmin || !nextStatus || nextStatus === product.status) return;
+    const task = notifications.startTask({ title: "Ubah Status Produk", message: `Mengubah status "${product.name}"...` });
+    try {
+      await quickUpdateMutation.mutateAsync({ id: product.id, values: { ...product, status: nextStatus }, options: { includeAdminFields: true } });
+      task.success("Status produk berhasil diperbarui.");
+    } catch (error) {
+      task.fail(getSellerProductError(error));
+    }
+  };
 
   const remove = async () => {
     if (!deleteTarget) return;
@@ -133,8 +147,11 @@ export default function SellerProductsPage() {
     onToggleActive: toggleActive,
     isActiveOf: activeToggle.isActive,
     pendingId: quickUpdateMutation.variables?.id,
-    portal: "seller",
+    portal,
+    onStatusChange: isAdmin ? changeStatus : undefined,
     columns,
+    columnFilterTypes: columnFilterConfig.types,
+    columnFilterOptions: columnFilterConfig.options,
     visibleSet: columnVisibility.visibleSet,
     columnOrder: columnVisibility.visibleKeys,
     onOrderChange: columnVisibility.syncVisibleOrder,
@@ -205,7 +222,7 @@ export default function SellerProductsPage() {
                   {/* Header + filter kolom tetap dirender di mode kartu (grid). */}
                   <SellerProductTable rows={[]} headerOnly isLoading={false} {...tableProps} />
                   <SellerProductGrid
-                    rows={rows}
+                    rows={filteredRows}
                     onEdit={editor.edit}
                     onToggleActive={toggleActive}
                     isActiveOf={activeToggle.isActive}
@@ -216,7 +233,7 @@ export default function SellerProductsPage() {
                   />
                 </>
               ) : (
-                <SellerProductTable rows={rows} isLoading={Boolean(productsQuery.isPlaceholderData)} {...tableProps} />
+                <SellerProductTable rows={filteredRows} isLoading={Boolean(productsQuery.isPlaceholderData)} {...tableProps} />
               )}
               <InfiniteScrollSentinel hasNextPage={productsQuery.hasNextPage} isFetchingNextPage={productsQuery.isFetchingNextPage} onLoadMore={() => productsQuery.fetchNextPage()} />
             </>
@@ -227,6 +244,7 @@ export default function SellerProductsPage() {
       <SellerProductEditor
         open={editor.open}
         product={editor.entity}
+        portal={portal}
         initialSection={initialSection}
         suppressEscape={Boolean(deleteTarget)}
         onClose={editor.close}

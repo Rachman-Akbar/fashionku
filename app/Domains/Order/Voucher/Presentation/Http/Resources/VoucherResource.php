@@ -40,6 +40,8 @@ final class VoucherResource extends JsonResource
             'minSpend' => $this->min_spend !== null ? (int) round((float) $this->min_spend) : null,
             'minItems' => $this->min_items,
             'minDistinctProducts' => $this->min_distinct_products,
+            // Wajib membeli minimal N pcs untuk satu produk yang sama.
+            'minSameProductQty' => (int) ($this->min_same_product_qty ?? 0),
             // Kosong = voucher berlaku untuk semua produk.
             'productIds' => $this->relationLoaded('voucherProducts')
                 ? $this->voucherProducts->pluck('id')->map(fn (mixed $id): int => (int) $id)->values()->all()

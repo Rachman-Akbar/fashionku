@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { TableHeaderFilter } from "@/shared/components/crud/TableHeaderFilter";
 import { InfiniteScrollSentinel } from "@/shared/components/ui/InfiniteScrollSentinel";
 import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
@@ -49,19 +49,28 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
     return config;
   }, [layoutColumns]);
 
+  // Nilai sel untuk filter/sort/opsi. Kolom boleh mendefinisikan `valueOf`
+  // untuk nilai turunan (mis. persentase kenaikan HPP) yang tidak ada di data.
+  const columnsByKey = useMemo(() => new Map(layoutColumns.map((column) => [column.key, column])), [layoutColumns]);
+  const cellValue = useCallback((row, key) => {
+    const column = columnsByKey.get(key);
+    if (typeof column?.valueOf === "function") return column.valueOf(row);
+    return resolveTableValue(row, key);
+  }, [columnsByKey]);
+
   const selectOptions = useMemo(() => {
     const options = {};
     layoutColumns.forEach((column) => {
       if (column.key === HEADER_ACTIONS_KEY || (column.filterType || "text") !== "select" || (column.options && column.options.length)) return;
       const values = new Set();
       rows.forEach((row) => {
-        const value = formatTableValue(resolveTableValue(row, column.key));
+        const value = formatTableValue(cellValue(row, column.key));
         if (value !== "-") values.add(value);
       });
       options[column.key] = [...values].sort((left, right) => left.localeCompare(right, "id")).map((value) => ({ value, label: value }));
     });
     return options;
-  }, [layoutColumns, rows]);
+  }, [cellValue, layoutColumns, rows]);
 
   const [columnFilters, setColumnFilters] = useState({});
   const [sortBy, setSortBy] = useState("");
@@ -75,7 +84,7 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
     if (activeFilters.length) {
       next = next.filter((row) =>
         activeFilters.every((key) => {
-          const value = resolveTableValue(row, key);
+          const value = cellValue(row, key);
           const type = filterConfig[key].type;
           const filterValue = columnFilters[key];
           if (type === "range") {
@@ -92,11 +101,11 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
     if (sortBy) {
       const direction = sortDirection === "desc" ? -1 : 1;
       next = [...next].sort((left, right) =>
-        String(resolveTableValue(left, sortBy) ?? "").localeCompare(String(resolveTableValue(right, sortBy) ?? ""), "id", { numeric: true, sensitivity: "base" }) * direction,
+        String(cellValue(left, sortBy) ?? "").localeCompare(String(cellValue(right, sortBy) ?? ""), "id", { numeric: true, sensitivity: "base" }) * direction,
       );
     }
     return next;
-  }, [columnFilters, filterConfig, rows, sortBy, sortDirection]);
+  }, [cellValue, columnFilters, filterConfig, rows, sortBy, sortDirection]);
 
   const tableWidth = layout.totalWidth + (selectionEnabled ? 44 : 0);
   const activeFilterCount = Object.keys(columnFilters).filter((key) => hasFilterValue(filterConfig[key]?.type, columnFilters[key])).length;
@@ -191,9 +200,12 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
     </div>
   );
 
-  // Untuk mode kartu/grafik header butuh scroll horizontal sendiri.
+  // Header dipakai juga sebagai baris filter, jadi harus tetap menempel di
+  // atas saat halaman digulir pada SEMUA mode tampilan (list, kartu, grafik).
+  // `[overflow-y:clip]` penting: kontainer hanya menjadi scrollport horizontal,
+  // sehingga `sticky` tetap mengacu ke area gulir halaman.
   const headerTable = (
-    <div className="w-full min-w-0 max-w-full overflow-x-auto bg-slate-100">{headerRow}</div>
+    <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] bg-slate-100">{headerRow}</div>
   );
 
   const headerActionsBar = headerActions && !renderSpecialActions && specialVisible ? (

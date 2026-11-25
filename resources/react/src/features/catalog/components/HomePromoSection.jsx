@@ -170,11 +170,43 @@ export default function HomePromoSection() {
 
 const categoryCards = useMemo(() => {
     const roots = categoriesQuery.data?.data || [];
-    // Get Level 2 categories (children of Level 1)
+    // Get Level 3 categories (children of Level 2)
     const levelTwo = roots.flatMap((root) => Array.isArray(root.children) ? root.children : []);
-    const picked = levelTwo.length ? levelTwo : flattenCategories(roots);
+    const levelThree = levelTwo.flatMap((l2) => Array.isArray(l2.children) ? l2.children : []);
+    const picked = levelThree.length ? levelThree : flattenCategories(roots);
     return picked.slice(0, 16);
   }, [categoriesQuery.data]);
+
+  // Separate component for Level 3 category images (no card styling)
+  function Level3CategoryImage({ category }) {
+    const image = category.image_url || category.icon_url;
+    return (
+      <Link
+        to={getCategoryHref(category)}
+        className="group relative w-[96px] shrink-0 sm:w-[104px]"
+        aria-label={category.name}
+      >
+        <div className="aspect-square overflow-hidden rounded-xl bg-slate-100">
+          {image ? (
+            <img
+              src={resolveMediaUrl(image)}
+              alt={category.name}
+              className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+              loading="lazy"
+              onError={placeholderFallback}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-slate-300">
+              <span className="material-symbols-outlined text-4xl">category</span>
+            </div>
+          )}
+        </div>
+        <p className="mt-1.5 text-[11px] font-semibold text-center text-slate-700 group-hover:text-[#047857] line-clamp-1">
+          {category.name}
+        </p>
+      </Link>
+    );
+  }
 
   const vouchers = (vouchersQuery.data || []).slice(0, 10);
 
@@ -205,7 +237,7 @@ const categoryCards = useMemo(() => {
         ) : categoryCards.length ? (
           <div className="flex flex-wrap gap-x-4 gap-y-4 sm:gap-x-5">
             {categoryCards.map((cat) => (
-              <CategoryChip key={cat.id || cat.key || cat.slug} category={cat} />
+              <Level3CategoryImage key={cat.id || cat.key || cat.slug} category={cat} />
             ))}
           </div>
         ) : null}

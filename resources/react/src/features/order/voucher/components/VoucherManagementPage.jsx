@@ -42,7 +42,7 @@ export function VoucherManagementPage({ portal, children: wrap }) {
   const columns = useMemo(() => mergeColumns(VOUCHER_TABLE_COLUMNS, buildDatabaseColumns(rows, {
     omit: [
       "id", "code", "name", "image", "imageUrl", "discountTarget", "discountType", "discountValue",
-      "minSpend", "minItems", "terms", "maxDiscount", "startsAt", "endsAt", "usageLimit",
+      "minSpend", "minItems", "minSameProductQty", "terms", "maxDiscount", "startsAt", "endsAt", "usageLimit",
       "usedCount", "isActive", "productIds", "isMissionReward", "isOwned", "isLocked",
     ],
     labels: {
@@ -84,6 +84,14 @@ export function VoucherManagementPage({ portal, children: wrap }) {
         render: (row) => `${row.discountTarget === "shipping" ? "Ongkir" : "Produk"} · ${row.discountType === "percentage" ? `${row.discountValue}%` : formatPrice(row.discountValue)}`,
       },
       { label: "Min. Belanja", render: (row) => formatPrice(row.minSpend) },
+      {
+        label: "Syarat Item",
+        render: (row) => [
+          row.minItems ? `${row.minItems} item` : null,
+          row.minDistinctProducts ? `${row.minDistinctProducts} produk berbeda` : null,
+          row.minSameProductQty ? `${row.minSameProductQty} pcs produk sama` : null,
+        ].filter(Boolean).join(" · ") || "Tanpa syarat item",
+      },
       { label: "Periode", render: (row) => `${row.startsAt || "-"} → ${row.endsAt || "-"}` },
       {
         label: "Pemakaian",

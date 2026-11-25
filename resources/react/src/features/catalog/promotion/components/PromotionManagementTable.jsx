@@ -1,14 +1,15 @@
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo } from "react";
 import { isInactiveRow } from "@/shared/components/feedback/inactiveRow";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { TableSelectionCell, TableSelectionHeader } from "@/shared/components/crud/TableSelectionCell";
 import { TableHeaderFilter } from "@/shared/components/crud/TableHeaderFilter";
-import { InteractiveColGroup, InteractiveTableHeader } from "@/shared/components/table/InteractiveTableHeader";
+import { InteractiveColGroup } from "@/shared/components/table/InteractiveTableHeader";
 import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
 import { useHorizontalScroll } from "@/shared/hooks/useHorizontalScroll";
 import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
 import { useColumnFilterState } from "@/shared/hooks";
 import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
+import { buildColumnFilterConfig } from "@/shared/utils/columnFilters";
 import { toTitleCase } from "@/shared/utils/textFormatter";
 
 export const PROMOTION_TABLE_COLUMNS = [
@@ -39,6 +40,7 @@ export const PromotionManagementTable = memo(function PromotionManagementTable({
   onToggleAll,
   columnOrder,
   onOrderChange,
+  onFilterStateChange,
   headerOnly = false,
 }) {
   const isAdmin = portal === "admin";
@@ -48,6 +50,7 @@ export const PromotionManagementTable = memo(function PromotionManagementTable({
   const tableWidth = layout.totalWidth + (selectionEnabled ? 44 : 0);
 
   const getValue = useCallback((row, key) => {
+    if (String(key).startsWith("raw:")) return row?.raw?.[String(key).slice(4)];
     if (key === "promotion") return row.name || "";
     if (key === "store") return row.storeName || "Platform";
     if (key === "target") return `${row.clickAction || ""} ${row.targetId ?? ""} ${row.targetUrl ?? ""}`;
@@ -56,8 +59,24 @@ export const PromotionManagementTable = memo(function PromotionManagementTable({
     return row[key] ?? row.raw?.[key];
   }, []);
 
-  const filterTypes = useMemo(() => ({ promotion: "text", store: "text", target: "text", sortOrder: "range", active: "select" }), []);
+  const filterConfig = useMemo(() => buildColumnFilterConfig(columns, rows, getValue), [columns, getValue, rows]);
+  const filterTypes = useMemo(() => ({
+    ...filterConfig.types,
+    promotion: "text",
+    store: "text",
+    target: "text",
+    image: "text",
+    mobileImage: "text",
+    sortOrder: "range",
+    active: "select",
+  }), [filterConfig.types]);
   const { rows: tableRows, columnFilters, changeFilter, sortBy, sortDirection, setSort, resetFilters, resetSort } = useColumnFilterState({ rows, getValue, filterTypes });
+
+  // Mode kartu/grafik memakai header ini sebagai filter, jadi hasil saringan
+  // diteruskan ke pemanggil agar kartu menampilkan baris yang sama.
+  useEffect(() => {
+    onFilterStateChange?.({ filteredRows: tableRows });
+  }, [onFilterStateChange, tableRows]);
 
   const interactiveProps = (column) => ({
     headerProps: layout.getHeaderProps(column.key),
@@ -72,16 +91,16 @@ export const PromotionManagementTable = memo(function PromotionManagementTable({
   });
 
   const renderHeader = (column) => {
-    if (column.key.startsWith("raw:")) return <InteractiveTableHeader key={column.key} {...interactiveProps(column)}>{column.label}</InteractiveTableHeader>;
+    if (column.key.startsWith("raw:")) return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label={column.label} filterType="text" filterValue={columnFilters[column.key] || ""} onFilterChange={(value) => changeFilter(column.key, value)} placeholder={`Cari ${String(column.label || "").toLowerCase()}`} />;
     if (column.key === "promotion") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Promosi" sortKey="promotion" sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSort} filterType="text" filterValue={columnFilters.promotion || ""} onFilterChange={(value) => changeFilter("promotion", value)} placeholder="Cari nama promosi" />;
     if (column.key === "store") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Toko" sortKey="store" sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSort} filterType="text" filterValue={columnFilters.store || ""} onFilterChange={(value) => changeFilter("store", value)} placeholder="Cari toko" />;
     if (column.key === "target") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Target" filterType="text" filterValue={columnFilters.target || ""} onFilterChange={(value) => changeFilter("target", value)} placeholder="Cari target" />;
-    if (column.key === "image") return <InteractiveTableHeader key={column.key} {...interactiveProps(column)}>Gambar</InteractiveTableHeader>;
-    if (column.key === "mobileImage") return <InteractiveTableHeader key={column.key} {...interactiveProps(column)}>Gambar Mobile</InteractiveTableHeader>;
+    if (column.key === "image") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Gambar" filterType="text" filterValue={columnFilters.image || ""} onFilterChange={(value) => changeFilter("image", value)} placeholder="Cari gambar" />;
+    if (column.key === "mobileImage") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Gambar Mobile" filterType="text" filterValue={columnFilters.mobileImage || ""} onFilterChange={(value) => changeFilter("mobileImage", value)} placeholder="Cari gambar mobile" />;
     if (column.key === "sortOrder") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Urutan" align="right" filterType="range" filterValue={columnFilters.sortOrder || { min: "", max: "" }} onFilterChange={(value) => changeFilter("sortOrder", value)} minPlaceholder="Min" maxPlaceholder="Max" />;
     if (column.key === "active") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Active" sortKey="active" sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSort} filterType="select" filterValue={columnFilters.active || ""} onFilterChange={(value) => changeFilter("active", value)} options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Non-Active" }]} />;
-    // Kolom database lain (mis. audit & relasi) cukup diberi judul + filter teks.
-    return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label={column.label} filterType="text" filterValue={columnFilters[column.key] || ""} onFilterChange={(value) => changeFilter(column.key, value)} placeholder={`Cari ${String(column.label || "").toLowerCase()}`} />;
+    // Kolom database lain: filter mengikuti tipe otomatis (teks/pilihan/rentang).
+    return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label={column.label} filterType={filterTypes[column.key] || "text"} filterValue={columnFilters[column.key]} onFilterChange={(value) => changeFilter(column.key, value)} options={filterConfig.options[column.key] || []} placeholder={`Cari ${String(column.label || "").toLowerCase()}`} />;
   };
 
   const renderCell = (column, row) => {
@@ -98,7 +117,7 @@ export const PromotionManagementTable = memo(function PromotionManagementTable({
   };
 
   return (
-    <div className={headerOnly ? "mb-3" : undefined}>
+    <div className={headerOnly ? "sticky top-[var(--list-toolbar-h,0px)] z-30 mb-3 bg-white" : undefined}>
       <TopScrollbar {...hScroll} visible={hScroll.hasOverflow} width={hScroll.metrics.scrollWidth} />
       <div ref={hScroll.scrollRef} onScroll={hScroll.handleTableScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] bg-white ring-1 ring-slate-200">
       <table className="table-fixed text-left text-sm" style={{ width: Math.max(tableWidth, 900), minWidth: "100%" }}>

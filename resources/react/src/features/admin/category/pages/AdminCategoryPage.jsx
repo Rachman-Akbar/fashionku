@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
@@ -6,11 +6,14 @@ import { CrudDialog } from "@/shared/components/crud/CrudDialog";
 import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { useDatabaseTableColumns, useTableSelection, useViewMode } from "@/shared/hooks";
+import { useColumnFilterState } from "@/shared/hooks";
+import { buildColumnFilterConfig } from "@/shared/utils/columnFilters";
+import { ColumnFilterHeader } from "@/shared/components/crud/ColumnFilterHeader";
 import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { useActiveToggle } from "@/shared/hooks/useActiveToggle";
-import { InteractiveColGroup, InteractiveTableHeader } from "@/shared/components/table/InteractiveTableHeader";
+import { InteractiveColGroup } from "@/shared/components/table/InteractiveTableHeader";
 import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
 import { useHorizontalScroll } from "@/shared/hooks/useHorizontalScroll";
 import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
@@ -236,7 +239,6 @@ export default function AdminCategoryPage() {
   const updateMutation = useUpdateCategory();
   const deleteMutation = useDeleteCategory();
   const rows = categoriesQuery.data || [];
-  const selection = useTableSelection(rows);
   const total = useListTotalCount({ total: rows.length }, { label: "Kategori" });
   // Kolom kurasi + semua kolom database lain (kecuali kolom ID).
   const curatedColumns = useMemo(
@@ -268,6 +270,45 @@ export default function AdminCategoryPage() {
     },
   });
 
+  // ── Filter per kolom ────────────────────────────────────────────────────
+  // Semua kolom (kurasi maupun kolom database) bisa disaring.
+  const parentNameById = useMemo(() => new Map(rows.map((item) => [String(item.id), item.name])), [rows]);
+  const categoryFilterValue = useCallback((row, key) => {
+    const columnKey = String(key);
+    if (columnKey.startsWith("raw:")) return row?.raw?.[columnKey.slice(4)];
+    if (columnKey === "name") return row.name;
+    if (columnKey === "slug") return row.slug;
+    if (columnKey === "parentId") return parentNameById.get(String(row.parentId)) || "";
+    if (columnKey === "isActive") return Boolean(row.isActive);
+    if (columnKey === "imageUrl") return row.imageUrl;
+    if (columnKey === "iconUrl") return row.iconUrl;
+    if (columnKey === "sortOrder") return row.sortOrder;
+    return resolveTableValue(row, columnKey);
+  }, [parentNameById]);
+  const filterConfig = useMemo(
+    () => buildColumnFilterConfig(columnVisibility.allColumns, rows, categoryFilterValue),
+    [categoryFilterValue, columnVisibility.allColumns, rows],
+  );
+  const filterTypes = useMemo(() => ({
+    ...filterConfig.types,
+    name: "text",
+    slug: "text",
+    parentId: "select",
+    sortOrder: "range",
+    isActive: "select",
+    imageUrl: "text",
+    iconUrl: "text",
+  }), [filterConfig.types]);
+  const filterOptions = useMemo(() => ({
+    ...filterConfig.options,
+    isActive: [{ value: "true", label: "Aktif" }, { value: "false", label: "Nonaktif" }],
+    parentId: [...parentNameById.values()]
+      .sort((left, right) => String(left).localeCompare(String(right), "id"))
+      .map((name) => ({ value: String(name), label: String(name) })),
+  }), [filterConfig.options, parentNameById]);
+  const filterState = useColumnFilterState({ rows, getValue: categoryFilterValue, filterTypes });
+  const filteredRows = filterState.rows;
+  const selection = useTableSelection(filteredRows);
   const parentOptions = useMemo(
     () => rows.filter((c) => !editor.entity || c.id !== editor.entity.id).map((c) => ({ id: c.id, name: c.name })),
     [rows, editor.entity],
@@ -290,7 +331,7 @@ export default function AdminCategoryPage() {
   // subinduk, dan level 3 sebagai anak. Baris anak hanya tampil ketika
   // container induknya dibuka (pola yang sama dengan daftar variant produk).
   const categoryTree = useMemo(() => {
-    const byId = new Map(rows.map((row) => [String(row.id), row]));
+    const byId = new Map(filteredRows.map((row) => [String(row.id), row]));
     const childrenByParent = new Map();
     const roots = [];
     const sortRows = (list) => [...list].sort((a, b) => {
@@ -299,7 +340,7 @@ export default function AdminCategoryPage() {
       return String(a.name || "").localeCompare(String(b.name || ""));
     });
 
-    for (const row of rows) {
+    for (const row of filteredRows) {
       const parentId = row.parentId === null || row.parentId === undefined || row.parentId === "" ? null : String(row.parentId);
       if (parentId && parentId !== String(row.id) && byId.has(parentId)) {
         if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
@@ -310,7 +351,7 @@ export default function AdminCategoryPage() {
     }
     for (const [parentId, children] of childrenByParent) childrenByParent.set(parentId, sortRows(children));
     return { roots: sortRows(roots), childrenByParent };
-  }, [rows]);
+  }, [filteredRows]);
 
   const expandableIds = useMemo(() => new Set(categoryTree.childrenByParent.keys()), [categoryTree]);
   const allExpanded = expandableIds.size > 0 && [...expandableIds].every((id) => expandedIds.has(id));
@@ -563,7 +604,7 @@ export default function AdminCategoryPage() {
           />
           {!categoriesQuery.isLoading && !categoriesQuery.error && rows.length ? (
             <>
-              <div className={viewMode === "grid" ? "[&_tbody]:hidden" : ""}>
+              <div className={viewMode === "grid" ? "sticky top-[var(--list-toolbar-h,0px)] z-30 bg-white [&_tbody]:hidden" : ""}>
               <TopScrollbar {...hScroll} visible={hScroll.hasOverflow} width={hScroll.metrics.scrollWidth} />
                 <div ref={hScroll.scrollRef} onScroll={hScroll.handleTableScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] border border-slate-200 bg-white">
                   <table className="table-fixed border-collapse text-left text-sm" style={{ width: Math.max(tableLayout.totalWidth, 760), minWidth: "100%" }}>
@@ -583,19 +624,23 @@ export default function AdminCategoryPage() {
                           </button>
                         </th>
                         {tableLayout.orderedColumns.map((column) => (
-                          <InteractiveTableHeader
+                          <ColumnFilterHeader
                             key={column.key}
-                            columnKey={column.key}
+                            column={column}
+                            filterType={filterTypes[column.key] || "text"}
+                            filterValue={filterState.columnFilters[column.key]}
+                            options={filterOptions[column.key] || []}
+                            onFilterChange={(value) => filterState.changeFilter(column.key, value)}
                             headerProps={tableLayout.getHeaderProps(column.key)}
-                            style={tableLayout.getColumnStyle(column.key)}
+                            columnStyle={tableLayout.getColumnStyle(column.key)}
                             onResizeStart={tableLayout.startResize}
                             onResetWidth={tableLayout.resetWidth}
                             dragging={tableLayout.dragKey === column.key}
                             dropTarget={tableLayout.dropKey === column.key}
+                            onClearAllFilters={filterState.resetFilters}
+                            onResetSort={filterState.resetSort}
                             className="bg-slate-50 px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]"
-                          >
-                            {column.label}
-                          </InteractiveTableHeader>
+                          />
                         ))}
                         <th className="w-28 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">Aksi</th>
                       </tr>
@@ -709,7 +754,7 @@ export default function AdminCategoryPage() {
               </div>
               {viewMode === "grid" ? (
                 <RecordCardGrid
-                  rows={rows}
+                  rows={filteredRows}
                   columns={visibleColumns}
                   card={categoryCard}
                   onRowClick={(category) => editor.edit(category)}

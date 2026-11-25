@@ -49,6 +49,20 @@ export function normalizeVariant(variant = {}) {
     sku: variant.sku || "",
     name: variant.name || variant.title || "Varian Produk",
     price: numberValue(variant.price),
+    // price_original dipakai ProductCard untuk menghitung persentase diskon
+    // dan badge burst; jangan dibuang saat normalisasi.
+    price_original:
+      variant.price_original === undefined ||
+      variant.price_original === null ||
+      variant.price_original === ""
+        ? null
+        : numberValue(variant.price_original, null),
+    price_sale:
+      variant.price_sale === undefined ||
+      variant.price_sale === null ||
+      variant.price_sale === ""
+        ? null
+        : numberValue(variant.price_sale, null),
     stock: numberValue(variant.stock),
     is_default: booleanValue(variant.is_default),
     values,
@@ -137,6 +151,7 @@ export function normalizeProduct(product = {}) {
     title: product.name || product.title || "Produk",
     description: product.description || "",
     brand: product.brand || product.brand_name || "",
+    sku: product.sku || "",
     thumbnail: images[0]?.url || PLACEHOLDER_IMAGE,
     image: images[0]?.url || PLACEHOLDER_IMAGE,
     images,

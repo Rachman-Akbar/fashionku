@@ -20,6 +20,7 @@ final class VoucherDTO
         public string $ends_at,
         public ?int $min_items = null,
         public ?int $min_distinct_products = null,
+        public ?int $min_same_product_qty = 0,
         public ?string $terms = null,
         public int $usage_limit = 0,
         public int $usage_limit_per_user = 0,
