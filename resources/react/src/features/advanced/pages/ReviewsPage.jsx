@@ -8,7 +8,7 @@ import { ReviewDetailForm } from "@/features/advanced/pages/ReviewDetailPage";
 import { SpreadsheetOperationPanel } from "@/shared/spreadsheet/SpreadsheetOperationPanel";
 import { toolbarControlClassName } from "@/shared/components/crud/toolbarControlClassName";
 import { useSpreadsheetWorkspace } from "@/shared/spreadsheet/useSpreadsheetWorkspace";
-import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
+import { useColumnFilterAutoLoad, useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 
@@ -46,6 +46,8 @@ export default function ReviewsPage() {
   const spreadsheet = useSpreadsheetWorkspace({ module: "review", label: "Review & Rating", allowImport: false, allowBulkDelete: false });
   const rows = listQuery.data?.rows || [];
   const total = useListTotalCount(listQuery.data?.meta, { fallbackTotal: rows.length, label: "Review" });
+  // Filter kolom berjalan di client, jadi sisa halaman dimuat dulu saat filter aktif.
+  useColumnFilterAutoLoad({ activeCount: total.filterState.activeCount, query: listQuery });
   const editor = useEntityEditor({ getEditLabel: (row) => row.product_name || `Review #${row.id}` });
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: listQuery.refetch });
   const columns = [

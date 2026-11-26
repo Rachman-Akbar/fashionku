@@ -113,29 +113,149 @@ export function buildRawColumns(rows = [], omittedKeys = []) {
 }
 
 export function isColumnFilterEmpty(filterValue, filterType) {
-  if (filterType === "range") return !filterValue || (filterValue.min === "" && filterValue.max === "");
-  return filterValue === "" || filterValue === null || filterValue === undefined;
+  if (filterType === "range") {
+    if (!filterValue) return true;
+    const hasMin = filterValue.min !== undefined && filterValue.min !== null && String(filterValue.min).trim() !== "";
+    const hasMax = filterValue.max !== undefined && filterValue.max !== null && String(filterValue.max).trim() !== "";
+    const hasStatus = filterValue.status !== undefined && filterValue.status !== null && String(filterValue.status).trim() !== "";
+    return !hasMin && !hasMax && !hasStatus;
+  }
+  if (filterValue === null || filterValue === undefined) return true;
+  return String(filterValue).trim() === "";
+}
+
+/** Nilai yang dianggap kosong oleh tabel (null, undefined, string kosong, array kosong). */
+export function isEmptyValue(value) {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "string") return value.trim() === "";
+  if (Array.isArray(value)) return value.length === 0;
+  return false;
+}
+
+/** Normalisasi teks untuk perbandingan: trim, spasi dirapatkan, huruf kecil. */
+export function normalizeFilterText(value) {
+  return String(value ?? "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Ubah nilai apa pun menjadi angka, termasuk format mata uang Indonesia
+ * ("Rp 1.500.000", "1.500,50"). Mengembalikan `null` bila bukan angka.
+ */
+export function parseNumericValue(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const raw = value.replace(/rp/gi, "").replace(/[\s\u00a0]/g, "").trim();
+  if (raw === "" || !/^[-+]?\d[\d.,]*$/.test(raw)) return null;
+  const sign = raw.startsWith("-") ? -1 : 1;
+  const body = raw.replace(/^[-+]/, "");
+  const lastDot = body.lastIndexOf(".");
+  const lastComma = body.lastIndexOf(",");
+  const lastSeparator = Math.max(lastDot, lastComma);
+  if (lastSeparator === -1) return sign * Number(body);
+  // "1.500.000" / "1.500.000,50" = pemisah ribuan + desimal opsional.
+  if (/^\d{1,3}([.,]\d{3})+$/.test(body)) return sign * Number(body.replace(/[.,]/g, ""));
+  const integerPart = body.slice(0, lastSeparator).replace(/[.,]/g, "");
+  const decimalPart = body.slice(lastSeparator + 1).replace(/[.,]/g, "");
+  const parsed = Number(`${integerPart || "0"}.${decimalPart || "0"}`);
+  return Number.isFinite(parsed) ? sign * parsed : null;
+}
+
+function pad2(value) {
+  return String(value).padStart(2, "0");
+}
+
+const MONTH_NAMES = {
+  jan: 1, feb: 2, mar: 3, apr: 4, mei: 5, may: 5, jun: 6, jul: 7,
+  agu: 8, aug: 8, sep: 9, okt: 10, oct: 10, nov: 11, des: 12, dec: 12,
+};
+
+/**
+ * Normalisasi tanggal ke `yyyy-mm-dd` supaya "2026-02-01", "01/02/2026",
+ * "1 Feb 2026", dan ISO timestamp bisa dibandingkan dengan format apa pun.
+ */
+export function toComparableDate(value) {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return `${value.getFullYear()}-${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}`;
+  }
+  if (typeof value !== "string") return null;
+  const raw = value.trim();
+  if (!raw) return null;
+  const iso = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[t\s].*)?$/i);
+  if (iso) return `${iso[1]}-${pad2(iso[2])}-${pad2(iso[3])}`;
+  const dmy = raw.match(/^(\d{1,2})[-/.]{1}(\d{1,2})[-/.]{1}(\d{4})(?:[t\s].*)?$/i);
+  if (dmy) return `${dmy[3]}-${pad2(dmy[2])}-${pad2(dmy[1])}`;
+  const named = raw.match(/^(\d{1,2})[\s-]([a-zA-Z]{3,})[\s-](\d{4})/);
+  if (named) {
+    const month = MONTH_NAMES[named[2].toLowerCase().slice(0, 3)];
+    if (month) return `${named[3]}-${pad2(month)}-${pad2(named[1])}`;
+  }
+  return null;
+}
+
+const EMPTY_FILTER_TOKENS = new Set(["__empty__", "(kosong)", "kosong", "empty", "null"]);
+const TRUE_TOKENS = new Set(["true", "1", "ya", "yes", "aktif", "active", "published", "dipakai"]);
+const FALSE_TOKENS = new Set(["false", "0", "tidak", "no", "nonaktif", "non-active", "nonactive", "inactive", "draft"]);
+
+function matchesSelectFilter(value, filterValue) {
+  const wanted = normalizeFilterText(filterValue);
+  if (!wanted) return true;
+  if (typeof value === "boolean") {
+    if (TRUE_TOKENS.has(wanted)) return value === true;
+    if (FALSE_TOKENS.has(wanted)) return value === false;
+  }
+  const candidates = new Set([
+    normalizeFilterText(value),
+    normalizeFilterText(formatTableValue(value)),
+  ]);
+  if (typeof value === "number") candidates.add(normalizeFilterText(String(value)));
+  if (typeof value === "boolean") {
+    candidates.add(value ? "ya" : "tidak");
+    candidates.add(value ? "aktif" : "nonaktif");
+  }
+  return candidates.has(wanted);
+}
+
+function matchesTextFilter(value, filterValue) {
+  const needle = normalizeFilterText(filterValue);
+  if (!needle) return true;
+  if (EMPTY_FILTER_TOKENS.has(needle)) return isEmptyValue(value);
+  if (needle === "-") return isEmptyValue(value);
+
+  const raw = normalizeFilterText(value);
+  const formatted = normalizeFilterText(formatTableValue(value));
+  if ((raw && raw.includes(needle)) || (formatted && formatted.includes(needle))) return true;
+
+  const needleNumber = parseNumericValue(needle);
+  const valueNumber = parseNumericValue(value);
+  if (needleNumber !== null && valueNumber !== null && needleNumber === valueNumber) return true;
+
+  const needleDate = toComparableDate(needle);
+  if (needleDate) {
+    const valueDate = toComparableDate(raw) ?? toComparableDate(formatted);
+    if (valueDate && valueDate === needleDate) return true;
+  }
+
+  return false;
 }
 
 export function matchesColumnFilter(value, filterValue, filterType) {
   if (isColumnFilterEmpty(filterValue, filterType)) return true;
   if (filterType === "range") {
-    const number = Number(value);
-    if (Number.isNaN(number)) return false;
-    if (filterValue.min !== "" && number < Number(filterValue.min)) return false;
-    if (filterValue.max !== "" && number > Number(filterValue.max)) return false;
+    const number = parseNumericValue(value);
+    if (number === null) return false;
+    const min = filterValue.min === "" || filterValue.min === undefined || filterValue.min === null ? null : parseNumericValue(filterValue.min);
+    const max = filterValue.max === "" || filterValue.max === undefined || filterValue.max === null ? null : parseNumericValue(filterValue.max);
+    if (min !== null && number < min) return false;
+    if (max !== null && number > max) return false;
     return true;
   }
-  if (filterType === "select") {
-    const wanted = String(filterValue).toLowerCase();
-    if (typeof value === "boolean") return value === (wanted === "true" || wanted === "active" || wanted === "ya" || wanted === "1");
-    return String(value ?? "").toLowerCase() === wanted;
-  }
-  if (typeof value === "boolean") {
-    const wanted = String(filterValue).toLowerCase();
-    return value === (wanted === "true" || wanted === "active" || wanted === "ya" || wanted === "1");
-  }
-  return String(value ?? "").toLowerCase().includes(String(filterValue).toLowerCase());
+  if (filterType === "select") return matchesSelectFilter(value, filterValue);
+  return matchesTextFilter(value, filterValue);
 }
 
 export function sortRowsBy(rows = [], sortBy, sortDirection, valueOf) {
@@ -144,10 +264,17 @@ export function sortRowsBy(rows = [], sortBy, sortDirection, valueOf) {
   return [...rows].sort((a, b) => {
     const rawA = valueOf(a, sortBy);
     const rawB = valueOf(b, sortBy);
-    const numA = Number(rawA);
-    const numB = Number(rawB);
-    if (Number.isFinite(numA) && Number.isFinite(numB) && numA !== numB) return (numA - numB) * direction;
-    return String(rawA ?? "").localeCompare(String(rawB ?? ""), "id") * direction;
+    const emptyA = isEmptyValue(rawA);
+    const emptyB = isEmptyValue(rawB);
+    // Baris tanpa nilai selalu di bawah agar tidak menyelip di antara angka.
+    if (emptyA || emptyB) return emptyA === emptyB ? 0 : emptyA ? 1 : -1;
+    const numA = parseNumericValue(rawA);
+    const numB = parseNumericValue(rawB);
+    if (numA !== null && numB !== null && numA !== numB) return (numA - numB) * direction;
+    const dateA = toComparableDate(rawA);
+    const dateB = toComparableDate(rawB);
+    if (dateA && dateB && dateA !== dateB) return dateA.localeCompare(dateB) * direction;
+    return String(rawA).localeCompare(String(rawB), "id", { numeric: true, sensitivity: "base" }) * direction;
   });
 }
 

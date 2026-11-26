@@ -47,7 +47,7 @@ export const ADMIN_NAV_ITEMS = [
 
 export default function AdminShell({ children }) {
   const { user } = useAuth();
-  const { pathname, search } = useLocation();
+  const { pathname } = useLocation();
   const { resolvedMode, palette } = useTheme();
   const isChatRoute = pathname === "/admin/chat";
   const { badges } = usePanelBadges("/admin/chat");
@@ -119,9 +119,7 @@ export default function AdminShell({ children }) {
                   setinggi konten yang tersisa sehingga detail hanya tampil
                   sebagai strip tipis di bawah tab dan sisanya putih kosong. */}
               <div id="panel-editor-root" className={cn("relative min-h-full w-full min-w-0 pb-8 pt-0", isChatRoute ? "flex h-full min-h-0 flex-col" : "")}>
-                <div key={pathname + search}>
-                  {children || <RouteOutletBoundary className={cn("h-full w-full min-w-0 max-w-full", isChatRoute && "min-h-0 flex-1")} />}
-                </div>
+                {children || <RouteOutletBoundary className={cn("h-full w-full min-w-0 max-w-full", isChatRoute && "min-h-0 flex-1")} />}
               </div>
             </main>
           </div>

@@ -6,6 +6,7 @@ export { usePermission } from "./usePermission";
 export { useRefreshOnListActivation } from "./useRefreshOnListActivation";
 export { useInfiniteList } from "./useInfiniteList";
 export { useColumnFilterState } from "./useColumnFilterState";
+export { useColumnFilterAutoLoad } from "./useColumnFilterAutoLoad";
 export * from "./useTableSelection";
 export * from "./useColumnVisibility";
 export { useListTotalCount } from "./useListTotalCount";

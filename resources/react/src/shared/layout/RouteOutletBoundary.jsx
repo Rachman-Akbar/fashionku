@@ -1,4 +1,4 @@
-import { memo, Suspense } from "react";
+import { Suspense } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import PageErrorBoundary from "@/shared/components/feedback/PageErrorBoundary";
 import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
@@ -15,7 +15,7 @@ function RouteLoadingFallback() {
   );
 }
 
-export const RouteOutletBoundary = memo(function RouteOutletBoundary({ className }) {
+export function RouteOutletBoundary({ className }) {
   const { pathname, search } = useLocation();
   const tabs = usePanelTabs();
 
@@ -33,4 +33,4 @@ export const RouteOutletBoundary = memo(function RouteOutletBoundary({ className
       </PageErrorBoundary>
     </div>
   );
-});
+}

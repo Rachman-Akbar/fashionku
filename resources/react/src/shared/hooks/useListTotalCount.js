@@ -23,6 +23,7 @@ export function useListTotalCount(meta, options = {}) {
     return {
       totalCount: count,
       totalLabel: count === undefined ? "" : label,
+      filterState,
       totalTitle: !hasTotal
         ? (filtered ? `${filteredText} data pada halaman ini` : "")
         : (hasMeta

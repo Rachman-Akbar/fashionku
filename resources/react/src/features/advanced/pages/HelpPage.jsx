@@ -18,7 +18,7 @@ import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
 import { inputClassName } from "@/shared/components/form/FormField";
 import { toolbarControlClassName } from "@/shared/components/crud/toolbarControlClassName";
-import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
+import { useColumnFilterAutoLoad, useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { usePanelTabs } from "@/shared/layout/tabs";
 import { isOperatorRole } from "@/shared/utils/roles";
@@ -68,6 +68,7 @@ export default function HelpPage() {
   }, [usersQuery.data]);
   const rows = listQuery.data?.rows || [];
   const total = useListTotalCount(listQuery.data?.meta, { fallbackTotal: rows.length, label: "Help" });
+  useColumnFilterAutoLoad({ activeCount: total.filterState.activeCount, query: listQuery });
   const ticket = ticketQuery.data || detailTab?.entity || null;
   const context = contextQuery.data || null;
   const contextUser = context?.user || user || null;

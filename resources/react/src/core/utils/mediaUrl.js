@@ -14,19 +14,10 @@ function resolveLocalAbsoluteUrl(raw) {
     const localHosts = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
     const isLocalHost = localHosts.has(parsed.hostname);
 
-    if (import.meta.env.DEV) {
-      if (!isLocalHost && storageIndex >= 0) {
-        return `${getAssetBaseUrl()}${parsed.pathname.slice(storageIndex)}${parsed.search}${parsed.hash}`;
-      }
-
-      return raw;
-    }
-
-    if (!isLocalHost) {
-      return raw;
-    }
-
-    if (storageIndex >= 0) {
+    // URL /storage milik host lokal diselaraskan ke origin aplikasi saat ini.
+    // Ini memperbaiki gambar lama yang tersimpan dengan host/port berbeda
+    // (mis. http://localhost/storage/... saat aplikasi berjalan di :5173/:8000).
+    if (storageIndex >= 0 && (isLocalHost || import.meta.env.DEV)) {
       return `${getAssetBaseUrl()}${parsed.pathname.slice(storageIndex)}${parsed.search}${parsed.hash}`;
     }
 

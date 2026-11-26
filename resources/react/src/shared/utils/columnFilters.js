@@ -34,7 +34,7 @@ function isTemporalValue(value) {
  *
  * `column.filterType` / `column.filterable === false` selalu menang.
  */
-export function buildColumnFilterConfig(columns = [], rows = [], getValue = resolveTableValue) {
+export function buildColumnFilterConfig(columns = [], rows = [], getValue = resolveTableValue, { coerceNumericStrings = true } = {}) {
   const types = {};
   const options = {};
   const samplesByKey = {};
@@ -51,7 +51,7 @@ export function buildColumnFilterConfig(columns = [], rows = [], getValue = reso
     if (!type) {
       if (Array.isArray(column.options) && column.options.length) type = "select";
       else if (samples.length && samples.every((value) => typeof value === "boolean")) type = "select";
-      else if (samples.length && samples.every(isNumericLike)) type = "range";
+      else if (samples.length && samples.every((value) => (coerceNumericStrings ? isNumericLike(value) : typeof value === "number" && Number.isFinite(value)))) type = "range";
       else type = "text";
     }
     types[key] = type;

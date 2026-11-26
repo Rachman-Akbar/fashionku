@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -16,6 +17,40 @@ use Illuminate\Support\Facades\DB;
  */
 final class FashionCatalogSeeder extends Seeder
 {
+    /**
+     * Gambar kategori per slug (level 1, 2, dan 3). Foto level 3 diambil dari
+     * pool Unsplash yang sama dengan FashionProductsSeeder agar kategori dan
+     * produknya selaras.
+     */
+    private const CATEGORY_IMAGES = [
+        // Level 1
+        'pakaian' => '1483985988355-763728e1935b',
+        'gaya-hidup' => '1511499767150-a48a237f0083',
+        // Level 2
+        'pakaian-pria' => '1552374196-1ab2a1c593e8',
+        'pakaian-wanita' => '1515372039744-b8f02a3ae446',
+        'alas-kaki' => '1460353581641-37baddab0fa2',
+        'tas' => '1622560480605-d83c853bc5c3',
+        'aksesori' => '1523170335258-f5ed11844a49',
+        // Level 3
+        'kaos' => '1521572163474-6864f9cf17ab',
+        'kemeja' => '1552374196-1ab2a1c593e8',
+        'jaket' => '1551028719-00167b16eac5',
+        'celana-pria' => '1541099649105-f69ad21f3246',
+        'dress' => '1515372039744-b8f02a3ae446',
+        'blus' => '1485968579580-b6d095142e6e',
+        'rok' => '1487222477894-8943e31ef7b2',
+        'outer-wanita' => '1434389677669-e08b4cac3105',
+        'sepatu' => '1460353581641-37baddab0fa2',
+        'sandal' => '1543163521-1bf539c55dd2',
+        'tas-ransel' => '1622560480605-d83c853bc5c3',
+        'tas-selempang' => '1475180098004-ca77a66827be',
+        'dompet' => '1548036328-c9fa89d128fa',
+        'jam-tangan' => '1523170335258-f5ed11844a49',
+        'kacamata' => '1511499767150-a48a237f0083',
+        'perhiasan' => '1515562141207-7a88fb7ce338',
+    ];
+
     public function run(): void
     {
         $this->command?->info('Fashionku: membuat katalog fashion...');
@@ -71,6 +106,7 @@ final class FashionCatalogSeeder extends Seeder
                 sortOrder: 10,
                 actorId: $actorId,
                 now: $now,
+                imageUrl: $this->imageUrlFor($rootSlug),
             );
             $categoryCount++;
 
@@ -86,6 +122,7 @@ final class FashionCatalogSeeder extends Seeder
                     sortOrder: $subSort,
                     actorId: $actorId,
                     now: $now,
+                    imageUrl: $this->imageUrlFor($subSlug),
                 );
                 $categoryCount++;
                 $subSort += 10;
@@ -102,6 +139,7 @@ final class FashionCatalogSeeder extends Seeder
                         sortOrder: $leafSort,
                         actorId: $actorId,
                         now: $now,
+                        imageUrl: $this->imageUrlFor($leafSlug),
                     );
                     $categoryCount++;
                     $leafSort += 10;
@@ -126,6 +164,16 @@ final class FashionCatalogSeeder extends Seeder
             ]);
         }
 
+        // Seeder menulis langsung ke tabel, sedangkan daftar kategori di admin
+        // dibaca dari cache. Bersihkan agar gambar baru langsung terlihat.
+        foreach ([
+            'catalog_categories_tree_rows_manage_v4',
+            'catalog_categories_tree_rows_active_v4',
+            'catalog_categories_menu_rows_active_v4',
+        ] as $cacheKey) {
+            Cache::forget($cacheKey);
+        }
+
         $this->command?->info('Fashionku: katalog selesai — '.$categoryCount.' kategori, '.count($leafIds).' leaf, '.count($attributes).' atribut.');
     }
 
@@ -138,7 +186,23 @@ final class FashionCatalogSeeder extends Seeder
         int $sortOrder,
         ?string $actorId,
         string $now,
+        ?string $imageUrl = null,
     ): int {
+        // Saat seeder dijalankan ulang, jangan buat duplikat kategori: isi
+        // gambar yang belum ada pada baris dengan full_slug yang sama.
+        $existingId = DB::table('categories')->where('full_slug', $fullSlug)->value('id');
+
+        if ($existingId !== null) {
+            if ($imageUrl !== null) {
+                DB::table('categories')
+                    ->where('id', $existingId)
+                    ->whereNull('image_url')
+                    ->update(['image_url' => $imageUrl, 'updated_at' => $now]);
+            }
+
+            return (int) $existingId;
+        }
+
         return DB::table('categories')->insertGetId([
             'parent_id' => $parentId,
             'parent_scope_id' => $parentId ?? 0,
@@ -149,12 +213,21 @@ final class FashionCatalogSeeder extends Seeder
             'name' => $name,
             'slug' => $slug,
             'full_slug' => $fullSlug,
-            'image_url' => null,
+            'image_url' => $imageUrl,
             'icon_url' => null,
             'created_by' => $actorId,
             'updated_by' => $actorId,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+    }
+
+    private function imageUrlFor(string $slug): ?string
+    {
+        $id = self::CATEGORY_IMAGES[$slug] ?? null;
+
+        return $id === null
+            ? null
+            : sprintf('https://images.unsplash.com/photo-%s?auto=format&fit=crop&w=600&h=600&q=80', $id);
     }
 }

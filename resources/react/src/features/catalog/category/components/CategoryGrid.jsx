@@ -27,15 +27,17 @@ export function CategoryGrid() {
       )}
       {!navigationQuery.isLoading && !navigationQuery.error && (
         <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
-          {categories.map((category) => (
+          {categories.map((category) => {
+            const image = category.image_url || category.icon_url;
+            return (
             <Link
               key={category.id || category.slug}
               to={getCategoryHref(category)}
               className="flex flex-col items-center gap-2 p-3 bg-white rounded-xl border border-gray-200 hover:border-orange-300 transition-colors group"
             >
-              {category.icon_url ? (
+              {image ? (
                 <img
-                  src={resolveMediaUrl(category.icon_url)}
+                  src={resolveMediaUrl(image)}
                   alt={toTitleCase(category.name)}
                   className="w-8 h-8 object-contain"
                   onError={(e) => {
@@ -51,7 +53,8 @@ export function CategoryGrid() {
                 {toTitleCase(category.name)}
               </span>
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

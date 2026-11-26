@@ -9,7 +9,7 @@ import { FormModal } from "@/features/advanced/components/FormModal";
 import { Input } from "@/shared/components/ui/Input";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { InfiniteScrollSentinel } from "@/shared/components/ui/InfiniteScrollSentinel";
-import { useColumnVisibility, useTableSelection } from "@/shared/hooks";
+import { useColumnFilterAutoLoad, useColumnVisibility, useTableSelection } from "@/shared/hooks";
 import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
 import { buildDatabaseColumns, mergeColumns } from "@/shared/utils/tableData";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
@@ -47,6 +47,9 @@ export default function AdminOrdersPage() {
     total.onFilterStateChange(state);
     setFilteredOrders(state?.filteredRows || []);
   }, [total]);
+  // Filter kolom tabel pesanan berjalan di client, jadi sisa halaman dimuat dulu
+  // agar baris di halaman berikutnya tidak dianggap "tidak ditemukan".
+  useColumnFilterAutoLoad({ activeCount: total.filterState.activeCount, query: ordersQuery });
   const editor = useEntityEditor({ getEditLabel: (row) => row.orderNumber || row.order_number || row.subOrderNumber || `Order #${row.id}` });
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: ordersQuery.refetch });
   // Kolom kurasi + semua kolom database lain (kecuali kolom ID). Kolom yang

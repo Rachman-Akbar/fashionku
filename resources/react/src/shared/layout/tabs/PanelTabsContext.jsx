@@ -8,7 +8,12 @@ const PanelTabsContext = createContext(null);
 
 function matchMenu(items, pathname) {
   const matches = items.filter((item) => item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`));
-  return matches.sort((left, right) => right.href.length - left.href.length)[0] || items[0] || null;
+  return matches.sort((left, right) => {
+    const leftExact = left.href === pathname ? 1 : 0;
+    const rightExact = right.href === pathname ? 1 : 0;
+    if (rightExact !== leftExact) return rightExact - leftExact;
+    return right.href.length - left.href.length;
+  })[0] || items[0] || null;
 }
 
 function createParentTab(item) {

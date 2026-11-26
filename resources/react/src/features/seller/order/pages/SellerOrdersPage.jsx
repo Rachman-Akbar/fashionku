@@ -3,6 +3,7 @@ import { SellerPanelShell } from "@/features/seller/dashboard/components/SellerP
 import { ORDER_TABLE_COLUMNS, OrderManagementTable } from "@/features/admin/order/components/OrderManagementTable";
 import { getOrderManagementError, useSellerOrders, useUpdateOrderStatus } from "@/features/admin/order/services/orderManagementService";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
+import { useColumnFilterAutoLoad } from "@/shared/hooks";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
@@ -31,6 +32,8 @@ export default function SellerOrdersPage() {
   const updateMutation = useUpdateOrderStatus();
   const rows = ordersQuery.data?.rows || [];
   const total = useListTotalCount(ordersQuery.data?.meta, { label: "Pesanan" });
+  // Filter kolom berjalan di client, jadi sisa halaman dimuat dulu saat filter aktif.
+  useColumnFilterAutoLoad({ activeCount: total.filterState.activeCount, query: ordersQuery });
   const editor = useEntityEditor({ getEditLabel: (row) => row.orderNumber || row.order_number || row.subOrderNumber || `Order #${row.id}` });
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: ordersQuery.refetch });
   // Kolom kurasi + semua kolom database lain (kecuali kolom ID).

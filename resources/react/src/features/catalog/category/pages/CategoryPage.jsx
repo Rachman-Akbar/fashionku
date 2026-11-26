@@ -11,6 +11,7 @@ import {
   useInfiniteProductsByCategoryPath,
 } from "@/features/catalog/category/services/categoryService";
 import { normalizeProduct } from "@/features/catalog/product/services/productService";
+import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 
 const INITIAL_FILTERS = {
   categories: [],
@@ -18,6 +19,14 @@ const INITIAL_FILTERS = {
   minPrice: "",
   maxPrice: "",
 };
+
+const CATEGORY_IMAGE_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Crect width='600' height='600' fill='%23f3f4f6'/%3E%3Cpath d='M180 385h240l-74-94-54 68-42-52-70 78Z' fill='%23d1d5db'/%3E%3Ccircle cx='235' cy='235' r='35' fill='%23d1d5db'/%3E%3C/svg%3E";
+
+function handleCategoryImageError(event) {
+  if (event.currentTarget.dataset.fallbackApplied === "true") return;
+  event.currentTarget.dataset.fallbackApplied = "true";
+  event.currentTarget.src = CATEGORY_IMAGE_PLACEHOLDER;
+}
 
 // Carousel component for Level 3 categories on Level 2 pages
 function Level3CategoryCarousel({ categories }) {
@@ -41,19 +50,22 @@ function Level3CategoryCarousel({ categories }) {
         ref={scrollerRef}
         className="flex gap-4 overflow-x-auto hide-scrollbar pb-4 scroll-smooth"
       >
-        {categories.map((child) => (
+        {categories.map((child) => {
+          const image = resolveMediaUrl(child.image_url || child.icon_url || "");
+          return (
           <Link
             key={child.id || child.slug}
             to={getCategoryHref(child)}
             className="flex-shrink-0 w-40 sm:w-44 group"
           >
             <div className="aspect-square overflow-hidden rounded-xl bg-slate-100">
-              {child.image_url ? (
+              {image ? (
                 <img
-                  src={child.image_url}
+                  src={image}
                   alt={child.name}
                   className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                   loading="lazy"
+                  onError={handleCategoryImageError}
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-slate-300">
@@ -65,7 +77,8 @@ function Level3CategoryCarousel({ categories }) {
               {child.name}
             </p>
           </Link>
-        ))}
+          );
+        })}
       </div>
       {count > 3 && (
         <button
@@ -106,6 +119,7 @@ export default function CategoryPage() {
   const loadMoreRef = useRef(null);
   const [sort, setSort] = useState("relevance");
   const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const categoryScrollerRef = useRef(null);
 
   useEffect(() => {
     setFilters(INITIAL_FILTERS);
@@ -160,6 +174,10 @@ export default function CategoryPage() {
   const categoryName = category?.name || titleFromSlug(slug) || "Kategori";
   const childCategories = category?.children || [];
   const categoryLevel = Number(category?.level || 1);
+  // Kategori root menampilkan subkategori level 2 sebagai bubble bergambar.
+  const categoryBubbles = categoryLevel === 1
+    ? childCategories.filter((item) => item.image_url || item.icon_url)
+    : [];
   const levelThreeCards = categoryLevel === 2
     ? childCategories.filter((item) => Number(item.level || 3) === 3)
     : [];
@@ -202,7 +220,18 @@ export default function CategoryPage() {
     <div className="w-full">
       <section className="bg-[#10B981] text-white py-10">
         <div className="max-w-[1200px] mx-auto px-6">
-          <h2 className="text-2xl font-bold mb-8">{categoryName}</h2>
+          <div className="mb-8 flex items-center gap-4">
+            {category?.image_url || category?.icon_url ? (
+              <img
+                src={resolveMediaUrl(category.image_url || category.icon_url || "")}
+                alt={categoryName}
+                className="h-16 w-16 shrink-0 rounded-xl bg-white/20 object-cover ring-2 ring-white/40 sm:h-20 sm:w-20"
+                loading="lazy"
+                onError={handleCategoryImageError}
+              />
+            ) : null}
+            <h2 className="text-2xl font-bold">{categoryName}</h2>
+          </div>
           {categoryLevel === 2 && levelThreeCards.length ? (
             <div className="mb-8">
               <h3 className="text-lg font-bold text-white/90 mb-4">Sub Kategori</h3>
@@ -212,7 +241,7 @@ export default function CategoryPage() {
           {categoryLevel !== 2 && categoryLevel !== 3 && categoryBubbles.length ? (
             <div className="relative group">
               <div
-                ref={scrollerRef}
+                ref={categoryScrollerRef}
                 className="flex gap-4 overflow-x-auto hide-scrollbar pb-4 scroll-smooth"
               >
                 {categoryBubbles.map((bubble) => (
@@ -222,9 +251,11 @@ export default function CategoryPage() {
                   >
                     <div className="w-20 h-20 bg-white rounded-xl flex items-center justify-center shadow-sm overflow-hidden border-2 border-transparent hover:border-[#76ff64] transition-all">
                       <img
-                        src={bubble.image_url}
+                        src={resolveMediaUrl(bubble.image_url || bubble.icon_url || "")}
                         alt={bubble.name}
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={handleCategoryImageError}
                       />
                     </div>
                     <span className="text-[10px] font-bold uppercase text-center w-20">
@@ -237,7 +268,7 @@ export default function CategoryPage() {
                 type="button"
                 className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-8 h-8 bg-white text-[#1b1c1c] rounded-full shadow-lg flex items-center justify-center hover:bg-[#f6f3f2] transition-colors"
                 onClick={() =>
-                  scrollerRef.current?.scrollBy({
+                  categoryScrollerRef.current?.scrollBy({
                     left: 200,
                     behavior: "smooth",
                   })

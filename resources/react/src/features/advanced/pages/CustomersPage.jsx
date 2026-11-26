@@ -6,7 +6,7 @@ import { ModuleFrame } from "@/features/advanced/components/ModuleFrame";
 import { DataGrid } from "@/features/advanced/components/DataGrid";
 import { buildDatabaseColumns } from "@/shared/utils/tableData";
 import { CustomerDetailForm } from "@/features/advanced/pages/CustomerDetailPage";
-import { useEntityEditor, useRefreshOnListActivation, useViewMode, useTableSelection } from "@/shared/hooks";
+import { useColumnFilterAutoLoad, useEntityEditor, useRefreshOnListActivation, useViewMode, useTableSelection } from "@/shared/hooks";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import { ExcelActionButtons } from "@/shared/excel";
@@ -50,6 +50,8 @@ export default function CustomersPage() {
 
   const rows = listQuery.data?.rows || [];
   const total = useListTotalCount(listQuery.data?.meta, { fallbackTotal: rows.length, label: "Pelanggan" });
+  // Filter kolom berjalan di client, jadi sisa halaman dimuat dulu saat filter aktif.
+  useColumnFilterAutoLoad({ activeCount: total.filterState.activeCount, query: listQuery });
   const editor = useEntityEditor({ getEditLabel: (row) => row.name || `Pelanggan #${row.id}` });
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: listQuery.refetch });
   const selection = useTableSelection(rows);
@@ -91,6 +93,9 @@ export default function CustomersPage() {
   ];
 
   const customerCard = {
+    // Avatar juga dipakai pada mode kartu; sebelumnya hanya dirender di sel
+    // nama pada mode tabel.
+    image: (row) => row.avatar || null,
     title: (row) => row.name || "Pelanggan",
     subtitle: (row) => row.code ? `${row.code} · ${row.email || "-"}` : row.email || "-",
     badges: [

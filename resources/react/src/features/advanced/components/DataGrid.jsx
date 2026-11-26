@@ -1,25 +1,16 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { TableHeaderFilter } from "@/shared/components/crud/TableHeaderFilter";
 import { InfiniteScrollSentinel } from "@/shared/components/ui/InfiniteScrollSentinel";
 import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
 import { useHorizontalScroll } from "@/shared/hooks/useHorizontalScroll";
 import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
 import { useColumnVisibility } from "@/shared/hooks/useColumnVisibility";
-import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
+import { buildColumnFilterConfig } from "@/shared/utils/columnFilters";
+import { formatTableValue, isColumnFilterEmpty, matchesColumnFilter, resolveTableValue, sortRowsBy } from "@/shared/utils/tableData";
 import { cn } from "@/shared/utils/utils";
 import { isInactiveRow } from "@/shared/components/feedback/inactiveRow";
 import { RecordCardGrid } from "@/shared/components/ui/RecordCardGrid";
 import { useToolbarTableColumns } from "./ToolbarTableColumnsContext";
-
-function hasFilterValue(type, value) {
-  if (type === "range") return Boolean(value?.min !== "" || value?.max !== "");
-  return value !== "" && value !== null && value !== undefined;
-}
-
-function valueText(value) {
-  const formatted = formatTableValue(value);
-  return formatted !== "-" ? String(formatted).toLowerCase() : "";
-}
 
 export const HEADER_ACTIONS_KEY = "special_actions";
 
@@ -40,15 +31,6 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
     () => visibleColumns.map((column) => ({ ...column, width: column.width || 170, minWidth: column.minWidth || 96, maxWidth: column.maxWidth || 520 })),
     [visibleColumns],
   );
-  const filterConfig = useMemo(() => {
-    const config = {};
-    layoutColumns.forEach((column) => {
-      if (column.filterable === false || column.key === HEADER_ACTIONS_KEY) return;
-      config[column.key] = { type: column.filterType || "text", options: column.options || [] };
-    });
-    return config;
-  }, [layoutColumns]);
-
   // Nilai sel untuk filter/sort/opsi. Kolom boleh mendefinisikan `valueOf`
   // untuk nilai turunan (mis. persentase kenaikan HPP) yang tidak ada di data.
   const columnsByKey = useMemo(() => new Map(layoutColumns.map((column) => [column.key, column])), [layoutColumns]);
@@ -58,18 +40,20 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
     return resolveTableValue(row, key);
   }, [columnsByKey]);
 
-  const selectOptions = useMemo(() => {
-    const options = {};
-    layoutColumns.forEach((column) => {
-      if (column.key === HEADER_ACTIONS_KEY || (column.filterType || "text") !== "select" || (column.options && column.options.length)) return;
-      const values = new Set();
-      rows.forEach((row) => {
-        const value = formatTableValue(cellValue(row, column.key));
-        if (value !== "-") values.add(value);
-      });
-      options[column.key] = [...values].sort((left, right) => left.localeCompare(right, "id")).map((value) => ({ value, label: value }));
+  const filterConfig = useMemo(() => {
+    const filterable = layoutColumns.filter((column) => column.filterable !== false && column.key !== HEADER_ACTIONS_KEY);
+    // Deteksi otomatis tipe filter (rentang untuk angka, pilihan untuk boolean).
+    // String angka (kode, nomor telepon) tetap diperlakukan sebagai teks agar
+    // filter tidak berubah perilaku.
+    const detected = buildColumnFilterConfig(filterable, rows, cellValue, { coerceNumericStrings: false });
+    const config = {};
+    filterable.forEach((column) => {
+      const key = String(column.key);
+      const type = column.filterType || detected.types[key] || "text";
+      const options = Array.isArray(column.options) && column.options.length ? column.options : (detected.options[key] || []);
+      config[key] = { type, options };
     });
-    return options;
+    return config;
   }, [cellValue, layoutColumns, rows]);
 
   const [columnFilters, setColumnFilters] = useState({});
@@ -77,38 +61,40 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
   const [sortDirection, setSortDirection] = useState("asc");
   const layout = useTableColumnLayout({ storageKey: tableKey, columns: layoutColumns, preferredOrder: visibleState.visibleKeys, onOrderChange: visibleState.syncVisibleOrder });
   const hScroll = useHorizontalScroll();
+  const headerViewportRef = useRef(null);
+
+  // Header tabel berada di kontainer scroll horizontal tersendiri agar bisa
+  // sticky terhadap halaman (bukan terhadap scrollport tabel). Posisi
+  // horizontalnya disinkronkan dua arah dengan body tabel.
+  const handleBodyScroll = useCallback((event) => {
+    hScroll.handleTableScroll(event);
+    const header = headerViewportRef.current;
+    if (header && Math.abs(header.scrollLeft - event.currentTarget.scrollLeft) > 1) {
+      header.scrollLeft = event.currentTarget.scrollLeft;
+    }
+  }, [hScroll]);
+
+  const handleHeaderScroll = useCallback((event) => {
+    const body = hScroll.scrollRef.current;
+    if (body && Math.abs(body.scrollLeft - event.currentTarget.scrollLeft) > 1) {
+      body.scrollLeft = event.currentTarget.scrollLeft;
+    }
+  }, [hScroll]);
+
+  const activeFilterKeys = useMemo(
+    () => Object.keys(columnFilters).filter((key) => !isColumnFilterEmpty(columnFilters[key], filterConfig[key]?.type || "text")),
+    [columnFilters, filterConfig],
+  );
 
   const sortedRows = useMemo(() => {
-    let next = rows;
-    const activeFilters = Object.keys(columnFilters).filter((key) => hasFilterValue(filterConfig[key]?.type, columnFilters[key]));
-    if (activeFilters.length) {
-      next = next.filter((row) =>
-        activeFilters.every((key) => {
-          const value = cellValue(row, key);
-          const type = filterConfig[key].type;
-          const filterValue = columnFilters[key];
-          if (type === "range") {
-            const num = Number(value);
-            return !(filterValue.min !== "" && !(num >= Number(filterValue.min))) && !(filterValue.max !== "" && !(num <= Number(filterValue.max)));
-          }
-          if (type === "select") {
-            return String(value ?? "") === String(filterValue ?? "") || String(formatTableValue(value ?? "")) === String(filterValue ?? "");
-          }
-          return valueText(value).includes(String(filterValue ?? "").toLowerCase());
-        }),
-      );
-    }
-    if (sortBy) {
-      const direction = sortDirection === "desc" ? -1 : 1;
-      next = [...next].sort((left, right) =>
-        String(cellValue(left, sortBy) ?? "").localeCompare(String(cellValue(right, sortBy) ?? ""), "id", { numeric: true, sensitivity: "base" }) * direction,
-      );
-    }
-    return next;
-  }, [cellValue, columnFilters, filterConfig, rows, sortBy, sortDirection]);
+    const filtered = activeFilterKeys.length
+      ? rows.filter((row) => activeFilterKeys.every((key) => matchesColumnFilter(cellValue(row, key), columnFilters[key], filterConfig[key]?.type || "text")))
+      : rows;
+    return sortRowsBy(filtered, sortBy, sortDirection, cellValue);
+  }, [activeFilterKeys, cellValue, columnFilters, filterConfig, rows, sortBy, sortDirection]);
 
   const tableWidth = layout.totalWidth + (selectionEnabled ? 44 : 0);
-  const activeFilterCount = Object.keys(columnFilters).filter((key) => hasFilterValue(filterConfig[key]?.type, columnFilters[key])).length;
+  const activeFilterCount = activeFilterKeys.length;
 
   useEffect(() => {
     onFilterStateChange?.({ activeCount: activeFilterCount, filteredCount: sortedRows.length, loadedCount: rows.length });
@@ -165,14 +151,14 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
           onFilterChange={(value) =>
             setColumnFilters((current) => {
               const next = { ...current };
-              if (hasFilterValue(filterConfig[column.key]?.type, value)) next[column.key] = value;
+              if (!isColumnFilterEmpty(value, filterConfig[column.key]?.type || "text")) next[column.key] = value;
               else delete next[column.key];
               return next;
             })
           }
           onClearAllFilters={() => { setColumnFilters({}); setSortBy(""); setSortDirection("asc"); }}
           onResetSort={() => { setSortBy(""); setSortDirection("asc"); }}
-          options={selectOptions[column.key] || filterConfig[column.key]?.options || []}
+          options={filterConfig[column.key]?.options || []}
           headerProps={layout.getHeaderProps(column.key)}
           columnKey={column.key}
           columnStyle={layout.getColumnStyle(column.key)}
@@ -192,20 +178,24 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
   // body (mode list) agar header dan isi bergeser bersamaan saat di-scroll
   // ke samping. `sticky` tetap bekerja karena kontainer memakai
   // `overflow-y: clip` (bukan scroll container vertikal).
-  const headerRow = (
-    <div className="sticky top-[var(--list-toolbar-h,0px)] z-30 bg-slate-100">
-      <table className="table-fixed border-collapse text-left text-sm" style={{ width: Math.max(tableWidth, 760), minWidth: "100%" }}>
-        <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">{headerCells}</thead>
-      </table>
-    </div>
-  );
-
   // Header dipakai juga sebagai baris filter, jadi harus tetap menempel di
   // atas saat halaman digulir pada SEMUA mode tampilan (list, kartu, grafik).
-  // `[overflow-y:clip]` penting: kontainer hanya menjadi scrollport horizontal,
-  // sehingga `sticky` tetap mengacu ke area gulir halaman.
+  // Wrapper sticky sengaja berada DI LUAR kontainer scroll horizontal; kalau
+  // sticky berada di dalamnya, "nearest scrollport" adalah kontainer tabel
+  // yang tidak menggulir vertikal sehingga header ikut hilang saat halaman
+  // digulir.
   const headerTable = (
-    <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] bg-slate-100">{headerRow}</div>
+    <div className="sticky top-[var(--list-toolbar-h,0px)] z-30 bg-slate-100">
+      <div
+        ref={headerViewportRef}
+        onScroll={handleHeaderScroll}
+        className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] bg-slate-100 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <table className="table-fixed border-collapse text-left text-sm" style={{ width: Math.max(tableWidth, 760), minWidth: "100%" }}>
+          <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">{headerCells}</thead>
+        </table>
+      </div>
+    </div>
   );
 
   const headerActionsBar = headerActions && !renderSpecialActions && specialVisible ? (
@@ -257,8 +247,8 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
       {!sortedRows.length ? (
         <>
           <TopScrollbar {...hScroll} visible={hScroll.hasOverflow} width={hScroll.metrics.scrollWidth} />
-          <div ref={hScroll.scrollRef} onScroll={hScroll.handleTableScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] border-x border-b border-slate-200 bg-white">
-            {headerRow}
+          {headerTable}
+          <div ref={hScroll.scrollRef} className="w-full min-w-0 max-w-full border-x border-b border-slate-200 bg-white">
             <div className="p-8 text-center text-sm text-slate-500">{emptyMessage}</div>
           </div>
         </>
@@ -272,8 +262,8 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
           {/* Scrollbar horizontal di atas header supaya tetap terjangkau walau
               daftar sudah panjang (infinite scroll). */}
           <TopScrollbar {...hScroll} visible={hScroll.hasOverflow} width={hScroll.metrics.scrollWidth} />
-          <div ref={hScroll.scrollRef} onScroll={hScroll.handleTableScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] border-x border-b border-slate-200 bg-white">
-            {headerRow}
+          {headerTable}
+          <div ref={hScroll.scrollRef} onScroll={handleBodyScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] border-x border-b border-slate-200 bg-white">
             <table className="table-fixed border-collapse text-left text-sm" style={{ width: Math.max(tableWidth, 760), minWidth: "100%" }}>
             <tbody className="divide-y divide-slate-100">
               {sortedRows.map((row) => {

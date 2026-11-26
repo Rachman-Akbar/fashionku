@@ -9,7 +9,7 @@ import { FinanceChartPanel } from "@/shared/charts/ChartPanels";
 import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { Input } from "@/shared/components/ui/Input";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
-import { useEntityEditor, useRefreshOnListActivation, useTableSelection, useColumnVisibility } from "@/shared/hooks";
+import { useColumnFilterAutoLoad, useEntityEditor, useRefreshOnListActivation, useTableSelection, useColumnVisibility } from "@/shared/hooks";
 import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import { useAuth } from "@/features/auth/context/AuthContext";
@@ -303,6 +303,8 @@ export default function FinancePage({ mode = "cashflow" }) {
   const paymentOpen = panelTabs ? panelTabs.activeTab?.type === "finance-payment" : localPaymentOpen;
   const paymentHistoryQuery = useFinancePaymentHistory(paymentRow?.id, paymentOpen);
   const total = useListTotalCount(listQuery.data?.meta, { label: "Transaksi" });
+  // Filter kolom berjalan di client, jadi sisa halaman dimuat dulu saat filter aktif.
+  useColumnFilterAutoLoad({ activeCount: total.filterState.activeCount, query: listQuery });
   const deferredOrderSearch = useDeferredValue(orderSearch.trim());
   const sellerOrderQuery = useSellerOrders({ per_page: 20, enabled: editor.open && activeRole !== "admin", ...(deferredOrderSearch ? { order_number: deferredOrderSearch } : {}) });
   const adminOrderQuery = useAdminOrders({ per_page: 20, enabled: editor.open && activeRole === "admin", ...(deferredOrderSearch ? { order_number: deferredOrderSearch } : {}) });

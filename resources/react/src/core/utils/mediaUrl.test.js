@@ -21,9 +21,10 @@ describe("resolveMediaUrl", () => {
     expect(resolveMediaUrl("http://assets.example.org/a/b.jpg?w=100")).toBe("http://assets.example.org/a/b.jpg?w=100");
   });
 
-  it("keeps localhost absolute URLs in dev mode", () => {
-    expect(resolveMediaUrl("http://localhost:8000/storage/img.png")).toBe("http://localhost:8000/storage/img.png");
-    expect(resolveMediaUrl("http://127.0.0.1/storage/img.png")).toBe("http://127.0.0.1/storage/img.png");
+  it("normalizes local storage URLs to the current origin", () => {
+    const base = getAssetBaseUrl();
+    expect(resolveMediaUrl("http://localhost:8000/storage/img.png")).toBe(`${base}/storage/img.png`);
+    expect(resolveMediaUrl("http://127.0.0.1/storage/img.png")).toBe(`${base}/storage/img.png`);
   });
 
   it("resolves protocol-relative URLs against the current protocol", () => {

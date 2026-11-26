@@ -11,9 +11,12 @@ export async function uploadMarketplaceImage(file, scope = "general") {
   });
 
   const data = unwrapApiData(response.data) || response.data?.data || {};
+  // Utamakan path relatif: URL absolut dari backend memakai host request yang
+  // bisa berbeda dengan origin aplikasi (mis. localhost tanpa port saat dev),
+  // sehingga gambar tersimpan dengan alamat yang tidak bisa dimuat.
   return {
     path: data.path || "",
-    url: resolveMediaUrl(data.url || data.public_path || data.path || ""),
+    url: resolveMediaUrl(data.public_path || data.url || data.path || ""),
     name: data.name || file.name,
     size: Number(data.size || file.size || 0),
     mimeType: data.mime_type || file.type || "",

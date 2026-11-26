@@ -9,7 +9,7 @@ import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
 import { useHorizontalScroll } from "@/shared/hooks/useHorizontalScroll";
 import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
 import { cn, formatPrice } from "@/shared/utils/utils";
-import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
+import { formatTableValue, isColumnFilterEmpty, matchesColumnFilter, resolveTableValue, sortRowsBy } from "@/shared/utils/tableData";
 import { parseShipping } from "@/shared/utils/shipping";
 import { toTitleCase } from "@/shared/utils/textFormatter";
 import { orderTypeLabel } from "@/features/admin/order/services/orderManagementService";
@@ -94,11 +94,6 @@ function pickupAtOf(row) {
   return row.pickupAt || row.pickup_at || row.raw?.pickup_at || null;
 }
 
-function hasFilterValue(type, value) {
-  if (type === "range") return Boolean(value?.min !== "" || value?.max !== "");
-  return value !== "" && value !== null && value !== undefined;
-}
-
 function rawColumnValue(column, row) {
   const value = resolveTableValue({ raw: row.raw }, column.rawKey);
   // Alamat tersimpan sebagai JSON string; tampilkan sebagai teks biasa.
@@ -173,44 +168,27 @@ export const OrderManagementTable = memo(function OrderManagementTable({ rows, p
     return [...values].sort().map((value) => ({ value, label: toTitleCase(value) }));
   }, [rows]);
 
-  const visibleRows = useMemo(() => {
-    let next = rows;
-    const activeFilters = activeColumns.filter((column) => column.key.startsWith("raw:") || hasFilterValue(FILTER_TYPES[column.key], columnFilters[column.key]));
-    if (activeFilters.length) {
-      next = next.filter((row) =>
-        activeFilters.every((column) => {
-          const value = columnValue(column, row);
-          const type = FILTER_TYPES[column.key] || "text";
-          const filterValue = columnFilters[column.key];
-          if (type === "range") {
-            const num = Number(value);
-            const { min = "", max = "" } = filterValue || {};
-            return !(min !== "" && !(num >= Number(min))) && !(max !== "" && !(num <= Number(max)));
-          }
-          if (type === "select") {
-            return String(value ?? "") === String(filterValue ?? "");
-          }
-          return String(value ?? "").toLowerCase().includes(String(filterValue ?? "").toLowerCase());
-        }),
-      );
-    }
-    if (sortBy) {
-      const direction = sortDirection === "desc" ? -1 : 1;
-      const sortColumn = activeColumns.find((column) => column.key === sortBy);
-      next = [...next].sort((left, right) => {
-        const leftValue = sortColumn ? columnValue(sortColumn, left) : resolveTableValue(left, sortBy);
-        const rightValue = sortColumn ? columnValue(sortColumn, right) : resolveTableValue(right, sortBy);
-        return String(leftValue ?? "").localeCompare(String(rightValue ?? ""), "id", { numeric: true, sensitivity: "base" }) * direction;
-      });
-    }
-    return next;
-  }, [activeColumns, columnFilters, rows, sortBy, sortDirection]);
+  const activeFilterKeys = useMemo(
+    () => activeColumns.filter((column) => !isColumnFilterEmpty(columnFilters[column.key], FILTER_TYPES[column.key] || "text")).map((column) => column.key),
+    [activeColumns, columnFilters],
+  );
 
-  const activeFilterCount = useMemo(() => activeColumns.filter((column) => (column.key.startsWith("raw:") || hasFilterValue(FILTER_TYPES[column.key], columnFilters[column.key]))).length, [activeColumns, columnFilters]);
+  const visibleRows = useMemo(() => {
+    const filtered = activeFilterKeys.length
+      ? rows.filter((row) => activeFilterKeys.every((key) => {
+        const column = activeColumns.find((item) => item.key === key);
+        const value = column ? columnValue(column, row) : resolveTableValue(row, key);
+        return matchesColumnFilter(value, columnFilters[key], FILTER_TYPES[key] || "text");
+      }))
+      : rows;
+    if (!sortBy) return filtered;
+    const sortColumn = activeColumns.find((column) => column.key === sortBy);
+    return sortRowsBy(filtered, sortBy, sortDirection, (row, key) => (sortColumn ? columnValue(sortColumn, row) : resolveTableValue(row, key)));
+  }, [activeColumns, activeFilterKeys, columnFilters, rows, sortBy, sortDirection]);
 
   useEffect(() => {
-    onFilterStateChange?.({ activeCount: activeFilterCount, filteredCount: visibleRows.length, loadedCount: rows.length, filteredRows: visibleRows });
-  }, [activeFilterCount, onFilterStateChange, rows.length, visibleRows.length]);
+    onFilterStateChange?.({ activeCount: activeFilterKeys.length, filteredCount: visibleRows.length, loadedCount: rows.length, filteredRows: visibleRows });
+  }, [activeFilterKeys.length, onFilterStateChange, rows.length, visibleRows.length]);
 
   const renderCell = (column, row) => {
     if (column.key.startsWith("raw:")) return <td key={column.key} className="truncate px-4 py-3 text-slate-600" title={formatTableValue(rawColumnValue(column, row))}>{formatTableValue(rawColumnValue(column, row))}</td>;
@@ -249,7 +227,7 @@ export const OrderManagementTable = memo(function OrderManagementTable({ rows, p
         onScroll={hScroll.handleTableScroll}
         className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] bg-white ring-1 ring-slate-200"
       >
-      <table className="table-fixed text-left text-sm" style={{ width: Math.max(tableWidth, 820), minWidth: "100%" }}><InteractiveColGroup columns={layout.orderedColumns} getColumnStyle={layout.getColumnStyle} leadingWidth={selectionEnabled ? 44 : 0} /><thead className={headerOnly ? "bg-slate-100 text-xs font-extrabold text-slate-600" : "sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-100 text-xs font-extrabold text-slate-600"}><tr><TableSelectionHeader enabled={selectionEnabled} checked={allSelected} onToggle={onToggleAll} />{layout.orderedColumns.map((column) => <TableHeaderFilter key={column.key} label={column.label} sortKey={column.key} sortBy={sortBy} sortDirection={sortDirection} onSortChange={(key, direction) => { setSortBy(key); setSortDirection(direction); }} filterType={FILTER_TYPES[column.key] || "text"} filterValue={columnFilters[column.key]} onFilterChange={(value) => setColumnFilters((current) => { const next = { ...current }; if (hasFilterValue(FILTER_TYPES[column.key], value)) next[column.key] = value; else delete next[column.key]; return next; })} onClearAllFilters={() => { setColumnFilters({}); setSortBy(""); setSortDirection("asc"); }} onResetSort={() => { setSortBy(""); setSortDirection("asc"); }} options={column.key === "payment" ? paymentOptions : column.key === "status" ? STATUS_OPTIONS : column.key === "orderType" ? ORDER_TYPE_OPTIONS : column.key === "origin" ? ORIGIN_OPTIONS : []} headerProps={layout.getHeaderProps(column.key)} columnKey={column.key} columnStyle={layout.getColumnStyle(column.key)} onResizeStart={layout.startResize} onResetWidth={layout.resetWidth} dragging={layout.dragKey === column.key} dropTarget={layout.dropKey === column.key}>{column.label}</TableHeaderFilter>)}</tr></thead>{headerOnly ? null : (
+      <table className="table-fixed text-left text-sm" style={{ width: Math.max(tableWidth, 820), minWidth: "100%" }}><InteractiveColGroup columns={layout.orderedColumns} getColumnStyle={layout.getColumnStyle} leadingWidth={selectionEnabled ? 44 : 0} /><thead className={headerOnly ? "bg-slate-100 text-xs font-extrabold text-slate-600" : "sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-100 text-xs font-extrabold text-slate-600"}><tr><TableSelectionHeader enabled={selectionEnabled} checked={allSelected} onToggle={onToggleAll} />{layout.orderedColumns.map((column) => <TableHeaderFilter key={column.key} label={column.label} sortKey={column.key} sortBy={sortBy} sortDirection={sortDirection} onSortChange={(key, direction) => { setSortBy(key); setSortDirection(direction); }} filterType={FILTER_TYPES[column.key] || "text"} filterValue={columnFilters[column.key]} onFilterChange={(value) => setColumnFilters((current) => { const next = { ...current }; if (!isColumnFilterEmpty(value, FILTER_TYPES[column.key] || "text")) next[column.key] = value; else delete next[column.key]; return next; })} onClearAllFilters={() => { setColumnFilters({}); setSortBy(""); setSortDirection("asc"); }} onResetSort={() => { setSortBy(""); setSortDirection("asc"); }} options={column.key === "payment" ? paymentOptions : column.key === "status" ? STATUS_OPTIONS : column.key === "orderType" ? ORDER_TYPE_OPTIONS : column.key === "origin" ? ORIGIN_OPTIONS : []} headerProps={layout.getHeaderProps(column.key)} columnKey={column.key} columnStyle={layout.getColumnStyle(column.key)} onResizeStart={layout.startResize} onResetWidth={layout.resetWidth} dragging={layout.dragKey === column.key} dropTarget={layout.dropKey === column.key}>{column.label}</TableHeaderFilter>)}</tr></thead>{headerOnly ? null : (
       <tbody className="divide-y divide-slate-100">{visibleRows.map((row) => <tr key={`${row.id}:${row.subOrderNumber}`} onClick={onEdit ? () => onEdit(row) : undefined} title={onEdit ? "Klik untuk melihat detail pesanan" : undefined} className={cn("hover:bg-slate-50", onEdit && "cursor-pointer hover:bg-emerald-50/40")}><TableSelectionCell enabled={selectionEnabled} checked={selectedIds.has(String(row.id))} onToggle={() => onToggleRow?.(row.id)} />{layout.orderedColumns.map((column) => renderCell(column, row))}</tr>)}</tbody>
       )}</table>
       </div>
