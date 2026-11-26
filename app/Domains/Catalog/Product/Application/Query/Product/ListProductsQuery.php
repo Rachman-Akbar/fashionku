@@ -15,7 +15,6 @@ final class ListProductsQuery
 
     public function execute(array $filters = []): CursorPaginator
     {
-        $filters['status'] = $filters['status'] ?? 'published';
         $filters['is_active'] = true;
         $filters['include'] = $filters['include'] ?? 'summary';
 

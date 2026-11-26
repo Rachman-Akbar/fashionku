@@ -4,13 +4,14 @@ import { ConfirmDialog } from "@/shared/components/crud";
 import { FormPageLayout } from "@/shared/components/crud/FormPageLayout";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { Input } from "@/shared/components/ui/Input";
+import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { parseShipping } from "@/shared/utils/shipping";
 import { formatPrice } from "@/shared/utils/utils";
 import { getOrderManagementError, orderTypeLabel, useDeleteOrder, useUpdateOrder, useUpdateOrderStatus } from "@/features/admin/order/services/orderManagementService";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { isOperatorRole } from "@/shared/utils/roles";
-import { FormActionDock, FormEditorLayout } from "@/shared/components/crud";
+import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 import OrderPrintSheet from "@/features/seller/order/components/OrderPrintSheet";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import { useCustomers } from "@/features/advanced/services/advancedMarketplaceService";
@@ -259,6 +260,7 @@ export function OrderDetailForm({ row, onDeleted, onSaved }) {
 
   return (
     <>
+      <form onSubmit={handleSave}>
       <FormEditorLayout
         actions={
           <FormActionDock
@@ -410,7 +412,7 @@ export function OrderDetailForm({ row, onDeleted, onSaved }) {
                 ) : null}
                 <label className="grid gap-1.5 text-sm font-bold text-slate-700">
                   <span>Ongkir</span>
-                  <Input type="number" min="0" value={shippingCost} onChange={(event) => setShippingCost(event.target.value)} placeholder="0" disabled={customerLocked} readOnly={customerLocked} />
+                  <FormattedNumberInput min="0" value={shippingCost} onChange={(value) => setShippingCost(value)} placeholder="0" disabled={customerLocked} readOnly={customerLocked} />
                 </label>
                 <label className="grid gap-1.5 text-sm font-bold text-slate-700">
                   <span>Layanan / resi</span>
@@ -449,6 +451,15 @@ export function OrderDetailForm({ row, onDeleted, onSaved }) {
           </div>
         </FormPageLayout>
       </FormEditorLayout>
+      <FormEditorFooter
+        submitLabel={isManual ? "Simpan" : "Simpan Status"}
+        submitIcon="save"
+        disabled={busy}
+        tone="emerald"
+        onDelete={canDelete ? () => setDeleteOpen(true) : undefined}
+        deleteLabel="Hapus Pesanan"
+      />
+      </form>
 
       <ConfirmDialog
         open={deleteOpen}

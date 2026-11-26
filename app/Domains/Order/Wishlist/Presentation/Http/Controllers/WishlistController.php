@@ -41,7 +41,6 @@ final class WishlistController extends Controller
                 Rule::exists('products', 'id')->where(
                     fn (Builder $query): Builder => $query
                         ->where('is_active', true)
-                        ->where('status', 'published')
                         ->whereNull('deleted_at')
                 ),
             ],

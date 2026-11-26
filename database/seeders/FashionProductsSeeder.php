@@ -210,13 +210,9 @@ final class FashionProductsSeeder extends Seeder
             $priceOriginal = $salePrice !== null ? $price : null;
             $priceFinal = $salePrice ?? $price;
 
-            // Sebagian produk sengaja masih draft/arsip agar menu admin punya
-            // variasi status, seperti katalog toko yang sedang berjalan.
-            $status = match (true) {
-                $index % 37 === 36 => 'archived',
-                $index % 29 === 28 => 'draft',
-                default => 'published',
-            };
+            // Sebagian produk sengaja dinonaktifkan agar menu admin punya
+            // variasi status aktif/nonaktif, seperti katalog toko berjalan.
+            $isActive = $index % 29 !== 28;
 
             // Produk terbaru masuk beberapa jam terakhir, sisanya tersebar
             // sampai sekitar 6 bulan ke belakang.
@@ -231,8 +227,7 @@ final class FashionProductsSeeder extends Seeder
                 'description' => $description."\n\nDikemas dengan bubble wrap dan kardus tebal. Pesanan diproses maksimal 2x24 jam kerja.",
                 'brand' => $brand,
                 'thumbnail' => $this->imageUrl($leaf, $index, '900x900'),
-                'status' => $status,
-                'is_active' => $status !== 'archived',
+                'is_active' => $isActive,
                 'allows_preorder' => false,
                 'created_by' => $actorId,
                 'updated_by' => $actorId,

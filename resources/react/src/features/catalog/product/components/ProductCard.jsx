@@ -362,7 +362,6 @@ export const ProductCard = memo(function ProductCard({
           stock: selectedStock ?? productStock ?? 0,
           imageUrl: displayImage || "",
           location: displayLocation,
-          status: "published",
         });
 
     Promise.resolve(request).catch(() => {

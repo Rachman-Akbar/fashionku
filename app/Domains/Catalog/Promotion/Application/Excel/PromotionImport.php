@@ -76,7 +76,7 @@ class PromotionImport extends BaseImport
                     : 'Kategori target wajib dipilih.';
             } else {
                 $exists = $action === 'product'
-                    ? DB::table('products')->where('id', $targetId)->where('is_active', true)->where('status', 'published')->whereNull('deleted_at')->exists()
+                    ? DB::table('products')->where('id', $targetId)->where('is_active', true)->whereNull('deleted_at')->exists()
                     : DB::table('categories')->where('id', $targetId)->where('is_active', true)->whereNull('deleted_at')->exists();
 
                 if (! $exists) {

@@ -78,7 +78,6 @@ final class ProductMainExportSheet extends BaseExport implements WithTitle
                     'price' => $variant?->price ?? 0,
                     'brand' => $product->brand ?? '',
                     'description' => $product->description ?? '',
-                    'status' => $product->status ?? 'published',
                     'active' => $product->is_active ? 'ya' : 'tidak',
                 ]);
             }
@@ -101,7 +100,6 @@ final class ProductMainExportSheet extends BaseExport implements WithTitle
             'harga',
             'brand',
             'deskripsi',
-            'status',
             'aktif',
         ];
     }
@@ -120,7 +118,6 @@ final class ProductMainExportSheet extends BaseExport implements WithTitle
             $row['price'],
             $row['brand'],
             $row['description'],
-            $row['status'],
             $row['active'],
         ];
     }

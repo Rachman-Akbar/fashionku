@@ -317,7 +317,7 @@ export function ProductDetailClient({ slug }) {
                   {[
                     ["Brand:", product.brand || "-"],
                     ["Stok:", activeStock],
-                    ["Status:", product.status || "-"],
+                    ["Status:", product.is_active === false ? "Nonaktif" : "Aktif"],
                     ["Kategori:", categories[0]?.name || "-"],
                   ].map(([label, val]) => (
                     <div key={label} className="flex gap-2">

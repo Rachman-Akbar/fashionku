@@ -20,7 +20,8 @@ final class PromotionSeeder extends Seeder
 
         $categories = DB::table('categories')->pluck('id', 'slug');
         $products = DB::table('products')
-            ->where('status', 'published')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
             ->orderByDesc('created_at')
             ->limit(30)
             ->pluck('id', 'slug');

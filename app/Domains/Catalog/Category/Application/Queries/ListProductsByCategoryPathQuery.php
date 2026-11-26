@@ -29,7 +29,6 @@ final class ListProductsByCategoryPathQuery
             $filters['include_descendants'] ?? true,
             FILTER_VALIDATE_BOOLEAN
         );
-        $filters['status'] = 'published';
         $filters['is_active'] = true;
         $filters['include'] = $filters['include'] ?? 'summary';
 

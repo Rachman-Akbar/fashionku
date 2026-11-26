@@ -124,7 +124,6 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
             'harga' => 'nullable|numeric|min:0',
             'brand' => 'nullable|string|max:100',
             'deskripsi' => 'nullable|string',
-            'status' => 'nullable|in:draft,published,archived',
             'aktif' => 'nullable|in:ya,tidak,true,false,1,0',
         ];
     }
@@ -343,7 +342,6 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
             'name' => $name,
             'brand' => $this->nullableString($data['brand'] ?? null),
             'description' => $this->nullableString($data['deskripsi'] ?? null),
-            'status' => $this->normalizeStatus($data['status'] ?? 'published'),
             'is_active' => $this->parseBoolean($data['aktif'] ?? true),
             'primary_category_id' => $category->id,
             'updated_by' => auth()->id(),
@@ -455,13 +453,6 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
-    }
-
-    private function normalizeStatus(mixed $value): string
-    {
-        $value = strtolower(trim((string) $value));
-
-        return in_array($value, ['draft', 'published', 'archived'], true) ? $value : 'published';
     }
 
     private function parseBoolean(mixed $value): bool

@@ -1,14 +1,28 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/shared/utils/utils";
+import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
 
 function emptyValue(type) {
   if (type === "range") return { min: "", max: "", status: "" };
+  if (type === "select") return [];
   return "";
+}
+
+/** Nilai filter dari luar (bisa string lama) dinormalisasi ke bentuk draft. */
+function toDraftValue(type, value) {
+  if (type === "range") return value ?? emptyValue("range");
+  if (type === "select") {
+    if (Array.isArray(value)) return value.map(String);
+    if (value === "" || value === null || value === undefined) return [];
+    return [String(value)];
+  }
+  return value ?? "";
 }
 
 function hasFilterValue(type, value) {
   if (type === "range") return Boolean(value?.min !== "" || value?.max !== "" || value?.status);
+  if (type === "select") return Array.isArray(value) ? value.length > 0 : value !== "" && value !== null && value !== undefined;
   return value !== "" && value !== null && value !== undefined;
 }
 
@@ -43,12 +57,16 @@ export const TableHeaderFilter = memo(function TableHeaderFilter({
   const menuRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
-  const [draft, setDraft] = useState(filterValue ?? emptyValue(filterType));
+  const [draft, setDraft] = useState(() => toDraftValue(filterType, filterValue));
+  const [optionSearch, setOptionSearch] = useState("");
   const activeSort = Boolean(sortKey && sortBy === sortKey);
   const activeFilter = hasFilterValue(filterType, filterValue);
 
   useEffect(() => {
-    if (open) setDraft(filterValue ?? emptyValue(filterType));
+    if (open) {
+      setDraft(toDraftValue(filterType, filterValue));
+      setOptionSearch("");
+    }
   }, [filterType, filterValue, open]);
 
   useEffect(() => {
@@ -98,6 +116,41 @@ export const TableHeaderFilter = memo(function TableHeaderFilter({
     })),
     [options],
   );
+
+  const selectedValues = useMemo(
+    () => (Array.isArray(draft) ? draft.map(String) : []),
+    [draft],
+  );
+
+  const visibleOptions = useMemo(() => {
+    const needle = optionSearch.trim().toLowerCase();
+    if (!needle) return normalizedOptions;
+    return normalizedOptions.filter((option) =>
+      option.label.toLowerCase().includes(needle) || option.value.toLowerCase().includes(needle),
+    );
+  }, [normalizedOptions, optionSearch]);
+
+  const allVisibleSelected = visibleOptions.length > 0 && visibleOptions.every((option) => selectedValues.includes(option.value));
+
+  const toggleOption = (value) => {
+    setDraft((current) => {
+      const list = Array.isArray(current) ? current.map(String) : [];
+      const next = list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+      // Semua opsi terpilih sama artinya dengan tanpa filter (perilaku Excel).
+      if (normalizedOptions.length && next.length === normalizedOptions.length) return [];
+      return next;
+    });
+  };
+
+  const toggleAllVisible = () => {
+    setDraft((current) => {
+      const list = Array.isArray(current) ? current.map(String) : [];
+      if (allVisibleSelected) return list.filter((item) => !visibleOptions.some((option) => option.value === item));
+      const next = [...new Set([...list, ...visibleOptions.map((option) => option.value)])];
+      if (normalizedOptions.length && next.length === normalizedOptions.length) return [];
+      return next;
+    });
+  };
 
   const applyFilter = () => {
     onFilterChange?.(draft);
@@ -187,52 +240,67 @@ export const TableHeaderFilter = memo(function TableHeaderFilter({
           ) : null}
 
           {filterType === "select" ? (
-            <div className="max-h-56 overflow-y-auto border border-slate-200 py-1">
-              <button
-                type="button"
-                onClick={() => setDraft("")}
-                className={cn(
-                  "flex w-full items-center gap-[5px] px-3 py-2 text-left text-sm hover:bg-slate-50",
-                  draft === "" && "bg-emerald-50 font-bold text-emerald-800",
-                )}
-              >
-                <span className="material-symbols-outlined text-[17px]">select_all</span>
-                Semua
-              </button>
-              {normalizedOptions.map((option) => (
+            <div className="space-y-2">
+              <input
+                value={optionSearch}
+                onChange={(event) => setOptionSearch(event.target.value)}
+                placeholder="Cari nilai..."
+                autoFocus
+                className="h-9 w-full border border-slate-200 px-3 text-sm outline-none focus:border-emerald-500"
+              />
+              <div className="max-h-56 overflow-y-auto border border-slate-200 py-1">
                 <button
-                  key={`${option.value}:${option.label}`}
                   type="button"
-                  onClick={() => setDraft(option.value)}
+                  onClick={toggleAllVisible}
                   className={cn(
-                    "flex w-full items-center gap-[5px] px-3 py-2 text-left text-sm hover:bg-slate-50",
-                    String(draft ?? "") === option.value && "bg-emerald-50 font-bold text-emerald-800",
+                    "flex w-full items-center gap-[5px] px-3 py-2 text-left text-sm font-bold hover:bg-slate-50",
+                    allVisibleSelected && "text-emerald-800",
                   )}
                 >
                   <span className="material-symbols-outlined text-[17px]">
-                    {String(draft ?? "") === option.value ? "check_box" : "check_box_outline_blank"}
+                    {allVisibleSelected ? "check_box" : "check_box_outline_blank"}
                   </span>
-                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                  Pilih semua
                 </button>
-              ))}
+                {visibleOptions.map((option) => {
+                  const checked = selectedValues.includes(option.value);
+                  return (
+                    <button
+                      key={`${option.value}:${option.label}`}
+                      type="button"
+                      onClick={() => toggleOption(option.value)}
+                      className={cn(
+                        "flex w-full items-center gap-[5px] px-3 py-2 text-left text-sm hover:bg-slate-50",
+                        checked && "bg-emerald-50 font-bold text-emerald-800",
+                      )}
+                    >
+                      <span className="material-symbols-outlined text-[17px]">
+                        {checked ? "check_box" : "check_box_outline_blank"}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                    </button>
+                  );
+                })}
+                {!visibleOptions.length ? (
+                  <p className="px-3 py-2 text-sm text-slate-500">Nilai tidak ditemukan.</p>
+                ) : null}
+              </div>
             </div>
           ) : null}
 
           {filterType === "range" ? (
             <div className="grid grid-cols-2 gap-[5px]">
-              <input
-                type="number"
+              <FormattedNumberInput
                 min="0"
                 value={draft?.min ?? ""}
-                onChange={(event) => setDraft((current) => ({ ...current, min: event.target.value }))}
+                onChange={(value) => setDraft((current) => ({ ...current, min: value }))}
                 placeholder={minPlaceholder}
                 className="h-10 min-w-0 border border-slate-200 px-3 outline-none focus:border-emerald-500"
               />
-              <input
-                type="number"
+              <FormattedNumberInput
                 min="0"
                 value={draft?.max ?? ""}
-                onChange={(event) => setDraft((current) => ({ ...current, max: event.target.value }))}
+                onChange={(value) => setDraft((current) => ({ ...current, max: value }))}
                 placeholder={maxPlaceholder}
                 className="h-10 min-w-0 border border-slate-200 px-3 outline-none focus:border-emerald-500"
               />

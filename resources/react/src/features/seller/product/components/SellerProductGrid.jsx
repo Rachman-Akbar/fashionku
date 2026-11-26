@@ -1,6 +1,5 @@
 import { memo } from "react";
 import { formatPrice } from "@/shared/utils/utils";
-import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import { isInactiveRow } from "@/shared/components/feedback/inactiveRow";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { toTitleCase } from "@/shared/utils/textFormatter";
@@ -78,7 +77,6 @@ export const SellerProductGrid = memo(function SellerProductGrid({
                 <p className="text-[11px] font-bold text-amber-600">PO {product.poStock.toLocaleString("id-ID")}</p>
               ) : null}
               <div className="mt-1 flex items-center justify-between gap-1 border-t border-slate-100 pt-1.5">
-                <StatusBadge status={product.status} />
                 <div onClick={(event) => event.stopPropagation()}>
                   <InlineActiveSwitch
                     checked={product.isActive}

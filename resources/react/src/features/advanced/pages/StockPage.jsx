@@ -11,6 +11,7 @@ import { StockChartPanel } from "@/shared/charts/ChartPanels";
 import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { inputClassName } from "@/shared/components/form/FormField";
 import { Input } from "@/shared/components/ui/Input";
+import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { toolbarControlClassName } from "@/shared/components/crud/toolbarControlClassName";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
@@ -48,8 +49,8 @@ function MaterialFormContent({
       <Field label="Kode" hint="Kosongkan agar dibuat otomatis oleh sistem (mis. RM-GULA), atau isi kode manual."><Input value={materialForm?.code || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, code: event.target.value }))} placeholder="Otomatis bila dikosongkan" /></Field>
       <Field label="Nama" required><Input value={materialForm?.name || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, name: event.target.value }))} required /></Field>
       <Field label="Satuan" required hint="Pilih satuan yang sudah ada, atau ketik satuan baru untuk menambah langsung ke daftar."><SearchableSelect value={materialForm?.unit || ""} onChange={(nextValue) => setMaterialForm((current) => ({ ...current, unit: nextValue }))} options={unitOptions} clearable={false} onCreate={createUnit} createLabel={(name) => `Satuan “${name}” belum ada, tambahkan sekarang`} placeholder="Pilih / ketik satuan" searchPlaceholder="Cari atau ketik satuan baru" /></Field>
-      <Field label="Minimum Stok"><Input type="number" min="0" value={materialForm?.minimum_stock || 0} onChange={(event) => setMaterialForm((current) => ({ ...current, minimum_stock: event.target.value }))} /></Field>
-      <Field label="Biaya Rata-rata" hint={materialForm?.id ? "Biaya rata-rata berubah melalui Stock / Restock Bahan Baku agar weighted average dan histori HPP tercatat." : "Biaya awal bahan sebelum transaksi restock pertama."}><Input type="number" min="0" value={materialForm?.average_cost || 0} disabled={Boolean(materialForm?.id)} onChange={(event) => setMaterialForm((current) => ({ ...current, average_cost: event.target.value }))} className={materialForm?.id ? "cursor-not-allowed bg-slate-100 text-slate-500" : ""} /></Field>
+      <Field label="Minimum Stok"><FormattedNumberInput min="0" value={materialForm?.minimum_stock || 0} onChange={(value) => setMaterialForm((current) => ({ ...current, minimum_stock: value }))} /></Field>
+      <Field label="Biaya Rata-rata" hint={materialForm?.id ? "Biaya rata-rata berubah melalui Stock / Restock Bahan Baku agar weighted average dan histori HPP tercatat." : "Biaya awal bahan sebelum transaksi restock pertama."}><FormattedNumberInput decimal min="0" value={materialForm?.average_cost || 0} disabled={Boolean(materialForm?.id)} onChange={(value) => setMaterialForm((current) => ({ ...current, average_cost: value }))} className={materialForm?.id ? "cursor-not-allowed bg-slate-100 text-slate-500" : ""} /></Field>
     </div>
   );
 }
@@ -142,7 +143,7 @@ export default function StockPage() {
   ];
   const { activeRole } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState(() => searchParams.get("q") || "");
   const deferred = useDeferredValue(query.trim());
   const [productAdjust, setProductAdjust] = useState(null);
@@ -190,6 +191,17 @@ export default function StockPage() {
     }
     setMaterialForm(editor.entity ? { ...editor.entity } : { ...MATERIAL_EMPTY });
   }, [editor.open, editor.activeTab?.id]);
+
+  // Dipakai tombol "Bahan Baru" pada tab HPP produk: buka halaman Persediaan
+  // dengan ?new=material agar form bahan baku langsung terbuka.
+  useEffect(() => {
+    if (searchParams.get("new") !== "material") return;
+    editor.create();
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, setSearchParams]);
   const materialAllSelected = materialRows.length > 0 && materialSelected.size === materialRows.length;
   const unitOptions = useMemo(() => {
     const seen = new Set();
@@ -750,7 +762,7 @@ export default function StockPage() {
     </ModuleFrame> : null}
 
     <FormModal presentation="modal" open={Boolean(productAdjust)} title="Stock / Restock Produk" onClose={() => { setProductAdjust(null); setProductAdjustImages([]); }} onSubmit={submitProductStock} busy={adjustStock.isPending || (productionQuantity > 0 && productionPreview.some((row) => !row.enough))} submitLabel="Simpan">
-      <Field label="Perubahan Stok" required hint="Positif berarti produksi/restock dan otomatis memakai bahan baku resep. Negatif berarti pengeluaran stok produk."><Input type="number" value={delta} onChange={(event) => setDelta(event.target.value)} required /></Field>
+      <Field label="Perubahan Stok" required hint="Positif berarti produksi/restock dan otomatis memakai bahan baku resep. Negatif berarti pengeluaran stok produk."><FormattedNumberInput value={delta} onChange={(value) => setDelta(value)} required /></Field>
       <Field label="No. Referensi Stok" hint="Boleh diisi manual, atau kosongkan agar sistem membuat nomor otomatis (mis. STK-MASUK-20260927-001)."><Input value={stockReference} onChange={(event) => setStockReference(event.target.value)} placeholder="Kosongkan untuk nomor otomatis" /></Field>
       <Field label="Bukti Stok (Gambar)" hint="Wajib diisi minimal 1 gambar sebagai bukti restock/penyesuaian. Maksimal 5 gambar.">
         <MultiImagePicker value={productAdjustImages} onChange={setProductAdjustImages} scope="stock/products" maxFiles={5} />
@@ -808,8 +820,8 @@ export default function StockPage() {
     </FormModal>
 
 <FormModal presentation="modal" open={Boolean(materialAdjust)} title="Stock / Restock Bahan Baku" onClose={() => { setMaterialAdjust(null); setMaterialAdjustImages([]); }} onSubmit={submitMaterialStock} busy={adjustMaterial.isPending} submitLabel="Simpan">
-      <Field label="Perubahan Stok" required hint="Positif untuk restock, negatif untuk pemakaian."><Input type="number" step="0.0001" value={delta} onChange={(event) => setDelta(event.target.value)} required /></Field>
-      <Field label="Biaya per Satuan" hint="Saat restock, nilai ini dipakai untuk average cost tertimbang dan laporan dampak HPP."><Input type="number" step="0.0001" min="0" value={unitCost} onChange={(event) => setUnitCost(event.target.value)} /></Field>
+      <Field label="Perubahan Stok" required hint="Positif untuk restock, negatif untuk pemakaian."><FormattedNumberInput decimal step="0.0001" value={delta} onChange={(value) => setDelta(value)} required /></Field>
+      <Field label="Biaya per Satuan" hint="Saat restock, nilai ini dipakai untuk average cost tertimbang dan laporan dampak HPP."><FormattedNumberInput decimal step="0.0001" min="0" value={unitCost} onChange={(value) => setUnitCost(value)} /></Field>
       <Field label="No. Referensi Stok" hint="Boleh diisi manual, atau kosongkan agar sistem membuat nomor otomatis (mis. RM-RSK-20260927-001)."><Input value={stockReference} onChange={(event) => setStockReference(event.target.value)} placeholder="Kosongkan untuk nomor otomatis" /></Field>
       <Field label="Bukti Stok (Gambar)" hint="Wajib diisi minimal 1 gambar sebagai bukti restock/pemakaian. Maksimal 5 gambar.">
         <MultiImagePicker value={materialAdjustImages} onChange={setMaterialAdjustImages} scope="stock/materials" maxFiles={5} />
@@ -872,7 +884,7 @@ export default function StockPage() {
       ) : <p className="text-sm text-slate-500">Belum ada pergerakan pada periode ini.</p>}
     </FormModal>
     <FormModal presentation="modal" open={Boolean(costEdit)} title="Edit Biaya" subtitle="Ubah biaya rata-rata untuk bahan baku atau produk." onClose={() => setCostEdit(null)} onSubmit={submitCostEdit} busy={saveMaterial.isPending || saveProductCosting.isPending} submitLabel="Simpan">
-      <Field label="Biaya Rata-rata" required hint="Masukkan biaya rata-rata baru per satuan. Untuk bahan baku, nilai ini mempengaruhi weighted average cost dan HPP produk terkait."><Input type="number" step="0.0001" min="0" value={costEdit?.cost || ""} onChange={(event) => setCostEdit((current) => current ? { ...current, cost: event.target.value } : null)} required /></Field>
+      <Field label="Biaya Rata-rata" required hint="Masukkan biaya rata-rata baru per satuan. Untuk bahan baku, nilai ini mempengaruhi weighted average cost dan HPP produk terkait."><FormattedNumberInput decimal step="0.0001" min="0" value={costEdit?.cost || ""} onChange={(value) => setCostEdit((current) => current ? { ...current, cost: value } : null)} required /></Field>
     </FormModal>
 
     <ConfirmDialog open={Boolean(materialDelete)} title="Hapus Bahan Baku" message={`Bahan baku “${materialDelete?.name || materialDelete?.code || ""}” akan dihapus dari master. Riwayat pergerakan stok tetap tersimpan.`} pending={deleteMaterial.isPending} onClose={() => setMaterialDelete(null)} onConfirm={removeMaterial} />

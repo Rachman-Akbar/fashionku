@@ -42,7 +42,6 @@ final class CreateProductUseCase
                 description: $data['description'] ?? null,
                 brand: $data['brand'] ?? null,
                 thumbnail: $data['thumbnail'] ?? null,
-                status: (string) ($data['status'] ?? 'published'),
                 isActive: (bool) ($data['is_active'] ?? true),
                 categoryIds: array_map('intval', $data['category_ids'] ?? [])
             ));
@@ -59,7 +58,7 @@ final class CreateProductUseCase
             }
 
             if (empty($data['variants'])) {
-                $this->variants->save(new ProductVariant(
+                $defaultVariant = $this->variants->save(new ProductVariant(
                     id: null,
                     productId: (int) $product->id(),
                     sku: $sku,
@@ -73,6 +72,12 @@ final class CreateProductUseCase
                     minStock: max(0, (int) ($data['min_stock'] ?? 0)),
                     isDefault: true
                 ));
+
+                $this->recordOpeningStock(
+                    (int) $product->id(),
+                    (int) $defaultVariant->id(),
+                    max(0, (int) ($data['stock'] ?? 0))
+                );
             } else {
                 foreach ($data['variants'] as $index => $variantData) {
                     $variantSku = trim((string) ($variantData['sku'] ?? ''));
@@ -98,11 +103,50 @@ final class CreateProductUseCase
                     if (! empty($variantData['values'])) {
                         $this->variants->replaceValues((int) $variant->id(), $variantData['values']);
                     }
+
+                    $this->recordOpeningStock(
+                        (int) $product->id(),
+                        (int) $variant->id(),
+                        max(0, (int) ($variantData['stock'] ?? 0))
+                    );
                 }
             }
 
             return $this->products->findById((int) $product->id(), true);
         });
+    }
+
+    /**
+     * Stok awal yang diisi saat produk dibuat dicatat sebagai pergerakan
+     * `inbound` dengan referensi `opening` supaya riwayat stok lengkap sejak
+     * saldo pertama.
+     */
+    private function recordOpeningStock(int $productId, int $variantId, int $quantity): void
+    {
+        if ($quantity <= 0) {
+            return;
+        }
+
+        $now = now();
+        $actorId = auth()->id();
+
+        DB::table('stock_movements')->insert([
+            'product_id' => $productId,
+            'variant_id' => $variantId,
+            'movement_key' => null,
+            'type' => 'inbound',
+            'quantity_delta' => $quantity,
+            'balance_after' => $quantity,
+            'stock_dimension' => 'available',
+            'reference_type' => 'opening',
+            'reference_id' => null,
+            'notes' => 'Stok awal produk',
+            'occurred_at' => $now,
+            'created_by' => $actorId,
+            'updated_by' => $actorId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 
     private function resolveSku(array $payload): string

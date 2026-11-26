@@ -106,7 +106,6 @@ final class FashionMarketplaceSeeder extends Seeder
 
         $variants = DB::table('product_variants as pv')
             ->join('products as p', 'p.id', '=', 'pv.product_id')
-            ->where('p.status', 'published')
             ->where('p.is_active', true)
             ->whereNull('p.deleted_at')
             ->orderBy('pv.product_id')
@@ -117,7 +116,7 @@ final class FashionMarketplaceSeeder extends Seeder
             ]);
 
         if ($variants->isEmpty()) {
-            $this->command?->warn('Fashionku: belum ada produk published, pesanan dilewati.');
+            $this->command?->warn('Fashionku: belum ada produk aktif, pesanan dilewati.');
 
             return;
         }

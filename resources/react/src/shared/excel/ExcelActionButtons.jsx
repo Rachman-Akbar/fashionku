@@ -36,6 +36,7 @@ export function ExcelActionButtons({
   const workspace = useExcelWorkspace({
     module,
     label,
+    rows,
     selectedRows: selection.selectedRows,
     onCompleted,
     allowImport,

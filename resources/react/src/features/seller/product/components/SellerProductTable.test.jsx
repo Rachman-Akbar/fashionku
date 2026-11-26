@@ -6,7 +6,6 @@ const rows = [{
   id: 1,
   name: "Kaos Basic",
   sku: "PRD-1",
-  status: "published",
   isActive: true,
   mode: "simple",
   price: 1000,
@@ -15,11 +14,11 @@ const rows = [{
   minStock: 0,
   totalStock: 5,
   variants: [],
-  raw: { id: 1, code: "PRD-1", name: "Kaos Basic", status: "published", is_active: true, store_name: "Fashionku", max_order_qty: 999999 },
+  raw: { id: 1, code: "PRD-1", name: "Kaos Basic", is_active: true, store_name: "Fashionku", max_order_qty: 999999 },
 }];
 
 function renderTable({ admin = false } = {}) {
-  const columns = PRODUCT_TABLE_COLUMNS.filter((column) => admin || column.key !== "status");
+  const columns = PRODUCT_TABLE_COLUMNS;
   return render(
     <SellerProductTable
       rows={rows}
@@ -39,7 +38,7 @@ describe("SellerProductTable headers", () => {
   it("only shows the curated single-store columns", () => {
     renderTable();
     const labels = headers();
-    expect(labels).toEqual(expect.arrayContaining(["Produk", "Mode", "Harga", "Stok", "Status Seller"]));
+    expect(labels).toEqual(expect.arrayContaining(["Produk", "Mode", "Harga", "Stok", "Status"]));
     // Kolom teknis / multi-store tidak lagi dirender.
     expect(labels).not.toContain("Toko");
     expect(labels).not.toContain("Kode");
@@ -47,12 +46,12 @@ describe("SellerProductTable headers", () => {
     expect(labels).not.toContain("Maks. Order");
     expect(labels).not.toContain("Merek");
     expect(labels).not.toContain("Dibuat");
-    expect(labels.filter((label) => label === "Status Seller")).toHaveLength(1);
+    expect(labels.filter((label) => label === "Status")).toHaveLength(1);
   });
 
-  it("shows the admin-only status column only on the admin portal", () => {
+  it("does not render a separate publication status column on any portal", () => {
     renderTable({ admin: true });
-    expect(headers()).toContain("Status Admin");
+    expect(headers()).not.toContain("Status Admin");
 
     cleanup();
     renderTable();

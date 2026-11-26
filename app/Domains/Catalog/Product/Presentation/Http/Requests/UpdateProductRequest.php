@@ -77,7 +77,6 @@ final class UpdateProductRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'brand' => ['nullable', 'string', 'max:255'],
             'thumbnail' => ['nullable', 'string', 'max:2048'],
-            'status' => ['nullable', 'string', Rule::in(['draft', 'published', 'archived'])],
             'is_active' => ['nullable', 'boolean'],
             'category_ids' => ['nullable', 'array'],
             'category_ids.*' => ['integer', 'distinct', 'exists:categories,id'],

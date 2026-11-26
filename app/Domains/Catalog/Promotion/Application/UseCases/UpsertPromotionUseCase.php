@@ -53,7 +53,6 @@ final class UpsertPromotionUseCase
             $exists = DB::table('products')
                 ->where('id', $dto->targetId)
                 ->where('is_active', true)
-                ->where('status', 'published')
                 ->whereNull('deleted_at')
                 ->exists();
 

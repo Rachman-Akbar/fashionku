@@ -14,7 +14,6 @@ final class Product
         private readonly ?string $description,
         private readonly ?string $brand,
         private readonly ?string $thumbnail,
-        private readonly string $status,
         private readonly bool $isActive,
         private readonly array $categoryIds = [],
         private readonly array $attributeValues = [],
@@ -78,11 +77,6 @@ final class Product
     public function thumbnail(): ?string
     {
         return $this->thumbnail;
-    }
-
-    public function status(): string
-    {
-        return $this->status;
     }
 
     public function isActive(): bool

@@ -21,7 +21,6 @@ class ProductSearchAndFacetsTest extends TestCase
         $this->postJson('/api/v1/catalog/seller/products', [
             'name' => 'Speaker Portable',
             'price' => 250000,
-            'status' => 'published',
             'variants' => [['name' => 'Standar', 'price' => 250000]],
         ])->assertOk();
 
@@ -42,8 +41,7 @@ class ProductSearchAndFacetsTest extends TestCase
             $this->postJson('/api/v1/catalog/seller/products', [
                 'name' => "Produk {$price}",
                 'price' => $price,
-                'status' => 'published',
-                'variants' => [['name' => 'Standar', 'price' => $price]],
+                    'variants' => [['name' => 'Standar', 'price' => $price]],
             ])->assertOk();
         }
 
@@ -63,8 +61,7 @@ class ProductSearchAndFacetsTest extends TestCase
             $this->postJson('/api/v1/catalog/seller/products', [
                 'name' => "Produk {$price}",
                 'price' => $price,
-                'status' => 'published',
-                'variants' => [['name' => 'Standar', 'price' => $price]],
+                    'variants' => [['name' => 'Standar', 'price' => $price]],
             ])->assertOk();
         }
 
@@ -96,7 +93,6 @@ class ProductSearchAndFacetsTest extends TestCase
         $this->postJson('/api/v1/catalog/seller/products', [
             'name' => 'Keripik Bandung',
             'price' => 50000,
-            'status' => 'published',
             'variants' => [['name' => 'Standar', 'price' => 50000]],
         ])->assertOk();
 

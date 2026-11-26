@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CrudDialog, FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { FormField, inputClassName } from "@/shared/components/form/FormField";
+import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { minimumNumber, required, validateFields } from "@/core/utils/formValidation";
 import { toDateTimeLocal } from "@/core/utils/dateTime";
@@ -269,25 +270,25 @@ export function VoucherFormDialog({ open, entity, portal, onClose, onSaved, onDe
             />
           </FormField>
           <FormField label={`Nilai diskon ${targetLabel}`} error={errors.discountValue} required hint={values.discountTarget === "shipping" && values.discountType === "percentage" && Number(values.discountValue) === 100 ? "100% berarti gratis ongkir sesuai batas maksimum." : ""}>
-            <input type="number" min="0.01" max={values.discountType === "percentage" ? 100 : undefined} step="0.01" value={values.discountValue} onChange={(event) => setField("discountValue", event.target.value)} className={inputClassName} />
+            <FormattedNumberInput decimal min="0.01" max={values.discountType === "percentage" ? 100 : undefined} step="0.01" value={values.discountValue} onChange={(value) => setField("discountValue", value)} className={inputClassName} />
           </FormField>
           <FormField label="Minimum belanja">
-            <input type="number" min="0" value={values.minSpend} onChange={(event) => setField("minSpend", event.target.value)} className={inputClassName} />
+            <FormattedNumberInput min="0" value={values.minSpend} onChange={(value) => setField("minSpend", value)} className={inputClassName} />
           </FormField>
           <FormField label="Jumlah item minimal" hint="Total kuantitas item yang harus dibeli (kosongkan jika tanpa syarat).">
-            <input type="number" min="0" value={values.minItems} onChange={(event) => setField("minItems", event.target.value)} className={inputClassName} />
+            <FormattedNumberInput min="0" value={values.minItems} onChange={(value) => setField("minItems", value)} className={inputClassName} />
           </FormField>
           <FormField label="Item produk berbeda" hint="Minimal jumlah produk berbeda dalam transaksi (mis. 2 = wajib 2 barang berbeda).">
-            <input type="number" min="0" value={values.minDistinctProducts} onChange={(event) => setField("minDistinctProducts", event.target.value)} className={inputClassName} />
+            <FormattedNumberInput min="0" value={values.minDistinctProducts} onChange={(value) => setField("minDistinctProducts", value)} className={inputClassName} />
           </FormField>
           <FormField label="Min. pcs produk yang sama" hint="Wajib membeli minimal N pcs dari satu produk yang sama (mis. 3 = 3 pcs produk yang sama). Kosongkan jika tanpa syarat.">
-            <input type="number" min="0" value={values.minSameProductQty} onChange={(event) => setField("minSameProductQty", event.target.value)} className={inputClassName} />
+            <FormattedNumberInput min="0" value={values.minSameProductQty} onChange={(value) => setField("minSameProductQty", value)} className={inputClassName} />
           </FormField>
           <FormField label="Syarat & ketentuan" hint="Ketentuan tambahan yang ditampilkan ke pembeli.">
             <textarea value={values.terms} onChange={(event) => setField("terms", event.target.value)} rows={2} className={inputClassName} />
           </FormField>
           <FormField label="Maksimum diskon" hint="Kosongkan jika tidak dibatasi.">
-            <input type="number" min="0" value={values.maxDiscount} onChange={(event) => setField("maxDiscount", event.target.value)} className={inputClassName} />
+            <FormattedNumberInput min="0" value={values.maxDiscount} onChange={(value) => setField("maxDiscount", value)} className={inputClassName} />
           </FormField>
           <FormField label="Mulai" error={errors.startsAt} required>
             <input type="datetime-local" value={values.startsAt} onChange={(event) => setField("startsAt", event.target.value)} className={inputClassName} />
@@ -296,10 +297,10 @@ export function VoucherFormDialog({ open, entity, portal, onClose, onSaved, onDe
             <input type="datetime-local" value={values.endsAt} onChange={(event) => setField("endsAt", event.target.value)} className={inputClassName} />
           </FormField>
           <FormField label="Batas penggunaan">
-            <input type="number" min="0" value={values.usageLimit} onChange={(event) => setField("usageLimit", event.target.value)} className={inputClassName} />
+            <FormattedNumberInput min="0" value={values.usageLimit} onChange={(value) => setField("usageLimit", value)} className={inputClassName} />
           </FormField>
           <FormField label="Maks. pemakaian per user" hint="0 atau kosong = tanpa batas per akun.">
-            <input type="number" min="0" value={values.usageLimitPerUser} onChange={(event) => setField("usageLimitPerUser", event.target.value)} className={inputClassName} />
+            <FormattedNumberInput min="0" value={values.usageLimitPerUser} onChange={(value) => setField("usageLimitPerUser", value)} className={inputClassName} />
           </FormField>
           <FormField label="Berlaku untuk produk (opsional)" hint="Kosongkan = semua produk." className="md:col-span-2">
             <ProductMultiSelect

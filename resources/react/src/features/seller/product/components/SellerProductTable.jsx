@@ -1,9 +1,7 @@
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatPrice } from "@/shared/utils/utils";
-import { StatusBadge } from "@/shared/components/feedback/StatusBadge";
 import { isInactiveRow } from "@/shared/components/feedback/inactiveRow";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
-import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { TableSelectionCell, TableSelectionHeader } from "@/shared/components/crud/TableSelectionCell";
 import { TableHeaderFilter } from "@/shared/components/crud/TableHeaderFilter";
 import { ColumnFilterHeader } from "@/shared/components/crud/ColumnFilterHeader";
@@ -18,11 +16,10 @@ export const PRODUCT_TABLE_COLUMNS = [
   { key: "mode", label: "Mode" },
   { key: "price", label: "Harga" },
   { key: "stock", label: "Stok" },
-  { key: "status", label: "Status Admin" },
-  { key: "active", label: "Status Seller" },
+  { key: "active", label: "Status" },
 ];
 
-const widths = { expand: 60, product: 330, mode: 160, price: 170, stock: 150, status: 180, active: 180 };
+const widths = { expand: 60, product: 330, mode: 160, price: 170, stock: 150, active: 180 };
 
 export const SellerProductTable = memo(function SellerProductTable({
   rows,
@@ -55,9 +52,8 @@ export const SellerProductTable = memo(function SellerProductTable({
   // kolom tetap tampil di atas kartu tanpa baris data.
   headerOnly = false,
 }) {
-  const admin = portal === "admin";
   const [expandedIds, setExpandedIds] = useState(() => new Set());
-  const activeColumns = useMemo(() => columns.filter((column) => (!visibleSet || visibleSet.has(column.key)) && (column.key !== "status" || admin)).map((column) => ({ ...column, width: widths[column.key] || 190 })), [admin, columns, visibleSet]);
+  const activeColumns = useMemo(() => columns.filter((column) => !visibleSet || visibleSet.has(column.key)).map((column) => ({ ...column, width: widths[column.key] || 190 })), [columns, visibleSet]);
   const layout = useTableColumnLayout({ storageKey: `${portal}.products`, columns: activeColumns, preferredOrder: columnOrder, onOrderChange });
   const applyOrder = layout.applyOrder;
   const tableWidth = layout.totalWidth + (selectionEnabled ? 44 : 0);
@@ -171,8 +167,7 @@ export const SellerProductTable = memo(function SellerProductTable({
     if (column.key === "mode") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Mode" sortKey="mode" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} filterType="select" filterValue={columnFilters.mode || ""} onFilterChange={changeFilter("mode")} options={[{ value: "simple", label: "Tanpa Variant" }, { value: "variant", label: "Dengan Variant" }]} />;
     if (column.key === "price") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Harga" sortKey="price" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} filterType="range" filterValue={columnFilters.price || { min: "", max: "" }} onFilterChange={changeFilter("price")} minPlaceholder="Harga min" maxPlaceholder="Harga max" />;
     if (column.key === "stock") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Stok" sortKey="stock" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} filterType="range" filterValue={columnFilters.stock || { min: "", max: "", status: "" }} onFilterChange={changeFilter("stock")} minPlaceholder="Stok min" maxPlaceholder="Stok max" extraRangeFilter={{ label: "Status stok", options: [{ value: "low", label: "Stok rendah" }, { value: "safe", label: "Stok aman" }] }} />;
-    if (column.key === "status") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Status Admin" sortKey="status" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} filterType="select" filterValue={columnFilters.status || ""} onFilterChange={changeFilter("status")} options={[{ value: "draft", label: "Draft" }, { value: "published", label: "Published" }, { value: "archived", label: "Archived" }]} />;
-    if (column.key === "active") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Status Seller" sortKey="is_active" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} filterType="select" filterValue={columnFilters.active || ""} onFilterChange={changeFilter("active")} options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Non-Active" }]} />;
+    if (column.key === "active") return <TableHeaderFilter key={column.key} {...interactiveProps(column)} label="Status" sortKey="is_active" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} filterType="select" filterValue={columnFilters.active || ""} onFilterChange={changeFilter("active")} options={[{ value: "active", label: "Aktif" }, { value: "inactive", label: "Nonaktif" }]} />;
     // Kolom database lain (relasi & audit) tetap punya filter sendiri, jadi
     // semua kolom data bisa disaring tanpa header "Status Seller" berulang.
     return <ColumnFilterHeader key={column.key} column={column} filterType={columnFilterTypes[column.key] || "text"} filterValue={columnFilters[column.key]} options={columnFilterOptions[column.key] || []} onFilterChange={changeFilter(column.key)} headerProps={layout.getHeaderProps(column.key)} columnStyle={layout.getColumnStyle(column.key)} onResizeStart={layout.startResize} onResetWidth={layout.resetWidth} dragging={layout.dragKey === column.key} dropTarget={layout.dropKey === column.key} onClearAllFilters={onClearAllFilters} onResetSort={onResetSort} />;
@@ -215,8 +210,7 @@ export const SellerProductTable = memo(function SellerProductTable({
     if (column.key === "mode") return <td key={column.key} className="truncate px-4 py-3 text-slate-600">{product.mode === "variant" ? `${product.variants.length} variant` : "Tanpa variant"}</td>;
     if (column.key === "price") return <td key={column.key} className="px-4 py-3 font-bold text-slate-800">{formatPrice(product.price)}</td>;
     if (column.key === "stock") return <td key={column.key} className="px-4 py-3"><div className="flex items-center gap-[5px]"><p className="text-sm font-extrabold text-slate-800">{product.stock.toLocaleString("id-ID")}</p>{product.minStock > 0 && Number(product.stock) <= Number(product.minStock) ? <span title={`Di bawah minimal stok ${product.minStock.toLocaleString("id-ID")}`} className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-700"><span className="material-symbols-outlined text-[12px]">priority_high</span>Restock</span> : null}</div>{product.poStock > 0 ? <p className="text-[11px] font-bold text-amber-600">PO {product.poStock.toLocaleString("id-ID")}</p> : null}<p className="text-[11px] text-slate-400">Total {product.totalStock.toLocaleString("id-ID")}{product.minStock > 0 ? ` · Min ${product.minStock.toLocaleString("id-ID")}` : ""}</p></td>;
-    if (column.key === "status") return <td key={column.key} className="px-4 py-3"><div onClick={(event) => event.stopPropagation()} className="w-full"><SearchableSelect value={product.status} disabled={pendingId === product.id} onChange={(nextValue) => onStatusChange?.(product, nextValue)} options={[{ value: "draft", label: "Draft" }, { value: "published", label: "Published" }, { value: "archived", label: "Archived" }]} clearable={false} buttonClassName="h-8 px-2 text-xs" /></div></td>;
-    if (column.key === "active") return <td key={column.key} className="px-4 py-3" onClick={(event) => event.stopPropagation()}><InlineActiveSwitch checked={isActiveOf ? isActiveOf(product) : product.isActive} onChange={(checked) => onToggleActive?.(product, checked)} compact />{!admin ? <div className="mt-1"><StatusBadge status={product.status} /></div> : null}</td>;
+    if (column.key === "active") return <td key={column.key} className="px-4 py-3" onClick={(event) => event.stopPropagation()}><div className="flex items-center gap-2"><InlineActiveSwitch checked={isActiveOf ? isActiveOf(product) : product.isActive} onChange={(checked) => onToggleActive?.(product, checked)} compact /><span className="text-xs font-bold text-slate-500">{isActiveOf ? isActiveOf(product) : product.isActive ? "Aktif" : "Nonaktif"}</span></div></td>;
     // Kolom database lain (relasi & audit) dirender apa adanya.
     return <td key={column.key} className="truncate px-4 py-3 text-slate-600">{formatTableValue(resolveTableValue(product, column.key))}</td>;
   };

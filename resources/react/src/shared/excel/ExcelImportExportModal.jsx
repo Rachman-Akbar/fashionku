@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
-import { downloadExcelTemplate, exportExcel, getExcelError, importExcel, previewExcelImport } from "@/shared/excel/excelService";
+import { useState } from "react";
+import { createPortal } from "react-dom";
+import { downloadExcelTemplate, exportExcel, getExcelError } from "@/shared/excel/excelService";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
 import { ImportProgressTab } from "@/shared/excel/ImportProgressTab";
 import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
@@ -30,18 +31,24 @@ const MODULE_HELP = {
   category: { relation: "Kategori memakai 3 kolom: kategori_level_1, kategori_level_2, kategori_level_3. Import membuat level 1 lalu level 2 dan 3 dengan parent_id terikat ke baris yang sama.", content: "Semua nama otomatis strtolower(trim()). Level 3 hanya boleh diisi jika level 2 terisi. Image & icon hanya diterapkan pada level 3." },
 };
 
+const IMPORT_MODES = [
+  { value: "create", label: "Buat Baru", desc: "Hanya membuat data baru. Kode yang sudah ada ditolak.", icon: "add_box", tone: "emerald" },
+  { value: "update", label: "Update", desc: "Hanya memperbarui data lama. Kode wajib sudah ada.", icon: "edit_note", tone: "blue" },
+  { value: "upsert", label: "Upsert (Default)", desc: "Buat baru bila belum ada, perbarui bila sudah ada.", icon: "sync", tone: "amber" },
+];
+
 function Header({ icon, eyebrow, title, description, onClose }) {
   return (
     <header className="flex flex-col gap-4 border-b border-slate-200 bg-white px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-3">
-        <span className="material-symbols-outlined flex h-11 w-11 shrink-0 items-center justify-center bg-emerald-50 text-emerald-700">{icon}</span>
+        <span className="material-symbols-outlined flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-emerald-50 text-emerald-700">{icon}</span>
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{eyebrow}</p>
           <h2 className="mt-1 text-xl font-black text-slate-950">{title}</h2>
-          <p className="mt-1 text-sm text-slate-500">{description}</p>
+          {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
         </div>
       </div>
-      <button type="button" onClick={onClose} className="inline-flex h-10 items-center justify-center gap-[5px] bg-slate-100 px-4 text-sm font-bold text-slate-700 hover:bg-slate-200">
+      <button type="button" onClick={onClose} className="inline-flex h-10 items-center justify-center gap-[5px] rounded-[10px] bg-slate-100 px-4 text-sm font-bold text-slate-700 hover:bg-slate-200">
         <span className="material-symbols-outlined text-[18px]">close</span>
         Tutup
       </button>
@@ -61,14 +68,28 @@ function Step({ number, title, children }) {
   );
 }
 
+function Overlay({ children, onClose, size = "md" }) {
+  if (typeof document === "undefined") return null;
+  const width = size === "lg" ? "max-w-5xl" : "max-w-3xl";
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 sm:p-8"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose?.();
+      }}
+    >
+      <div className={`my-auto w-full ${width}`}>{children}</div>
+    </div>,
+    document.body,
+  );
+}
+
 function ImportPanel({ module, label, workspace }) {
   const center = useNotificationCenter();
   const tabs = usePanelTabs();
   const [file, setFile] = useState(null);
-  const [pending, setPending] = useState(false);
   const [templatePending, setTemplatePending] = useState(false);
   const [importMode, setImportMode] = useState("upsert");
-  const [createMissingRelations, setCreateMissingRelations] = useState(false);
   const help = MODULE_HELP[module] || null;
 
   const downloadTemplate = async () => {
@@ -84,121 +105,74 @@ function ImportPanel({ module, label, workspace }) {
     }
   };
 
-  const handleStartImport = async () => {
-    if (!file || pending) return;
-    setPending(true);
-    
-    try {
-      const preview = await previewExcelImport(module, file, { importMode });
-      const blocking = preview.blocking_relations || [];
-      const missing = preview.missing_relations || [];
-
-      if (blocking.length) {
-        const details = blocking.slice(0, 5).map((item) => `${item.type}: ${item.name}`).join(", ");
-        center.push({
-          type: "error",
-          title: `Validasi ${label}`,
-          message: `Import belum dapat dilanjutkan. Relasi berikut wajib dibuat manual: ${details}${blocking.length > 5 ? ` dan ${blocking.length - 5} lainnya` : ""}.`,
-        });
-        center.setActiveTab("info");
-        center.setOpen(true);
-        setPending(false);
-        return;
-      }
-
-      if (preview.requires_confirmation && missing.length) {
-        const confirmed = await new Promise((resolve) => {
-          const taskId = center.push({
-            type: "queue",
-            title: `Konfirmasi Import ${label}`,
-            message: `${preview.total_rows || 0} baris siap diperiksa. Relasi belum tersedia: ${missing.slice(0, 6).map((item) => `${item.type}: ${item.name}`).join(", ")}${missing.length > 6 ? ` dan ${missing.length - 6} lainnya` : ""}. Lanjutkan untuk membuat relasi tersebut otomatis, atau batalkan import.`,
-            status: "waiting",
-            actionLabel: "Lanjutkan",
-            secondaryActionLabel: "Batal",
-            onAction: () => resolve(true),
-            onSecondaryAction: () => resolve(false),
-          });
-          center.setActiveTab("queue");
-          center.setOpen(true);
-        });
-
-        if (!confirmed) {
-          center.remove(center.queueItems[0]?.id);
-          setPending(false);
-          return;
-        }
-        setCreateMissingRelations(true);
-      }
-
-      center.push({ type: "success", title: `Validasi ${label}`, message: "File valid. Memulai import...", brief: true });
-
-      tabs?.openOperationTab("import-progress", {
-        label: `Import ${label}`,
-        payload: { module, label, file, importMode, createMissingRelations, workspace },
-      });
-
-    } catch (error) {
-      center.push({ type: "error", title: `Validasi ${label}`, message: getExcelError(error) });
-      center.setActiveTab("info");
-      center.setOpen(true);
-    } finally {
-      setPending(false);
-      setCreateMissingRelations(false);
-    }
+  // Import berjalan pada tab progres terpisah (loading bar, data berhasil/gagal).
+  const startImport = () => {
+    if (!file) return;
+    tabs?.openOperationTab("import-progress", {
+      label: `Import ${label}`,
+      payload: { module, label, file, importMode, createMissingRelations: false, workspace },
+    });
   };
 
   return (
-    <div className="overflow-hidden border border-slate-200 bg-white">        <Header icon="upload_file" eyebrow="Import Excel" title={`Import ${label}`} description={module === "product" ? "Template 7 sheet: template_produk, template_bahan_baku, contoh_produk, contoh_produk_varian, contoh_produk_hpp, contoh_produk_varian_hpp, penjelasan_kolom. Gambar disematkan di dalam sel." : "Template 3 sheet: Template Kosong, Contoh Import, Penjelasan Kolom. Gambar disematkan di dalam sel."} onClose={workspace.close} />
-      <div className="grid gap-0 lg:grid-cols-[1fr_360px]">
-        <div className="px-5 sm:px-7">
-          <Step number="1" title="Pilih jenis import">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <button type="button" onClick={() => setImportMode("create")} className={`border p-4 text-left transition ${importMode === "create" ? "border-emerald-600 bg-emerald-50 ring-1 ring-emerald-600" : "border-slate-200 bg-white hover:border-slate-300"}`}>
-                <span className="flex items-center gap-[5px] text-sm font-black text-slate-900"><span className="material-symbols-outlined text-[19px] text-emerald-700">add_box</span>Buat Baru</span>
-                <span className="mt-2 block text-xs leading-5 text-slate-600">Hanya membuat data baru. Kode yang sudah ada ditolak.</span>
-              </button>
-              <button type="button" onClick={() => setImportMode("update")} className={`border p-4 text-left transition ${importMode === "update" ? "border-blue-600 bg-blue-50 ring-1 ring-blue-600" : "border-slate-200 bg-white hover:border-slate-300"}`}>
-                <span className="flex items-center gap-[5px] text-sm font-black text-slate-900"><span className="material-symbols-outlined text-[19px] text-blue-700">edit_note</span>Update</span>
-                <span className="mt-2 block text-xs leading-5 text-slate-600">Hanya update data existing. Kode wajib ada.</span>
-              </button>
-              <button type="button" onClick={() => setImportMode("upsert")} className={`border p-4 text-left transition ${importMode === "upsert" ? "border-amber-600 bg-amber-50 ring-1 ring-amber-600" : "border-slate-200 bg-white hover:border-slate-300"}`}>
-                <span className="flex items-center gap-[5px] text-sm font-black text-slate-900"><span className="material-symbols-outlined text-[19px] text-amber-700">sync</span>Upsert (Default)</span>
-                <span className="mt-2 block text-xs leading-5 text-slate-600">Buat baru jika kode tidak ada, update jika ada.</span>
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+      <Header
+        icon="upload_file"
+        eyebrow="Import Excel"
+        title={`Import ${label}`}
+        description="Unduh template resmi, isi datanya, lalu unggah file untuk memulai proses import."
+        onClose={workspace.close}
+      />
+      <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
+        <div className="px-5 py-1 sm:px-7">
+          <Step number="1" title="Unduh template resmi">
+            {module === "product"
+              ? "Template berisi 7 sheet: template_produk, template_bahan_baku, contoh_produk, contoh_produk_varian, contoh_produk_hpp, contoh_produk_varian_hpp, dan penjelasan_kolom."
+              : "Template berisi 3 sheet: Template Kosong, Contoh Import, dan Penjelasan Kolom."}
+            {help?.relation ? <p className="mt-2 text-xs text-slate-500">{help.relation}</p> : null}
+            <div className="mt-3">
+              <button type="button" onClick={downloadTemplate} disabled={templatePending} className="inline-flex h-10 items-center gap-[5px] rounded-[10px] bg-slate-900 px-4 text-sm font-extrabold text-white hover:bg-slate-800 disabled:opacity-60">
+                <span className="material-symbols-outlined text-[18px]">download</span>
+                Download Template
               </button>
             </div>
           </Step>
-          <Step number="2" title="Unduh template resmi">
-            {module === "product" ? "Template berisi 7 sheet: template_produk, template_bahan_baku, contoh_produk (tanpa varian), contoh_produk_varian, contoh_produk_hpp, contoh_produk_varian_hpp, dan penjelasan_kolom lengkap dengan aturan HPP otomatis." : "Template berisi 3 sheet: Template Kosong, Contoh Import (2-3 baris), Penjelasan Kolom lengkap."}
-            <div className="mt-3"><button type="button" onClick={downloadTemplate} disabled={templatePending} className="inline-flex h-10 items-center gap-[5px] bg-slate-900 px-4 text-sm font-extrabold text-white hover:bg-slate-800 disabled:opacity-60"><span className="material-symbols-outlined text-[18px]">download</span>Download Template</button></div>
-          </Step>
-          <Step number="3" title="Periksa aturan relasi">
-            {help?.relation || "Relasi diisi sesuai Penjelasan Kolom pada template. Data relasi wajib tidak dibuat otomatis tanpa konfirmasi."}
-          </Step>
-          <Step number="4" title="Isi data sesuai format">
-            {help?.content || "Isi hanya kolom yang menjadi tanggung jawab modul ini. Teks relasi (nama kategori, username, kode) akan dinormalisasi ke lowercase."}
-          </Step>
-          <Step number="5" title="Pilih file Excel">
-            <label className="mt-1 flex cursor-pointer flex-col items-center justify-center border-2 border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center hover:border-emerald-500 hover:bg-emerald-50/40">
+          <Step number="2" title="Unggah file Excel">
+            <label className="mt-1 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center hover:border-emerald-500 hover:bg-emerald-50/40">
               <span className="material-symbols-outlined text-4xl text-emerald-600">upload_file</span>
               <span className="mt-2 text-sm font-extrabold text-slate-800">{file?.name || "Pilih file .xlsx atau .xls"}</span>
               <span className="mt-1 text-xs text-slate-500">Maksimum 20 MB. Gambar disematkan di dalam sel.</span>
               <input type="file" accept=".xlsx,.xls" className="hidden" onChange={(event) => setFile(event.target.files?.[0] || null)} />
             </label>
+            {help?.content ? <p className="mt-2 text-xs text-slate-500">{help.content}</p> : null}
           </Step>
         </div>
         <aside className="border-t border-slate-200 bg-slate-50 p-5 lg:border-l lg:border-t-0">
-          <h3 className="text-sm font-black text-slate-900">Ringkasan</h3>
-          <div className="mt-4 space-y-3 text-sm text-slate-600">
-            <p>Mode: <strong>{importMode === "create" ? "Buat Baru" : importMode === "update" ? "Update" : "Upsert"}</strong>.</p>
-            <p>File divalidasi sebelum disimpan (preview otomatis).</p>
-            <p>Relasi (kode/nama/username) dicari case-insensitive & lowercase.</p>
-            <p>Gambar diekstrak dari sel & disimpan ke storage.</p>
-            <p>Data gagal → file error Excel otomatis diunduh.</p>
+          <h3 className="text-sm font-black text-slate-900">Mode Import</h3>
+          <div className="mt-3 grid gap-2">
+            {IMPORT_MODES.map((mode) => {
+              const active = importMode === mode.value;
+              return (
+                <button
+                  key={mode.value}
+                  type="button"
+                  onClick={() => setImportMode(mode.value)}
+                  className={`rounded-[10px] border p-2.5 text-left transition ${active ? `border-${mode.tone}-600 bg-${mode.tone}-50 ring-1 ring-${mode.tone}-600` : "border-slate-200 bg-white hover:border-slate-300"}`}
+                >
+                  <span className="flex items-center gap-[5px] text-xs font-black text-slate-900">
+                    <span className={`material-symbols-outlined text-[17px] text-${mode.tone}-700`}>{mode.icon}</span>
+                    {mode.label}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-slate-500">{mode.desc}</span>
+                </button>
+              );
+            })}
           </div>
-          <button type="button" onClick={handleStartImport} disabled={!file || pending} className="mt-6 inline-flex h-11 w-full items-center justify-center gap-[5px] bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-45">
-            <span className={`material-symbols-outlined text-[19px] ${pending ? "animate-spin" : ""}`}>fact_check</span>
-            {pending ? "Memvalidasi..." : "Validasi & Import"}
+          <button type="button" onClick={startImport} disabled={!file} className="mt-5 inline-flex h-11 w-full items-center justify-center gap-[5px] rounded-[10px] bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-45">
+            <span className="material-symbols-outlined text-[19px]">play_arrow</span>
+            Mulai Import
           </button>
+          <p className="mt-2 text-center text-[11px] text-slate-500">Proses berjalan di tab progres terpisah.</p>
         </aside>
       </div>
     </div>
@@ -206,11 +180,8 @@ function ImportPanel({ module, label, workspace }) {
 }
 
 function ImportProgressPanel({ workspace, module, label, file, importMode, createMissingRelations }) {
-  const handleComplete = (result) => {
+  const handleComplete = () => {
     workspace.complete();
-    if (result?.download_error_url) {
-      // File error tersedia untuk diunduh
-    }
   };
 
   const handleCancel = () => {
@@ -250,15 +221,15 @@ function ExportPanel({ module, label, workspace, selectedIds = [] }) {
   };
 
   return (
-    <div className="overflow-hidden border border-slate-200 bg-white">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
       <Header icon="download" eyebrow="Export Excel" title={`Export ${label}`} description={supportsImages ? "File berisi data + gambar thumbnail yang disematkan di sel." : "File berisi data realtime sesuai scope toko."} onClose={workspace.close} />
       <div className="p-6">
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="bg-slate-50 p-5"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Cakupan</p><p className="mt-2 text-lg font-black text-slate-900">{selectedIds.length ? `${selectedIds.length} data dipilih` : "Semua data"}</p></div>
-          <div className="bg-slate-50 p-5"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Format</p><p className="mt-2 text-lg font-black text-slate-900">Excel .xlsx {module === "product" ? "(2 sheet: produk + bahan baku)" : "(3 sheet)"}</p></div>
-          <div className="bg-slate-50 p-5"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Isi</p><p className="mt-2 text-lg font-black text-slate-900">{supportsImages ? "Data + gambar" : "Data realtime"}</p></div>
+          <div className="rounded-[10px] bg-slate-50 p-5"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Cakupan</p><p className="mt-2 text-lg font-black text-slate-900">{selectedIds.length ? `${selectedIds.length} data dipilih` : "Semua data"}</p></div>
+          <div className="rounded-[10px] bg-slate-50 p-5"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Format</p><p className="mt-2 text-lg font-black text-slate-900">Excel .xlsx</p></div>
+          <div className="rounded-[10px] bg-slate-50 p-5"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Isi</p><p className="mt-2 text-lg font-black text-slate-900">{supportsImages ? "Data + gambar" : "Data realtime"}</p></div>
         </div>
-        <button type="button" onClick={submit} disabled={pending} className="mt-6 inline-flex h-11 w-full items-center justify-center gap-[5px] bg-emerald-600 px-5 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-60"><span className={`material-symbols-outlined text-[19px] ${pending ? "animate-spin" : ""}`}>download</span>Mulai Export</button>
+        <button type="button" onClick={submit} disabled={pending} className="mt-6 inline-flex h-11 w-full items-center justify-center gap-[5px] rounded-[10px] bg-emerald-600 px-5 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-60"><span className={`material-symbols-outlined text-[19px] ${pending ? "animate-spin" : ""}`}>download</span>Mulai Export</button>
       </div>
     </div>
   );
@@ -271,25 +242,37 @@ export function ExcelImportExportModal({ workspace, module, label, selectedIds =
   if (!activeOp) return null;
 
   if (activeOp.type === "import") {
-    return <ImportPanel module={module} label={moduleLabel} workspace={workspace} />;
+    return (
+      <Overlay onClose={workspace.close}>
+        <ImportPanel module={module} label={moduleLabel} workspace={workspace} />
+      </Overlay>
+    );
   }
 
   if (activeOp.type === "import-progress") {
     const payload = activeOp.payload || {};
     return (
-      <ImportProgressPanel
-        workspace={workspace}
-        module={module}
-        label={moduleLabel}
-        file={payload.file}
-        importMode={payload.importMode}
-        createMissingRelations={payload.createMissingRelations}
-      />
+      <Overlay onClose={workspace.close} size="lg">
+        <div className="h-[85vh] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+          <ImportProgressPanel
+            workspace={workspace}
+            module={module}
+            label={moduleLabel}
+            file={payload.file}
+            importMode={payload.importMode}
+            createMissingRelations={payload.createMissingRelations}
+          />
+        </div>
+      </Overlay>
     );
   }
 
   if (activeOp.type === "export") {
-    return <ExportPanel module={module} label={moduleLabel} workspace={workspace} selectedIds={selectedIds} />;
+    return (
+      <Overlay onClose={workspace.close}>
+        <ExportPanel module={module} label={moduleLabel} workspace={workspace} selectedIds={selectedIds} />
+      </Overlay>
+    );
   }
 
   return null;

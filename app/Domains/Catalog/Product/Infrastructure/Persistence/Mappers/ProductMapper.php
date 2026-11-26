@@ -35,7 +35,6 @@ final class ProductMapper
             description: $model->description,
             brand: $model->brand,
             thumbnail: $model->thumbnail,
-            status: (string) $model->status,
             isActive: (bool) $model->is_active,
             categoryIds: $categoryIds,
             attributeValues: $attributeValues,
@@ -63,7 +62,6 @@ final class ProductMapper
         $model->description = $product->description();
         $model->brand = $product->brand();
         $model->thumbnail = $product->thumbnail();
-        $model->status = $product->status();
         $model->is_active = $product->isActive();
 
         return $model;

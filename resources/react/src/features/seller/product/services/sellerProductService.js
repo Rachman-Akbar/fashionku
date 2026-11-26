@@ -77,7 +77,6 @@ export function normalizeSellerProduct(row = {}) {
     maxOrderQty,
     minStock,
     totalStock: stock + poStock,
-    status: row.status || "draft",
     isActive: toBoolean(row.is_active, true),
     thumbnail: resolveMediaUrl(row.thumbnail || images.find((image) => image.isPrimary)?.url || images[0]?.url || ""),
     images,
@@ -131,10 +130,9 @@ function serializeVariant(variant, index) {
   };
 }
 
-export function serializeSellerProduct(values = {}, options = {}) {
+export function serializeSellerProduct(values = {}) {
   const images = (values.images || []).filter((image) => String(image.url || "").trim());
   const categoryId = Number(values.categoryId || 0) || null;
-  const includeAdminFields = Boolean(options.includeAdminFields);
   const payload = {
     name: String(values.name || "").trim(),
     description: String(values.description || "").trim() || null,
@@ -142,7 +140,6 @@ export function serializeSellerProduct(values = {}, options = {}) {
     primary_category_id: categoryId,
     category_ids: categoryId ? [categoryId] : [],
     thumbnail: String(values.thumbnail || images[0]?.url || "").trim() || null,
-    ...(includeAdminFields ? { status: values.status || "draft" } : {}),
     is_active: Boolean(values.isActive),
     images: images.map(serializeImage),
   };
@@ -204,12 +201,12 @@ export async function getSellerProducts(params = {}) {
 }
 
 export async function createSellerProduct(values, options = {}) {
-  const response = await apiClient.post("/api/v1/catalog/seller/products", serializeSellerProduct(values, options));
+  const response = await apiClient.post("/api/v1/catalog/seller/products", serializeSellerProduct(values));
   return normalizeSellerProduct(unwrapApiData(response.data));
 }
 
 export async function updateSellerProduct(id, values, options = {}) {
-  const response = await apiClient.put(`/api/v1/catalog/seller/products/${id}`, serializeSellerProduct(values, options));
+  const response = await apiClient.put(`/api/v1/catalog/seller/products/${id}`, serializeSellerProduct(values));
   return normalizeSellerProduct(unwrapApiData(response.data));
 }
 
@@ -259,6 +256,24 @@ export function useSellerProducts(params = {}) {
 
 export function useSellerProductCategories(options = {}) {
   return useQuery({ queryKey: sellerProductKeys.categories, queryFn: getSellerProductCategories, staleTime: 30000, ...options });
+}
+
+export async function getSellerProductStockMovements(productId) {
+  const response = await apiClient.get("/api/v1/seller/stock/movements", {
+    params: { product_id: productId, per_page: 50 },
+  });
+
+  return unwrapCollection(response.data);
+}
+
+export function useSellerProductStockMovements(productId, options = {}) {
+  return useQuery({
+    queryKey: ["seller", "products", "stock-movements", Number(productId || 0)],
+    queryFn: () => getSellerProductStockMovements(productId),
+    staleTime: 15_000,
+    enabled: Boolean(productId),
+    ...options,
+  });
 }
 
 export function useSellerProductAttributes(options = {}) {

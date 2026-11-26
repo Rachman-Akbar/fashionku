@@ -25,7 +25,6 @@ final class EloquentWishlistRepository implements WishlistRepositoryInterface
             ->join('products', 'wishlist_items.product_id', '=', 'products.id')
             ->where('wishlists.user_id', $userId)
             ->where('products.is_active', true)
-            ->where('products.status', 'published')
             ->whereNull('products.deleted_at')
             ->select([
                 'products.id',
@@ -33,7 +32,6 @@ final class EloquentWishlistRepository implements WishlistRepositoryInterface
                 'products.slug',
                 'products.brand',
                 'products.thumbnail',
-                'products.status',
             ])
             ->get()
             ->all();

@@ -7,7 +7,18 @@ export function useListTotalCount(meta, options = {}) {
   const [filterState, setFilterState] = useState(EMPTY);
 
   const onFilterStateChange = useCallback((next) => {
-    setFilterState(next || EMPTY);
+    const resolved = next || EMPTY;
+    // Bandingkan isi, bukan referensi. Pemanggil (mis. efek di tabel) sering
+    // mengirim objek literal baru tiap render; tanpa guard ini setState selalu
+    // dianggap berubah dan memicu render ulang tanpa henti.
+    setFilterState((prev) => (
+      prev.activeCount === resolved.activeCount
+      && prev.filteredCount === resolved.filteredCount
+      && prev.loadedCount === resolved.loadedCount
+      && prev.filteredRows === resolved.filteredRows
+        ? prev
+        : resolved
+    ));
   }, []);
 
   return useMemo(() => {

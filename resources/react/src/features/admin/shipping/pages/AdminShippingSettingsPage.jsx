@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiClient, getApiMessage, unwrapApiData } from "@/core/utils/apiClient";
 import { Button } from "@/shared/components/ui/Button";
+import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 
 const defaults = {
@@ -40,6 +41,7 @@ export default function AdminShippingSettingsPage() {
   }, []);
 
   const set = (key) => (e) => setForm((c) => ({ ...c, [key]: e.target.value }));
+  const setNum = (key) => (value) => setForm((c) => ({ ...c, [key]: value }));
   const canSave = useMemo(() => form.store_latitude !== "" && form.store_longitude !== "", [form]);
 
   async function onSave(e) {
@@ -81,17 +83,17 @@ export default function AdminShippingSettingsPage() {
             </div>
             <label className="block text-sm">
               <span className="font-semibold text-slate-700">Tarif per KM (Rp)</span>
-              <input type="number" min="0" step="any" value={form.rate_per_km} onChange={set("rate_per_km")} className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3" />
+              <FormattedNumberInput decimal min="0" step="any" value={form.rate_per_km} onChange={setNum("rate_per_km")} className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3" />
               <span className="mt-1 block text-xs text-slate-500">Biaya per kilometer jarak (Haversine).</span>
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm">
                 <span className="font-semibold text-slate-700">Tarif Dasar / Flat (Rp)</span>
-                <input type="number" min="0" step="any" value={form.default_flat_rate} onChange={set("default_flat_rate")} className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3" />
+                <FormattedNumberInput decimal min="0" step="any" value={form.default_flat_rate} onChange={setNum("default_flat_rate")} className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3" />
               </label>
               <label className="block text-sm">
                 <span className="font-semibold text-slate-700">Gratis Ongkir s/d (KM)</span>
-                <input type="number" min="0" step="any" value={form.free_shipping_max_distance} onChange={set("free_shipping_max_distance")} className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3" />
+                <FormattedNumberInput decimal min="0" step="any" value={form.free_shipping_max_distance} onChange={setNum("free_shipping_max_distance")} className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3" />
               </label>
             </div>
             <p className="text-xs text-slate-500">Rumus: ongkir = tarif dasar + max(0, jarak - gratis s/d) × tarif per KM. Pastikan alamat penerima memiliki koordinat.</p>

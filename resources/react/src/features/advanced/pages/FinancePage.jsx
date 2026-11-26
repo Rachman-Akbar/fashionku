@@ -8,6 +8,7 @@ import { buildDatabaseColumns } from "@/shared/utils/tableData";
 import { FinanceChartPanel } from "@/shared/charts/ChartPanels";
 import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { Input } from "@/shared/components/ui/Input";
+import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { useColumnFilterAutoLoad, useEntityEditor, useRefreshOnListActivation, useTableSelection, useColumnVisibility } from "@/shared/hooks";
 import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
@@ -131,8 +132,8 @@ function FinanceFormContent({
     <Field label="Judul" required hint={selectedOrder ? "Terisi otomatis dari pesanan, bisa diubah." : undefined}><Input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required /></Field>
     <Field label="Deskripsi"><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="min-h-24 border border-slate-300 p-3 text-sm" /></Field>
     <div className="grid gap-4 md:grid-cols-2">
-      <Field label="Nominal" required><Input type="number" min="1" step="0.01" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} required /></Field>
-      <Field label="Sudah Dibayar" hint="Nilai ini hanya berubah melalui tombol Bayar agar seluruh cicilan tercatat di riwayat."><Input type="number" min="0" step="0.01" value={form.paid_amount} disabled /></Field>
+      <Field label="Nominal" required><FormattedNumberInput decimal min="1" step="0.01" value={form.amount} onChange={(value) => setForm((current) => ({ ...current, amount: value }))} required /></Field>
+      <Field label="Sudah Dibayar" hint="Nilai ini hanya berubah melalui tombol Bayar agar seluruh cicilan tercatat di riwayat."><FormattedNumberInput decimal min="0" step="0.01" value={form.paid_amount} disabled /></Field>
     </div>
     <div className="grid gap-4 md:grid-cols-2">
       <Field label="Tanggal Transaksi" required><Input type="datetime-local" value={form.occurred_at} onChange={(event) => setForm((current) => ({ ...current, occurred_at: event.target.value }))} required /></Field>
@@ -699,7 +700,7 @@ export default function FinancePage({ mode = "cashflow" }) {
       >
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Nominal Cicilan" required>
-            <Input type="number" min="0.01" step="0.01" max={paymentRow?.outstanding_amount || undefined} value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} required />
+            <FormattedNumberInput decimal min="0.01" step="0.01" max={paymentRow?.outstanding_amount || undefined} value={paymentAmount} onChange={(value) => setPaymentAmount(value)} required />
           </Field>
           <Field label="Metode Pembayaran">
             <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} className={inputClassName}>

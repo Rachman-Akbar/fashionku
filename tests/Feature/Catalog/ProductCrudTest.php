@@ -31,6 +31,13 @@ class ProductCrudTest extends TestCase
         $this->assertNotNull($id, 'Product id must be returned on create');
         $this->assertSame(1, ProductModel::query()->where('id', $id)->count());
 
+        // Stok awal yang diisi saat membuat produk tercatat sebagai pergerakan
+        // stok `opening` agar riwayat stok lengkap sejak saldo pertama.
+        $opening = \Illuminate\Support\Facades\DB::table('stock_movements')->where('product_id', $id)->get();
+        $this->assertSame(1, $opening->count());
+        $this->assertSame(10, (int) $opening->first()->quantity_delta);
+        $this->assertSame('opening', (string) $opening->first()->reference_type);
+
         $update = $this->putJson("/api/v1/catalog/seller/products/{$id}", [
             'name' => 'Kulkas 2 Pintu Updated',
         ]);
@@ -48,7 +55,6 @@ class ProductCrudTest extends TestCase
         $this->postJson('/api/v1/catalog/seller/products', [
             'name' => 'Tas Ransel',
             'price' => 150000,
-            'status' => 'published',
         ])->assertOk();
 
         $catalog = $this->getJson('/api/v1/catalog/products')
@@ -77,7 +83,6 @@ class ProductCrudTest extends TestCase
         $this->postJson('/api/v1/catalog/seller/products', [
             'name' => 'Produk Cache',
             'price' => 100000,
-            'status' => 'published',
         ])->assertOk();
 
         $this->get('/api/v1/catalog/products')

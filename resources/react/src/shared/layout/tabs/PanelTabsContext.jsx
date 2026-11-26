@@ -173,8 +173,35 @@ export function PanelTabsProvider({ children, items = [] }) {
     clearDirtyTabs([tabId]);
   }, [clearDirtyTabs]);
 
+  /**
+   * Menyimpan isi form yang belum disimpan sebagai draft milik tab, supaya
+   * pengguna bisa pindah tab lain (atau membuka halaman lain) tanpa kehilangan
+   * pekerjaan dan tanpa dialog konfirmasi.
+   */
+  const setTabDraft = useCallback((tabId, draft) => {
+    if (!tabId) return;
+    setChildrenByParent((current) => {
+      let changed = false;
+      const next = {};
+      Object.entries(current).forEach(([parentId, childTabs]) => {
+        if (!childTabs.some((tab) => tab.id === tabId)) {
+          next[parentId] = childTabs;
+          return;
+        }
+        next[parentId] = childTabs.map((tab) => {
+          if (tab.id !== tabId) return tab;
+          changed = true;
+          return { ...tab, draft: draft || null };
+        });
+      });
+      return changed ? next : current;
+    });
+  }, []);
+
   const confirmDirtyTabs = useCallback(async (tabsToCheck) => {
-    const dirtyTargets = tabsToCheck.filter((tab) => dirtyTabIdsRef.current[tab.id]);
+    // Tab yang punya draft tersimpan juga dianggap belum disimpan, supaya
+    // menutup tab dengan sengaja tetap meminta konfirmasi.
+    const dirtyTargets = tabsToCheck.filter((tab) => dirtyTabIdsRef.current[tab.id] || tab.draft);
     if (!dirtyTargets.length) return true;
     const confirmed = await confirmDiscardChanges(dirtyTargets.length === 1 ? dirtyTargets[0].label : `${dirtyTargets.length} tab`);
     if (!confirmed) return false;
@@ -196,28 +223,16 @@ export function PanelTabsProvider({ children, items = [] }) {
 
     const hasChildTabs = !parent.exact && !parent.noChildTabs;
     const listTabId = `${parentId}:list`;
-    const targetChildId = activeChildByParent[parentId];
 
-    // Kumpulkan tab yang sedang punya perubahan belum disimpan: tab yang
-    // sedang terlihat (jika pindah menu) dan tab anak milik menu tujuan.
-    const dirtyCandidates = [];
-    if (activeParent && activeParent.id !== parentId) {
-      const visibleId = activeChildByParent[activeParent.id];
-      const visibleTab = (childrenByParent[activeParent.id] || []).find((tab) => tab.id === visibleId);
-      if (visibleTab) dirtyCandidates.push(visibleTab);
-    }
-    if (hasChildTabs && targetChildId && targetChildId !== listTabId) {
-      const targetChild = (childrenByParent[parentId] || []).find((tab) => tab.id === targetChildId);
-      if (targetChild) dirtyCandidates.push(targetChild);
-    }
-    if (dirtyCandidates.length && !(await confirmDirtyTabs(dirtyCandidates))) return;
-
+    // Berpindah tab TIDAK menutup tab lain: form yang belum disimpan tetap
+    // hidup sebagai draft di tabnya masing-masing. Konfirmasi hanya muncul saat
+    // user benar-benar menutup tab (closeTab/closeParent).
     setActiveParentId(parentId);
     if (hasChildTabs) {
       setActiveChildByParent((current) => ({ ...current, [parentId]: listTabId }));
     }
     navigate(parent.href);
-  }, [activeChildByParent, activeParent, childrenByParent, confirmDirtyTabs, ensureParent, items, navigate]);
+  }, [ensureParent, items, navigate]);
 
   const closeParent = useCallback(async (parentId) => {
     const index = parentTabs.findIndex((tab) => tab.id === parentId);
@@ -274,7 +289,7 @@ export function PanelTabsProvider({ children, items = [] }) {
       return {
         ...current,
         [activeParent.id]: childTabs.some((item) => item.id === id)
-          ? childTabs.map((item) => item.id === id ? { ...item, ...tab } : item)
+          ? childTabs.map((item) => item.id === id ? { ...item, ...tab, draft: item.draft ?? null } : item)
           : [...childTabs, tab],
       };
     });
@@ -299,7 +314,7 @@ export function PanelTabsProvider({ children, items = [] }) {
       return {
         ...current,
         [activeParent.id]: childTabs.some((item) => item.id === id)
-          ? childTabs.map((item) => item.id === id ? { ...item, ...tab } : item)
+          ? childTabs.map((item) => item.id === id ? { ...item, ...tab, draft: item.draft ?? null } : item)
           : [...childTabs, tab],
       };
     });
@@ -318,7 +333,7 @@ export function PanelTabsProvider({ children, items = [] }) {
       return {
         ...current,
         [activeParent.id]: childTabs.some((item) => item.id === id)
-          ? childTabs.map((item) => item.id === id ? tab : item)
+          ? childTabs.map((item) => item.id === id ? { ...tab, draft: item.draft ?? null } : item)
           : [...childTabs, tab],
       };
     });
@@ -409,6 +424,16 @@ export function PanelTabsProvider({ children, items = [] }) {
     return () => window.removeEventListener("keydown", handler);
   }, [closeActiveTab, openCreateTab]);
 
+  // Tab dengan draft tersimpan juga ditandai "belum disimpan" pada tab bar.
+  const dirtyTabIdsWithDrafts = useMemo(() => {
+    const withDrafts = Object.values(childrenByParent).flat().reduce((next, tab) => {
+      if (tab.draft) next[tab.id] = true;
+      return next;
+    }, { ...dirtyTabIds });
+
+    return withDrafts;
+  }, [childrenByParent, dirtyTabIds]);
+
   const value = useMemo(() => ({
     items,
     parentTabs,
@@ -432,10 +457,11 @@ export function PanelTabsProvider({ children, items = [] }) {
     markListDirty,
     listRevision: Number(listRevisionByParent[activeParent?.id] || 0),
     setTabDirty,
+    setTabDraft,
     markTabClean,
-    dirtyTabIds,
+    dirtyTabIds: dirtyTabIdsWithDrafts,
     navigate,
-  }), [activateParent, activateTab, activeParent, activeParentId, activeTab, activeTabId, closeActiveTab, closeAllChildren, closeAllParents, closeParent, closeTab, dirtyTabIds, items, listRevisionByParent, markListDirty, markTabClean, navigate, openCreateTab, openEditTab, openList, openOperationTab, openParent, parentTabs, setTabDirty, tabs]);
+  }), [activateParent, activateTab, activeParent, activeParentId, activeTab, activeTabId, closeActiveTab, closeAllChildren, closeAllParents, closeParent, closeTab, dirtyTabIdsWithDrafts, items, listRevisionByParent, markListDirty, markTabClean, navigate, openCreateTab, openEditTab, openList, openOperationTab, openParent, parentTabs, setTabDirty, setTabDraft, tabs]);
 
   return <PanelTabsContext.Provider value={value}>{children}</PanelTabsContext.Provider>;
 }

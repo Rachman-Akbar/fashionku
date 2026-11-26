@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
@@ -12,6 +12,7 @@ import { ColumnFilterHeader } from "@/shared/components/crud/ColumnFilterHeader"
 import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
+import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
 import { useActiveToggle } from "@/shared/hooks/useActiveToggle";
 import { InteractiveColGroup } from "@/shared/components/table/InteractiveTableHeader";
 import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
@@ -25,16 +26,16 @@ import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { ExcelActionButtons } from "@/shared/excel";
 
-function CategoryEditor({ open, category, onClose, onSave, saving, parents }) {
+function CategoryEditor({ open, category, onClose, onSave, saving, parents, levelOf }) {
   const [form, setForm] = useState({
     name: category?.name || "",
-    slug: category?.slug || "",
     parent_id: category?.parentId ?? "",
     sort_order: category?.sortOrder ?? 0,
     is_active: category?.isActive !== false,
     image_url: category?.imageUrl || "",
     icon_url: category?.iconUrl || "",
   });
+  const level = form.parent_id ? (levelOf(form.parent_id) || 1) + 1 : 1;
 
   return (
     <CrudDialog open={open} title={category ? "Edit Kategori" : "Tambah Kategori"} subtitle="Kelola kategori produk untuk katalog marketplace." onClose={onClose} size="max-w-md">
@@ -56,16 +57,6 @@ function CategoryEditor({ open, category, onClose, onSave, saving, parents }) {
           />
         </div>
         <div className="space-y-2">
-          <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Slug</label>
-          <input
-            value={form.slug}
-            onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value }))}
-            className="h-9 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
-            disabled={saving}
-            placeholder="Otomatis dari nama jika kosong"
-          />
-        </div>
-        <div className="space-y-2">
           <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Kategori Induk</label>
           <select
             value={form.parent_id ?? ""}
@@ -84,10 +75,9 @@ function CategoryEditor({ open, category, onClose, onSave, saving, parents }) {
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Urutan</label>
-            <input
-              type="number"
+            <FormattedNumberInput
               value={form.sort_order}
-              onChange={(event) => setForm((current) => ({ ...current, sort_order: Number(event.target.value) || 0 }))}
+              onChange={(value) => setForm((current) => ({ ...current, sort_order: Number(value) || 0 }))}
               className="h-9 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
               disabled={saving}
             />
@@ -106,10 +96,16 @@ function CategoryEditor({ open, category, onClose, onSave, saving, parents }) {
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Gambar Kategori (image_url)</label>
-            <ImageFilePicker value={form.image_url} onChange={(url) => setForm((current) => ({ ...current, image_url: url }))} scope="categories" label="Unggah gambar kategori" aspectClassName="aspect-square" disabled={saving} />
-          </div>
+          {level === 3 ? (
+            <div className="space-y-2">
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Gambar Kategori (image_url)</label>
+              <ImageFilePicker value={form.image_url} onChange={(url) => setForm((current) => ({ ...current, image_url: url }))} scope="categories" label="Unggah gambar kategori" aspectClassName="aspect-square" disabled={saving} />
+            </div>
+          ) : (
+            <p className="self-center rounded-[10px] bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              Gambar hanya tersedia untuk kategori level 3.
+            </p>
+          )}
           <div className="space-y-2">
             <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Ikon Kategori (icon_url)</label>
             <ImageFilePicker value={form.icon_url} onChange={(url) => setForm((current) => ({ ...current, icon_url: url }))} scope="categories" label="Unggah ikon kategori" aspectClassName="aspect-square" disabled={saving} />
@@ -128,10 +124,9 @@ function CategoryEditor({ open, category, onClose, onSave, saving, parents }) {
   );
 }
 
-function CategoryDetail({ category, parents, onBack, onSave, onDelete, saving }) {
+function CategoryDetail({ category, parents, onBack, onSave, onDelete, saving, levelOf }) {
   const initial = useMemo(() => ({
     name: category?.name || "",
-    slug: category?.slug || "",
     parent_id: category?.parentId ?? "",
     sort_order: category?.sortOrder ?? 0,
     is_active: category?.isActive !== false,
@@ -141,6 +136,7 @@ function CategoryDetail({ category, parents, onBack, onSave, onDelete, saving })
   const [form, setForm] = useState(initial);
   useEffect(() => { setForm(initial); }, [initial]);
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+  const level = form.parent_id ? (levelOf(form.parent_id) || 1) + 1 : 1;
   const fieldClass = "h-10 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60";
   const parentOptions = (parents || []).filter((parent) => String(parent.id) !== String(category?.id));
 
@@ -157,7 +153,7 @@ function CategoryDetail({ category, parents, onBack, onSave, onDelete, saving })
               </div>
               <div className="min-w-0">
                 <h2 className="truncate text-lg font-extrabold text-slate-900">{form.name || "-"}</h2>
-                <p className="truncate text-sm text-slate-500">{form.slug ? `/${form.slug}` : "Slug otomatis"}</p>
+                <p className="truncate text-sm text-slate-500">Level {level}</p>
               </div>
               <div className="ml-auto">
                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${form.is_active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
@@ -171,10 +167,6 @@ function CategoryDetail({ category, parents, onBack, onSave, onDelete, saving })
                 <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className={fieldClass} required />
               </label>
               <label className="grid gap-1.5 text-sm font-bold text-slate-700">
-                <span>Slug</span>
-                <input value={form.slug} onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value }))} className={fieldClass} placeholder="Otomatis dari nama jika kosong" />
-              </label>
-              <label className="grid gap-1.5 text-sm font-bold text-slate-700">
                 <span>Kategori Induk</span>
                 <select value={form.parent_id ?? ""} onChange={(event) => setForm((current) => ({ ...current, parent_id: event.target.value }))} className={fieldClass}>
                   <option value="">Tidak ada (root)</option>
@@ -185,7 +177,7 @@ function CategoryDetail({ category, parents, onBack, onSave, onDelete, saving })
               </label>
               <label className="grid gap-1.5 text-sm font-bold text-slate-700">
                 <span>Urutan</span>
-                <input type="number" value={form.sort_order} onChange={(event) => setForm((current) => ({ ...current, sort_order: Number(event.target.value) || 0 }))} className={fieldClass} />
+                <FormattedNumberInput value={form.sort_order} onChange={(value) => setForm((current) => ({ ...current, sort_order: Number(value) || 0 }))} className={fieldClass} />
               </label>
               <label className="grid gap-1.5 text-sm font-bold text-slate-700">
                 <span>Status</span>
@@ -200,10 +192,16 @@ function CategoryDetail({ category, parents, onBack, onSave, onDelete, saving })
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Gambar Kategori (image_url)</label>
-                <ImageFilePicker value={form.image_url} onChange={(url) => setForm((current) => ({ ...current, image_url: url }))} scope="categories" label="Unggah gambar kategori" aspectClassName="aspect-square" disabled={saving} />
-              </div>
+              {level === 3 ? (
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Gambar Kategori (image_url)</label>
+                  <ImageFilePicker value={form.image_url} onChange={(url) => setForm((current) => ({ ...current, image_url: url }))} scope="categories" label="Unggah gambar kategori" aspectClassName="aspect-square" disabled={saving} />
+                </div>
+              ) : (
+                <p className="self-center rounded-[10px] bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                  Gambar hanya tersedia untuk kategori level 3.
+                </p>
+              )}
               <div className="space-y-2">
                 <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Ikon Kategori (icon_url)</label>
                 <ImageFilePicker value={form.icon_url} onChange={(url) => setForm((current) => ({ ...current, icon_url: url }))} scope="categories" label="Unggah ikon kategori" aspectClassName="aspect-square" disabled={saving} />
@@ -223,7 +221,7 @@ export default function AdminCategoryPage() {
   // Setiap tambah data / detail membuka tab anak sendiri di samping tab
   // daftar (hijau), sehingga admin bisa berpindah antar entitas tanpa
   // kehilangan isian yang sedang dikerjakan.
-  const editor = useEntityEditor({ getEditLabel: (row) => row.name || row.slug || "Kategori" });
+  const editor = useEntityEditor({ getEditLabel: (row) => row.name || "Kategori" });
   const activeToggle = useActiveToggle({
     mutate: (category, nextActive) => updateMutation.mutateAsync({ id: category.id, values: { is_active: nextActive } }),
     errorMessage: () => "Status kategori gagal diubah.",
@@ -232,7 +230,9 @@ export default function AdminCategoryPage() {
     onSettled: () => categoriesQuery.refetch(),
     openDetail: (category) => editor.edit(category),
   });
+  // Grup/subkategori terbuka secara default; admin cukup menutupnya bila perlu.
   const [expandedIds, setExpandedIds] = useState(() => new Set());
+  const autoExpandedIds = useRef(new Set());
   const deferredQuery = useDeferredValue(query.trim());
   const categoriesQuery = useCategories({ ...(deferredQuery ? { search: deferredQuery } : {}), per_page: 100 });
   const createMutation = useCreateCategory();
@@ -244,7 +244,6 @@ export default function AdminCategoryPage() {
   const curatedColumns = useMemo(
     () => [
       { key: "name", label: "Nama" },
-      { key: "slug", label: "Slug" },
       { key: "parentId", label: "Induk" },
       { key: "sortOrder", label: "Urutan" },
       { key: "isActive", label: "Aktif" },
@@ -255,6 +254,8 @@ export default function AdminCategoryPage() {
   );
   const { columnVisibility, visibleColumns } = useDatabaseTableColumns(curatedColumns, rows, {
     storageKey: "admin-categories",
+    // Slug/full_slug tetap dipakai untuk URL, tapi tidak ditampilkan ke user.
+    omit: ["slug", "full_slug"],
     labels: {
       parent_scope_id: "Parent Scope",
       parent: "Induk",
@@ -277,7 +278,6 @@ export default function AdminCategoryPage() {
     const columnKey = String(key);
     if (columnKey.startsWith("raw:")) return row?.raw?.[columnKey.slice(4)];
     if (columnKey === "name") return row.name;
-    if (columnKey === "slug") return row.slug;
     if (columnKey === "parentId") return parentNameById.get(String(row.parentId)) || "";
     if (columnKey === "isActive") return Boolean(row.isActive);
     if (columnKey === "imageUrl") return row.imageUrl;
@@ -292,7 +292,6 @@ export default function AdminCategoryPage() {
   const filterTypes = useMemo(() => ({
     ...filterConfig.types,
     name: "text",
-    slug: "text",
     parentId: "select",
     sortOrder: "range",
     isActive: "select",
@@ -354,6 +353,30 @@ export default function AdminCategoryPage() {
   }, [filteredRows]);
 
   const expandableIds = useMemo(() => new Set(categoryTree.childrenByParent.keys()), [categoryTree]);
+  const levelById = useMemo(() => {
+    const levels = new Map();
+    const byId = new Map(rows.map((row) => [String(row.id), row]));
+    const resolve = (row, visiting = new Set()) => {
+      const key = String(row.id);
+      if (levels.has(key)) return levels.get(key);
+      if (visiting.has(key)) return 1;
+      visiting.add(key);
+      const parentId = row.parentId === null || row.parentId === undefined || row.parentId === "" ? null : String(row.parentId);
+      const parent = parentId ? byId.get(parentId) : null;
+      const level = parent ? resolve(parent, visiting) + 1 : 1;
+      levels.set(key, level);
+      return level;
+    };
+    for (const row of rows) resolve(row);
+    return levels;
+  }, [rows]);
+  const levelOf = useCallback((id) => levelById.get(String(id)) || 1, [levelById]);
+  useEffect(() => {
+    const unseen = [...expandableIds].filter((id) => !autoExpandedIds.current.has(id));
+    if (!unseen.length) return;
+    for (const id of unseen) autoExpandedIds.current.add(id);
+    setExpandedIds((current) => new Set([...current, ...unseen]));
+  }, [expandableIds]);
   const allExpanded = expandableIds.size > 0 && [...expandableIds].every((id) => expandedIds.has(id));
 
   const toggleExpanded = (id) => {
@@ -416,8 +439,12 @@ export default function AdminCategoryPage() {
     const parentId = value === "" ? null : Number(value);
     const currentId = category.parentId === null || category.parentId === undefined || category.parentId === "" ? null : Number(category.parentId);
     if (currentId === parentId) return;
+    // Hanya kategori level 3 yang menyimpan gambar, jadi gambar lama ikut
+    // dibersihkan saat kategori dipindah ke level lain.
+    const values = { parent_id: parentId };
+    if ((parentId ? levelOf(parentId) + 1 : 1) !== 3) values.image_url = null;
     try {
-      await updateMutation.mutateAsync({ id: category.id, values: { parent_id: parentId } });
+      await updateMutation.mutateAsync({ id: category.id, values });
       categoriesQuery.refetch();
     } catch {
       // handled by mutation hooks
@@ -449,7 +476,7 @@ export default function AdminCategoryPage() {
 
   const categoryCard = {
     title: (category) => category.name,
-    subtitle: (category) => (category.slug ? `/${category.slug}` : "Slug otomatis"),
+    subtitle: (category) => parentNameOf(category),
     badges: [
       (category) => (
         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${category.isActive ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
@@ -458,7 +485,7 @@ export default function AdminCategoryPage() {
       ),
     ],
     fields: [
-      { label: "Gambar", render: (category) => category.imageUrl ? <img src={resolveMediaUrl(category.imageUrl)} alt="" className="h-12 w-12 rounded object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span> },
+      { label: "Gambar", render: (category) => levelOf(category.id) === 3 && category.imageUrl ? <img src={resolveMediaUrl(category.imageUrl)} alt="" className="h-12 w-12 rounded object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span> },
       { label: "Ikon", render: (category) => category.iconUrl ? <img src={resolveMediaUrl(category.iconUrl)} alt="" className="h-12 w-12 rounded object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span> },
       { label: "Induk", render: (category) => parentNameOf(category) },
       { label: "Urutan", render: (category) => category.sortOrder ?? 0 },
@@ -471,13 +498,13 @@ export default function AdminCategoryPage() {
       toastError("Kategori", "Nama kategori wajib diisi.");
       return;
     }
+    const level = form.parent_id ? levelOf(form.parent_id) + 1 : 1;
     const payload = {
       name: String(form.name).trim(),
-      slug: String(form.slug || "").trim() || undefined,
       parent_id: form.parent_id ? Number(form.parent_id) : null,
       sort_order: Number(form.sort_order) || 0,
       is_active: Boolean(form.is_active),
-      image_url: form.image_url || null,
+      image_url: level === 3 ? form.image_url || null : null,
       icon_url: form.icon_url || null,
     };
     try {
@@ -499,13 +526,13 @@ export default function AdminCategoryPage() {
 
   const saveDetailCategory = async (form) => {
     if (!editor.entity) return;
+    const level = form.parent_id ? levelOf(form.parent_id) + 1 : 1;
     const payload = {
       name: String(form.name || "").trim(),
-      slug: String(form.slug || "").trim() || undefined,
       parent_id: form.parent_id ? Number(form.parent_id) : null,
       sort_order: Number(form.sort_order) || 0,
       is_active: Boolean(form.is_active),
-      image_url: form.image_url || null,
+      image_url: level === 3 ? form.image_url || null : null,
       icon_url: form.icon_url || null,
     };
     try {
@@ -541,6 +568,7 @@ export default function AdminCategoryPage() {
           onSave={handleSave}
           saving={updateMutation.isPending || createMutation.isPending}
           parents={parentOptions}
+          levelOf={levelOf}
         />
       ) : editor.open && editor.entity ? (
         <CategoryDetail
@@ -551,6 +579,7 @@ export default function AdminCategoryPage() {
           onSave={(form) => saveDetailCategory(form)}
           onDelete={() => setDeleteTarget(editor.entity)}
           saving={updateMutation.isPending}
+          levelOf={levelOf}
         />
       ) : (
         <ListPageFrame
@@ -562,7 +591,7 @@ export default function AdminCategoryPage() {
             onRefresh={() => categoriesQuery.refetch()}
             refreshing={categoriesQuery.isFetching}
             createLabel="Kategori"
-            placeholder="Cari nama atau slug kategori"
+            placeholder="Cari nama kategori"
             totalCount={total.totalCount}
             totalLabel={total.totalLabel}
             totalTitle={total.totalTitle}
@@ -608,7 +637,7 @@ export default function AdminCategoryPage() {
               <TopScrollbar {...hScroll} visible={hScroll.hasOverflow} width={hScroll.metrics.scrollWidth} />
                 <div ref={hScroll.scrollRef} onScroll={hScroll.handleTableScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] border border-slate-200 bg-white">
                   <table className="table-fixed border-collapse text-left text-sm" style={{ width: Math.max(tableLayout.totalWidth, 760), minWidth: "100%" }}>
-                    <InteractiveColGroup columns={tableLayout.orderedColumns} getColumnStyle={tableLayout.getColumnStyle} leadingWidth={40} trailingWidth={112} />
+                    <InteractiveColGroup columns={tableLayout.orderedColumns} getColumnStyle={tableLayout.getColumnStyle} leadingWidth={40} />
                     <thead className="sticky top-[var(--list-toolbar-h,0px)] z-20 bg-slate-50">
                       <tr className="bg-slate-50">
                         <th className="w-10 bg-slate-50 px-2 py-3 shadow-[inset_0_-1px_0_0_#e2e8f0]">
@@ -642,7 +671,6 @@ export default function AdminCategoryPage() {
                             className="bg-slate-50 px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]"
                           />
                         ))}
-                        <th className="w-28 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 shadow-[inset_0_-1px_0_0_#e2e8f0]">Aksi</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -728,7 +756,7 @@ export default function AdminCategoryPage() {
                             if (column.key === "imageUrl") {
                               return (
                                 <td key={column.key} className="px-4 py-3 text-slate-700">
-                                  {category.imageUrl ? <img src={resolveMediaUrl(category.imageUrl)} alt="" className="h-10 w-10 rounded object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span>}
+                                  {levelOf(category.id) === 3 && category.imageUrl ? <img src={resolveMediaUrl(category.imageUrl)} alt="" className="h-10 w-10 rounded object-cover ring-1 ring-slate-200" /> : <span className="text-slate-400 text-xs">—</span>}
                                 </td>
                               );
                             }
@@ -745,7 +773,6 @@ export default function AdminCategoryPage() {
                               </td>
                             );
                           })}
-                          <td className="px-4 py-3">{rowActions(category)}</td>
                         </tr>
                       ))}
                     </tbody>

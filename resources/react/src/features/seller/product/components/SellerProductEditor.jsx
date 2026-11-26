@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FormPageLayout } from "@/shared/components/crud/FormPageLayout";
 import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { FormField, inputClassName, textAreaClassName } from "@/shared/components/form/FormField";
+import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { validateFields, minimumNumber, required } from "@/core/utils/formValidation";
 import { ProductEditorTabs } from "@/features/seller/product/components/ProductEditorTabs";
@@ -16,13 +17,14 @@ import { createClientId } from "@/core/utils/clientId";
 import { toTitleCase } from "@/shared/utils/textFormatter";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
 import { useTabDirtyGuard } from "@/shared/hooks/useTabDirtyGuard";
-import { getRelationQuickCreateError, useQuickCreateCategory, useQuickCreateProductAttribute } from "@/shared/services/relationQuickCreateService";
+import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
+import { getRelationQuickCreateError, useQuickCreateProductAttribute } from "@/shared/services/relationQuickCreateService";
 import {
-  generateSellerSku,
   getSellerProductError,
   useCreateSellerProduct,
   useSellerProductAttributes,
   useSellerProductCategories,
+  useSellerProductStockMovements,
   useUpdateSellerProduct,
 } from "@/features/seller/product/services/sellerProductService";
 import { advancedError, useSaveProductCosting } from "@/features/advanced/services/advancedMarketplaceService";
@@ -36,7 +38,6 @@ function createInitialValues(product) {
       brand: "",
       description: "",
       categoryId: "",
-      status: "draft",
       isActive: true,
       mode: "simple",
       sku: "",
@@ -57,7 +58,6 @@ function createInitialValues(product) {
     brand: product.brand,
     description: product.description,
     categoryId: product.categoryId || "",
-    status: product.status,
     isActive: product.isActive,
     mode: product.mode,
     sku: product.sku,
@@ -106,6 +106,13 @@ function getCategoryPath(category) {
   return toTitleCase(getCategoryName(category));
 }
 
+// Produk hanya boleh memakai kategori level 3 (level terdalam).
+const PRODUCT_CATEGORY_LEVEL = 3;
+
+function isProductCategoryLevel(category) {
+  return getCategoryDepth(category) + 1 === PRODUCT_CATEGORY_LEVEL;
+}
+
 function getErrorTabs(errors) {
   const tabs = [];
   if (errors.name || errors.categoryId || errors.price) tabs.push("general");
@@ -137,12 +144,22 @@ export function SellerProductEditor({
   const dirty = useFormDirty(pristine, values, { volatileKeys: ["clientId"], numericKeys: NUMERIC_FIELD_KEYS });
   const formDirty = dirty || costingDirty;
   useTabDirtyGuard(formDirty);
+  const panelTabs = usePanelTabs();
+  const activeTabId = panelTabs?.activeTab?.id || "";
+  const activeTabDraft = panelTabs?.activeTab?.draft || null;
+  const setTabDraft = panelTabs?.setTabDraft;
+  const sessionRef = useRef("");
+  const wasOpenRef = useRef(false);
+  const savedRef = useRef(false);
+  const leaveStateRef = useRef({ dirty: false, values: null, section: "general", costing: null });
+  const costingStateRef = useRef(null);
   const [activeSection, setActiveSection] = useState("general");
+  leaveStateRef.current = { dirty: formDirty, values, section: activeSection, costing: costingStateRef.current };
   const notifications = useNotificationCenter();
-  const quickCreateCategoryMutation = useQuickCreateCategory();
   const quickCreateAttributeMutation = useQuickCreateProductAttribute();
   const categoriesQuery = useSellerProductCategories({ enabled: categories === null });
   const attributesQuery = useSellerProductAttributes({ enabled: attributes === null });
+  const stockMovementsQuery = useSellerProductStockMovements(product?.id, { enabled: Boolean(open && product?.id) });
   const categoryOptions = categories || categoriesQuery.data || [];
   const attributeOptions = attributes || attributesQuery.data || [];
   const createMutation = useCreateMutation();
@@ -153,8 +170,31 @@ export function SellerProductEditor({
   const isAdmin = portal === "admin";
   const initialSectionRef = useRef(initialSection);
   initialSectionRef.current = initialSection;
-  const [skuPattern, setSkuPattern] = useState("");
-  const [generatingSku, setGeneratingSku] = useState(false);
+
+  // "Bahan Baru" membuka halaman form bahan baku yang sebenarnya (bukan form
+  // mini di dalam resep), sekaligus memindahkan tab panel ke halaman itu.
+  const openRawMaterials = () => {
+    const href = isAdmin ? "/admin/bahan-baku" : "/seller/stock";
+    const item = panelTabs?.items?.find((entry) => entry.href === href);
+
+    if (item && panelTabs?.openParent) panelTabs.openParent(item);
+
+    navigate(`${href}${isAdmin ? "?new=1" : "?new=material"}`);
+  };
+
+  // Dipakai tab HPP: begitu harga saran dicentang untuk diterapkan, harga di
+  // tab Umum (tanpa variant) atau harga setiap variant ikut diperbarui supaya
+  // kedua tab selalu sinkron.
+  const applyCostingPrice = useCallback((price) => {
+    const nextPrice = Math.max(0, Number(price || 0));
+
+    setValues((current) => (current.mode === "variant"
+      ? {
+          ...current,
+          variants: (current.variants || []).map((variant) => ({ ...variant, price: nextPrice })),
+        }
+      : { ...current, price: nextPrice }));
+  }, []);
 
   const openStock = (row) => {
     const href = isAdmin ? "/admin/stock" : "/seller/stock";
@@ -172,31 +212,56 @@ export function SellerProductEditor({
   }, [onClose, open, suppressEscape]);
 
   useEffect(() => {
-    if (open) {
-      const initial = createInitialValues(product);
-      setPristine(initial);
-      setValues(initial);
-      setErrors({});
-      setCostingDirty(false);
-      setActiveSection(initialSectionRef.current);
+    if (!open) {
+      wasOpenRef.current = false;
+      return;
     }
-  }, [open, product]);
+
+    const sessionKey = activeTabId || `local-${product?.id ?? "new"}`;
+    const isNewSession = !wasOpenRef.current || sessionRef.current !== sessionKey;
+    wasOpenRef.current = true;
+
+    if (!isNewSession) return;
+
+    sessionRef.current = sessionKey;
+    savedRef.current = false;
+    const initial = createInitialValues(product);
+    // Draft tab (kalau ada) dipulihkan supaya pekerjaan tidak hilang saat
+    // pengguna pindah tab lalu kembali.
+    const restored = activeTabDraft?.values ? { ...initial, ...activeTabDraft.values } : initial;
+    setPristine(initial);
+    setValues(restored);
+    setErrors({});
+    setCostingDirty(false);
+    setActiveSection(activeTabDraft?.section || initialSectionRef.current);
+    costingStateRef.current = activeTabDraft?.costing || null;
+  }, [activeTabDraft, activeTabId, open, product]);
+
+  // Pindah tab / halaman tidak menutup form: isi terbaru disimpan sebagai draft
+  // milik tab agar bisa dilanjutkan tanpa dialog konfirmasi. Draft hanya hilang
+  // saat produk disimpan atau tab ditutup dengan sengaja.
+  useEffect(() => {
+    if (!open) return undefined;
+
+    return () => {
+      if (!setTabDraft || !activeTabId) return;
+      if (savedRef.current) return;
+
+      const snapshot = leaveStateRef.current;
+
+      if (!snapshot.dirty) {
+        setTabDraft(activeTabId, null);
+        return;
+      }
+
+      setTabDraft(activeTabId, { values: snapshot.values, section: snapshot.section, costing: snapshot.costing, savedAt: Date.now() });
+    };
+  }, [activeTabId, open, setTabDraft]);
 
   const selectedCategory = useMemo(
     () => categoryOptions.find((category) => category.id === Number(values.categoryId)) || null,
     [categoryOptions, values.categoryId],
   );
-
-  const quickCreateCategory = async (name) => {
-    try {
-      const created = await quickCreateCategoryMutation.mutateAsync({ name });
-      notifications.push({ type: "success", title: "Category siap digunakan", message: `${created.name} berhasil tersedia dan langsung dipilih.` });
-      return { value: created.id, label: `L${created.level || 1} · ${toTitleCase(created.name)}` };
-    } catch (error) {
-      notifications.push({ type: "error", title: "Category gagal dibuat", message: getRelationQuickCreateError(error) });
-      throw error;
-    }
-  };
 
   const quickCreateAttribute = async (name) => {
     try {
@@ -209,7 +274,18 @@ export function SellerProductEditor({
     }
   };
 
-  const sortedCategoryOptions = useMemo(() => categoryOptions, [categoryOptions]);
+  // Dropdown hanya berisi kategori level 3; kategori produk lama (level 1/2) tetap
+  // disertakan agar nilai kategori yang sudah tersimpan tidak hilang saat edit.
+  const sortedCategoryOptions = useMemo(() => {
+    const levelThreeOptions = categoryOptions.filter(isProductCategoryLevel);
+    const currentOption = categoryOptions.find((category) => category.id === Number(values.categoryId || 0));
+
+    if (currentOption && !isProductCategoryLevel(currentOption)) {
+      return [currentOption, ...levelThreeOptions];
+    }
+
+    return levelThreeOptions;
+  }, [categoryOptions, values.categoryId]);
 
   const rules = useMemo(() => ({
     name: required("Nama produk"),
@@ -278,27 +354,6 @@ export function SellerProductEditor({
     setErrors((current) => ({ ...current, variants: "", variantStock: "" }));
   };
 
-  const generateProductSku = async () => {
-    setGeneratingSku(true);
-
-    try {
-      const sku = await generateSellerSku({
-        pattern: skuPattern,
-        name: values.name,
-        brand: values.brand,
-        category: selectedCategory?.pathNames?.join("-") || selectedCategory?.rawName || "",
-        attributes: [],
-        variantId: values.variants?.[0]?.id,
-      });
-
-      if (sku) setField("sku", sku);
-    } catch (error) {
-      toastError("SKU gagal dibuat", error?.message || "Rumus SKU tidak valid.");
-    } finally {
-      setGeneratingSku(false);
-    }
-  };
-
   const submit = async (event) => {
     event.preventDefault();
     const nextErrors = validateFields(values, rules);
@@ -324,10 +379,18 @@ export function SellerProductEditor({
         nextErrors.variants = "Satu atribut hanya boleh dipakai sekali pada setiap variant.";
       }
 
-      if (values.variants.some((variant) => String(variant.price ?? "").trim() === "" || String(variant.stock ?? "").trim() === "")) {
-        nextErrors.variantStock = "Harga dan stok setiap variant wajib diisi.";
-      } else if (values.variants.some((variant) => Number(variant.price) <= 0 || Number(variant.stock) < 0 || Number(variant.poStock) < 0 || Number(variant.maxOrderQty ? variant.maxOrderQty : 999999) < 1 || Number(variant.minStock || 0) < 0)) {
-        nextErrors.variantStock = "Harga setiap variant harus lebih dari 0, stok tidak boleh negatif, dan batas item per pesanan minimal 1.";
+      if (!nextErrors.variants && values.variants.some((variant) => String(variant.price ?? "").trim() === "")) {
+        nextErrors.variants = "Harga setiap variant wajib diisi.";
+      }
+
+      if (values.variants.some((variant) => String(variant.price ?? "").trim() !== "" && Number(variant.price) <= 0) && !nextErrors.variants) {
+        nextErrors.variants = "Harga setiap variant harus lebih dari 0.";
+      }
+
+      if (values.variants.some((variant) => String(variant.stock ?? "").trim() === "")) {
+        nextErrors.variantStock = "Stok awal setiap variant wajib diisi.";
+      } else if (values.variants.some((variant) => Number(variant.stock) < 0 || Number(variant.poStock) < 0 || Number(variant.maxOrderQty ? variant.maxOrderQty : 999999) < 1 || Number(variant.minStock || 0) < 0)) {
+        nextErrors.variantStock = "Stok tidak boleh negatif dan batas item per pesanan minimal 1.";
       }
     }
 
@@ -355,7 +418,7 @@ export function SellerProductEditor({
               other_cost: Number(values.costing.other_cost || 0),
               margin_percent: Number(values.costing.margin_percent || 0),
               selling_price: String(values.costing.selling_price || "").trim() !== "" ? Number(values.costing.selling_price) : null,
-              apply_to_variants: false,
+              apply_to_variants: Boolean(values.costing.apply_to_variants),
             },
           });
           notifications.push({ type: "success", title: "HPP tersimpan", message: "Resep, HPP, dan harga jual produk berhasil disimpan." });
@@ -370,8 +433,11 @@ export function SellerProductEditor({
         if (costingSaved === false) return;
       }
 
+      // Simpan berhasil: draft tab dibuang karena data sudah masuk database.
+      savedRef.current = true;
+      setTabDraft?.(activeTabId, null);
       onSaved?.(saved);
-            window.setTimeout(() => onClose?.(), 350);
+      window.setTimeout(() => onClose?.(), 350);
     } catch (error) {
       toastError("Gagal menyimpan produk", getError(error));
     }
@@ -426,45 +492,30 @@ export function SellerProductEditor({
                     <input value={values.brand} onChange={(event) => setField("brand", event.target.value)} className={inputClassName} />
                   </FormField>
 
-                  <FormField label="Kategori" error={errors.categoryId} required>
+                  <FormField label="Kategori" error={errors.categoryId} hint="Hanya kategori level 3 yang bisa dipilih untuk produk." required>
                     <SearchableSelect
                       value={values.categoryId}
                       onChange={(nextValue) => setField("categoryId", nextValue)}
                       options={sortedCategoryOptions.map((category) => {
                         const depth = getCategoryDepth(category);
+                        const isLevelThree = depth + 1 === PRODUCT_CATEGORY_LEVEL;
                         return {
                           value: category.id,
-                          label: `L${depth + 1} · ${"— ".repeat(depth)}${toTitleCase(getCategoryName(category))}`,
+                          label: isLevelThree
+                            ? toTitleCase(getCategoryName(category))
+                            : `L${depth + 1} · ${toTitleCase(getCategoryName(category))}`,
                           keywords: getCategoryPath(category),
                         };
                       })}
-                      placeholder="Pilih kategori"
-                      searchPlaceholder="Cari kategori"
-                      onCreate={quickCreateCategory}
-                      creating={quickCreateCategoryMutation.isPending}
-                      createLabel={(name) => `Data tidak ditemukan, tambahkan “${name}” sebagai Category baru`}
+                      placeholder="Pilih kategori level 3"
+                      searchPlaceholder="Cari kategori level 3"
+                      emptyText="Kategori level 3 tidak ditemukan"
                     />
                   </FormField>
 
-                  <FormField label="Status Aktif" hint="Produk aktif tampil dan dapat dibeli oleh pelanggan.">
+                  <FormField label="Status Aktif" hint="Produk aktif langsung tayang di marketplace; nonaktif disembunyikan dari pembeli.">
                     <InlineActiveSwitch checked={values.isActive} onChange={(checked) => setField("isActive", checked)} />
                   </FormField>
-
-                  {isAdmin ? (
-                    <FormField label="Status publikasi" hint="Draft belum tampil, Published tampil jika aktif, Archived disimpan sebagai arsip.">
-                      <SearchableSelect
-                        value={values.status}
-                        onChange={(nextValue) => setField("status", nextValue)}
-                        options={[
-                          { value: "draft", label: "Draft" },
-                          { value: "published", label: "Published" },
-                          { value: "archived", label: "Archived" },
-                        ]}
-                        clearable={false}
-                        placeholder="Pilih status"
-                      />
-                    </FormField>
-                  ) : null}
 
                   {selectedCategory ? (
                     <div className="md:col-span-2 rounded-lg bg-slate-50 px-3 py-2.5">
@@ -480,39 +531,23 @@ export function SellerProductEditor({
                   </FormField>
 
                   {values.mode === "simple" ? (
-                    <div className="md:col-span-2 grid gap-4 bg-slate-50 p-4 sm:grid-cols-3">
-                      <FormField label="SKU" hint="Ketik kode custom atau buat dari rumus.">
+                    <div className="md:col-span-2 grid gap-4 bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <FormField label="SKU" hint="Kosongkan untuk otomatis.">
                         <input value={values.sku} onChange={(event) => setField("sku", event.target.value)} className={inputClassName} placeholder="Kosongkan untuk otomatis" />
-                        <div className="mt-2 flex gap-2">
-                          <input
-                            value={skuPattern}
-                            onChange={(event) => setSkuPattern(event.target.value)}
-                            className={inputClassName}
-                            placeholder="Rumus: {BRAND}-{NAME:6}-{SEQ:3}"
-                          />
-                          <button
-                            type="button"
-                            onClick={generateProductSku}
-                            disabled={generatingSku}
-                            className="inline-flex h-11 shrink-0 items-center justify-center gap-1 border border-slate-300 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                          >
-                            <span className={`material-symbols-outlined text-[17px] ${generatingSku ? "animate-spin" : ""}`}>autoFixHigh</span>
-                            Buat
-                          </button>
-                        </div>
-                        <p className="mt-1 text-[11px] font-semibold text-slate-500">Token: {"{NAME} {BRAND} {CATEGORY} {ATTR} {DATE} {SEQ}"}. Kosongkan rumus untuk memakai pengaturan SKU global.</p>
                       </FormField>
                       <FormField label="Harga" error={errors.price} required>
-                        <input type="number" min="0" value={values.price} onChange={(event) => setField("price", event.target.value)} className={inputClassName} placeholder="0" />
+                        <FormattedNumberInput min="0" value={values.price} onChange={(value) => setField("price", value)} className={inputClassName} placeholder="0" />
                       </FormField>
-                      <FormField label="Stok">
-                        <input type="number" min="0" value={values.stock} disabled className={`${inputClassName} cursor-not-allowed bg-slate-100 text-slate-500`} placeholder="0" />
-                        <p className="mt-1 text-[11px] font-semibold text-slate-500">Stok hanya dapat dilihat. Restock dan penyesuaian dilakukan di menu Stok (Persediaan).</p>
+                      <FormField label="Stok Saat Ini" hint="Kelola stok di menu Stok (Persediaan).">
+                        <FormattedNumberInput min="0" value={values.stock} disabled className="cursor-not-allowed bg-slate-100 text-slate-500" placeholder="0" />
+                      </FormField>
+                      <FormField label="Stok Minimum" error={errors.minStock} hint="Pengingat restock.">
+                        <FormattedNumberInput min="0" value={values.minStock} onChange={(value) => setField("minStock", value)} className={inputClassName} placeholder="0" />
                       </FormField>
                     </div>
                   ) : (
                     <div className="md:col-span-2 bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-600">
-                      Harga diatur pada tab Stok. Saldo stok hanya dapat dilihat dan dikelola melalui menu Stok (Persediaan).
+                      Harga variant diatur pada tab Variant. Saldo stok hanya dapat dilihat dan dikelola melalui menu Stok (Persediaan).
                     </div>
                   )}
                 </div>
@@ -521,29 +556,32 @@ export function SellerProductEditor({
           ) : null}
 
           {activeSection === "variant" ? (
-            <div className="space-y-5">
-              <section className="rounded-[10px] bg-white p-5 ring-1 ring-slate-200">
-                <div className="flex items-center gap-[5px]">
-                  <span className="material-symbols-outlined text-slate-400">tune</span>
-                  <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-500">Mode Produk</h2>
-                </div>
-                <p className="mt-0.5 text-xs text-slate-500">Tentukan apakah produk memiliki satu SKU atau beberapa kombinasi variant.</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {[
-                    ["simple", "Tanpa Variant", "Satu SKU dengan satu harga dan stok."],
-                    ["variant", "Dengan Variant", "Mendukung ukuran, warna, SKU, harga, dan stok berbeda."],
-                  ].map(([mode, label, description]) => (
-                    <label key={mode} className={`cursor-pointer rounded-lg border p-4 transition-colors ${values.mode === mode ? "border-emerald-400 bg-emerald-50" : "border-slate-200 hover:bg-slate-50"}`}>
-                      <input type="radio" className="sr-only" checked={values.mode === mode} onChange={() => changeMode(mode)} />
-                      <span className="flex items-center gap-[5px] text-sm font-extrabold text-slate-800">
-                        <span className={`flex h-4 w-4 items-center justify-center rounded-full border ${values.mode === mode ? "border-emerald-600" : "border-slate-300"}`}>
-                          {values.mode === mode ? <span className="h-2 w-2 rounded-full bg-emerald-600" /> : null}
-                        </span>
+            <div className="space-y-3">
+              <section className="rounded-[10px] bg-white p-4 ring-1 ring-slate-200">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <div className="flex items-center gap-[5px]">
+                    <span className="material-symbols-outlined text-slate-400">tune</span>
+                    <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-500">Mode Produk</h2>
+                  </div>
+
+                  <div className="flex rounded-[10px] border border-slate-200 p-0.5">
+                    {[
+                      ["simple", "Tanpa Variant"],
+                      ["variant", "Dengan Variant"],
+                    ].map(([mode, label]) => (
+                      <label
+                        key={mode}
+                        className={`cursor-pointer rounded-[8px] px-3 py-1.5 text-xs font-extrabold transition-colors ${values.mode === mode ? "bg-emerald-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+                      >
+                        <input type="radio" className="sr-only" name="product-mode" checked={values.mode === mode} onChange={() => changeMode(mode)} />
                         {label}
-                      </span>
-                      <span className="mt-1.5 block pl-6 text-xs text-slate-500">{description}</span>
-                    </label>
-                  ))}
+                      </label>
+                    ))}
+                  </div>
+
+                  <p className="text-xs text-slate-500">
+                    {values.mode === "simple" ? "Satu SKU dengan satu harga dan stok." : "Mendukung ukuran, warna, SKU, dan harga berbeda per variant."}
+                  </p>
                 </div>
               </section>
 
@@ -553,11 +591,11 @@ export function SellerProductEditor({
                   {errors.variants ? <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">{errors.variants}</p> : null}
                 </div>
               ) : (
-                <div className="flex min-h-40 items-center justify-center rounded-[10px] border border-dashed border-slate-200 bg-slate-50 px-6 text-center">
+                <div className="flex min-h-24 items-center justify-center rounded-[10px] border border-dashed border-slate-200 bg-slate-50 px-6 py-5 text-center">
                   <div>
-                    <span className="material-symbols-outlined text-3xl text-slate-400">inventory_2</span>
-                    <p className="mt-2 text-sm font-extrabold text-slate-700">Produk tanpa variant</p>
-                    <p className="mt-1 text-xs text-slate-500">Harga dan batas stok diisi pada tab Stok. Saldo stok dikelola melalui menu Persediaan.</p>
+                    <span className="material-symbols-outlined text-2xl text-slate-400">inventory_2</span>
+                    <p className="mt-1 text-sm font-extrabold text-slate-700">Produk tanpa variant</p>
+                    <p className="mt-0.5 text-xs text-slate-500">SKU, harga, dan attribute diisi pada tab Umum. Batas stok diisi pada tab Stok; saldo stok dikelola melalui menu Persediaan.</p>
                   </div>
                 </div>
               )}
@@ -582,15 +620,51 @@ export function SellerProductEditor({
           ) : null}
 
           {activeSection === "stock" ? (
-            <ProductStockFields mode={values.mode} sku={values.sku} price={values.price} stock={values.stock} minStock={values.minStock} maxOrderQty={values.maxOrderQty} variants={values.variants} errors={errors} onSimpleChange={setField} onVariantsChange={(variants) => setField("variants", variants)} onOpenStock={openStock} />
+            <ProductStockFields
+              mode={values.mode}
+              stock={values.stock}
+              minStock={values.minStock}
+              maxOrderQty={values.maxOrderQty}
+              variants={values.variants}
+              errors={errors}
+              onSimpleChange={setField}
+              onVariantsChange={(variants) => setField("variants", variants)}
+              onOpenStock={openStock}
+              isNew={!product?.id}
+              productId={product?.id || null}
+              movements={Array.isArray(stockMovementsQuery.data) ? stockMovementsQuery.data : (stockMovementsQuery.data?.rows || [])}
+              movementsLoading={stockMovementsQuery.isLoading}
+            />
           ) : null}
 
           {activeSection === "costing" || product ? (
             <div className={activeSection === "costing" ? "" : "hidden"}>
               {product ? (
-                <ProductCostingFields ref={costingRef} productId={product.id} onDirtyChange={setCostingDirty} />
+                <ProductCostingFields
+                  ref={costingRef}
+                  productId={product.id}
+                  onDirtyChange={setCostingDirty}
+                  onCreateRawMaterial={openRawMaterials}
+                  draftCosting={activeTabDraft?.costing || null}
+                  onStateChange={(costing) => { costingStateRef.current = costing; }}
+                  variants={values.variants}
+                  mode={values.mode}
+                  simplePrice={values.price}
+                  simpleSku={values.sku}
+                  onApplyPrice={applyCostingPrice}
+                />
               ) : (
-                <ProductCostingFields productId={null} value={values.costing} onChange={(costing) => setField("costing", costing)} />
+                <ProductCostingFields
+                  productId={null}
+                  value={values.costing}
+                  onChange={(costing) => setField("costing", costing)}
+                  onCreateRawMaterial={openRawMaterials}
+                  variants={values.variants}
+                  mode={values.mode}
+                  simplePrice={values.price}
+                  simpleSku={values.sku}
+                  onApplyPrice={applyCostingPrice}
+                />
               )}
             </div>
           ) : null}

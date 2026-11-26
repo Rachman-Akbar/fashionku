@@ -46,7 +46,6 @@ final class UpdateProductUseCase
                 description: array_key_exists('description', $data) ? $data['description'] : $current->description(),
                 brand: array_key_exists('brand', $data) ? $data['brand'] : $current->brand(),
                 thumbnail: array_key_exists('thumbnail', $data) ? $data['thumbnail'] : $current->thumbnail(),
-                status: (string) ($data['status'] ?? $current->status()),
                 isActive: array_key_exists('is_active', $data) ? (bool) $data['is_active'] : $current->isActive(),
                 categoryIds: array_key_exists('category_ids', $data)
                     ? array_map('intval', $data['category_ids'] ?? [])

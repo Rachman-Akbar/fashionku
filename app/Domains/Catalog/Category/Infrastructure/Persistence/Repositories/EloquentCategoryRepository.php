@@ -250,9 +250,7 @@ final class EloquentCategoryRepository implements CategoryRepositoryInterface
                     ->withCount([
                         'products' => fn ($query) => $includeInactive
                             ? $query
-                            : $query
-                                ->where('products.is_active', true)
-                                ->whereRaw('LOWER(TRIM(products.status)) = ?', ['published']),
+                            : $query->where('products.is_active', true),
                     ])
                     ->where('level', '<=', 3)
                     ->when($menuOnly, fn (Builder $query) => $query->where('is_visible_in_menu', true))

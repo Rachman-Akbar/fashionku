@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CrudDialog, FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { FormField, inputClassName } from "@/shared/components/form/FormField";
+import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { ImageFilePicker } from "@/shared/components/form/ImageFilePicker";
 import { required, validateFields, validAppUrl } from "@/core/utils/formValidation";
@@ -165,7 +166,7 @@ export function PromotionFormDialog({ open, entity, portal, onClose, onSaved, on
         >
         <div className="grid gap-4 md:grid-cols-2">
           <FormField label="Nama promosi" error={errors.name} required><input value={values.name} onChange={(event) => setField("name", event.target.value)} className={inputClassName} /></FormField>
-          <FormField label="Urutan"><input type="number" min="0" value={values.sortOrder} onChange={(event) => setField("sortOrder", event.target.value)} className={inputClassName} /></FormField>
+          <FormField label="Urutan"><FormattedNumberInput min="0" value={values.sortOrder} onChange={(value) => setField("sortOrder", value)} className={inputClassName} /></FormField>
           <FormField label="Gambar desktop" error={errors.imageUrl} required><ImageFilePicker value={values.imageUrl} onChange={(imageUrl) => setField("imageUrl", imageUrl)} scope="promotions/desktop" label="Pilih gambar desktop" aspectClassName="aspect-[4/1]" /></FormField>
           <FormField label="Gambar mobile" error={errors.mobileImageUrl}><ImageFilePicker value={values.mobileImageUrl} onChange={(mobileImageUrl) => setField("mobileImageUrl", mobileImageUrl)} scope="promotions/mobile" label="Pilih gambar mobile" aspectClassName="aspect-[16/9]" /></FormField>
           <FormField label="Aksi ketika diklik">

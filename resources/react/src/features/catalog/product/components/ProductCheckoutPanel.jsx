@@ -177,7 +177,6 @@ export function ProductCheckoutPanel({
         price,
         stock,
         imageUrl: image || "",
-        status: product?.status || "published",
       });
     } catch (error) {
       toastError("Wishlist", getApiMessage(error, "Wishlist gagal diperbarui."));

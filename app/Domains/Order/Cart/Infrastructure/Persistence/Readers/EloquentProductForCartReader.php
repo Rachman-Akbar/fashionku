@@ -18,7 +18,6 @@ final class EloquentProductForCartReader implements ProductForCartReaderInterfac
             ->join('products', 'products.id', '=', 'product_variants.product_id')
             ->where('product_variants.id', $productVariantId)
             ->where('products.is_active', true)
-            ->where('products.status', 'published')
             ->whereNull('products.deleted_at')
             ->value('product_variants.stock');
 
@@ -61,7 +60,6 @@ final class EloquentProductForCartReader implements ProductForCartReaderInterfac
             ->select($select)
             ->whereIn('product_variants.id', $productVariantIds)
             ->where('products.is_active', true)
-            ->where('products.status', 'published')
             ->whereNull('products.deleted_at')
             ->get();
 

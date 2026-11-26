@@ -31,7 +31,6 @@ class ProductTemplateExport implements Export, WithMultipleSheets
         'harga',
         'brand',
         'deskripsi',
-        'status',
         'aktif',
     ];
 
@@ -58,7 +57,7 @@ class ProductTemplateExport implements Export, WithMultipleSheets
     {
         return [
             self::PRODUCT_HEADINGS,
-            ['PRD-001', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-POLOS', '', 150000, 'fashionku', 'Kaos katun premium', 'published', 'ya'],
+            ['PRD-001', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-POLOS', '', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
         ];
     }
 
@@ -70,9 +69,9 @@ class ProductTemplateExport implements Export, WithMultipleSheets
     {
         return [
             self::PRODUCT_HEADINGS,
-            ['PRD-002', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-L-BLK', 'ukuran:large, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'published', 'ya'],
-            ['PRD-002', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-M-BLK', 'ukuran:medium, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'published', 'ya'],
-            ['PRD-002', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-L-WHT', 'ukuran:large, warna:putih', 155000, 'fashionku', 'Kaos katun premium', 'published', 'ya'],
+            ['PRD-002', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-L-BLK', 'ukuran:large, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
+            ['PRD-002', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-M-BLK', 'ukuran:medium, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
+            ['PRD-002', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-L-WHT', 'ukuran:large, warna:putih', 155000, 'fashionku', 'Kaos katun premium', 'ya'],
         ];
     }
 
@@ -83,7 +82,7 @@ class ProductTemplateExport implements Export, WithMultipleSheets
     {
         return [
             self::PRODUCT_HEADINGS,
-            ['PRD-003', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-POLOS', '', 150000, 'fashionku', 'Kaos katun premium', 'published', 'ya'],
+            ['PRD-003', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-POLOS', '', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
             [],
             self::MATERIAL_HEADINGS,
             ['KAOS-POLOS', 'BHN-001', 0.25],
@@ -98,9 +97,9 @@ class ProductTemplateExport implements Export, WithMultipleSheets
     {
         return [
             self::PRODUCT_HEADINGS,
-            ['PRD-004', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-L-BLK', 'ukuran:large, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'published', 'ya'],
-            ['PRD-004', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-M-BLK', 'ukuran:medium, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'published', 'ya'],
-            ['PRD-004', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-L-WHT', 'ukuran:large, warna:putih', 155000, 'fashionku', 'Kaos katun premium', 'published', 'ya'],
+            ['PRD-004', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-L-BLK', 'ukuran:large, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
+            ['PRD-004', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-M-BLK', 'ukuran:medium, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
+            ['PRD-004', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-L-WHT', 'ukuran:large, warna:putih', 155000, 'fashionku', 'Kaos katun premium', 'ya'],
             [],
             self::MATERIAL_HEADINGS,
             ['KAOS-L-BLK', 'BHN-001', 0.25],
@@ -125,7 +124,6 @@ class ProductTemplateExport implements Export, WithMultipleSheets
             ['harga', 'Opsional', 'Angka', 'Harga jual varian.'],
             ['brand', 'Opsional', 'Teks', 'Merek produk.'],
             ['deskripsi', 'Opsional', 'Teks Panjang', 'Deskripsi produk.'],
-            ['status', 'Opsional', 'draft/published/archived', 'Status publikasi produk. Default: published.'],
             ['aktif', 'Opsional', 'ya/tidak', 'Status aktif produk. Default: ya.'],
             ['— Sheet template_bahan_baku —', '', '', ''],
             ['kode_sku_varian', 'Wajib', 'Teks', 'SKU varian hasil sheet template_produk yang sudah ada.'],

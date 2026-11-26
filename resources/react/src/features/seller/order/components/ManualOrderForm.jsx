@@ -7,6 +7,7 @@ import { createManualOrder, getManualOrderError, useCreateManualOrder } from "@/
 import { useCustomers } from "@/features/advanced/services/advancedMarketplaceService";
 import { cn, formatPrice } from "@/shared/utils/utils";
 import { inputClassName } from "@/shared/components/form/FormField";
+import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
 import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 import { FormPageLayout } from "@/shared/components/crud/FormPageLayout";
 import { ImageFilePicker } from "@/shared/components/form/ImageFilePicker";
@@ -345,12 +346,11 @@ export function ManualOrderForm({ open = true, onClose, onSaved }) {
                     />
                     <div className="flex items-center gap-[5px]">
                       <label className="sr-only" htmlFor={undefined}>Qty</label>
-                      <input
-                        type="number"
+                      <FormattedNumberInput
                         min="1"
                         max={line.stock || 999999}
                         value={line.quantity}
-                        onChange={(event) => changeLine(line.key, { quantity: Math.max(1, Number(event.target.value || 0)) })}
+                        onChange={(value) => changeLine(line.key, { quantity: Math.max(1, Number(value || 0)) })}
                         className={cn(inputClassName, "text-center font-bold")}
                       />
                       {line.variantId ? <p className="w-20 text-right text-[10px] font-bold text-slate-400">stok {line.stock}</p> : null}
@@ -451,7 +451,7 @@ export function ManualOrderForm({ open = true, onClose, onSaved }) {
                   </label>
                   <label className="grid gap-1.5 text-sm font-bold text-slate-700">
                     <span>Ongkir</span>
-                    <Input type="number" min="0" value={shippingCost} onChange={(event) => setShippingCost(event.target.value)} placeholder="0" />
+                    <FormattedNumberInput min="0" value={shippingCost} onChange={(value) => setShippingCost(value)} placeholder="0" />
                   </label>
                   <label className="grid gap-1.5 text-sm font-bold text-slate-700 sm:col-span-2">
                     <span>Layanan / catatan kirim</span>

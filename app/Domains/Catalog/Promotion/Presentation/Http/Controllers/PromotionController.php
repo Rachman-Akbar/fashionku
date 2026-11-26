@@ -134,7 +134,6 @@ final class PromotionController extends Controller
             $slug = DB::table('products')
                 ->where('id', $promotion->targetId)
                 ->where('is_active', true)
-                ->where('status', 'published')
                 ->whereNull('deleted_at')
                 ->value('slug');
 

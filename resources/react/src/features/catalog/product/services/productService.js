@@ -13,10 +13,6 @@ function booleanValue(value, fallback = false) {
   return ["1", "true", "yes", "on", "active", "published", "approved"].includes(String(value).trim().toLowerCase());
 }
 
-function normalizedStatus(value) {
-  return String(value || "").trim().toLowerCase();
-}
-
 function firstValue(...values) {
   return values.find((value) => value !== undefined && value !== null && value !== "");
 }
@@ -155,7 +151,6 @@ export function normalizeProduct(product = {}) {
     thumbnail: images[0]?.url || PLACEHOLDER_IMAGE,
     image: images[0]?.url || PLACEHOLDER_IMAGE,
     images,
-    status: normalizedStatus(product.status),
     is_active: booleanValue(product.is_active ?? product.isActive, true),
     price,
     price_label: formatPrice(price),
@@ -199,7 +194,7 @@ export async function getProducts(params = {}, options = {}) {
   const { items, meta } = unwrapCollection(payload);
   const products = items
     .map(normalizeProduct)
-    .filter((product) => product.is_active !== false && ["", "published", "active", "approved"].includes(product.status));
+    .filter((product) => product.is_active !== false);
   const nextCursor = getNextCursor(payload, meta);
 
   return {
@@ -261,7 +256,7 @@ export async function getPublicCatalogProducts(params = {}, options = {}) {
   return {
     data: items
       .map(normalizeProduct)
-      .filter((product) => product.is_active !== false && (!product.status || product.status === "published")),
+      .filter((product) => product.is_active !== false),
     meta,
     nextCursor: getNextCursor(payload, meta),
   };

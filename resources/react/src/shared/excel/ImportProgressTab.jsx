@@ -249,9 +249,9 @@ export function ImportProgressTab({
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-emerald-600 text-2xl">check_circle</span>
               <div>
-                <p className="font-bold text-emerald-800">Import Berhasil Diselesaikan</p>
+                <p className="font-bold text-emerald-800">Import Selesai</p>
                 <p className="text-sm text-emerald-700 mt-1">
-                  Total: {stats.total} | Berhasil: {stats.success} | Gagal: {stats.failed}
+                  {stats.success} data berhasil diimport <span className="text-emerald-400">|</span> {stats.failed} gagal diimport
                 </p>
               </div>
             </div>

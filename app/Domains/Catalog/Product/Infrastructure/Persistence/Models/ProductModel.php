@@ -30,7 +30,6 @@ final class ProductModel extends Model
         'description',
         'brand',
         'thumbnail',
-        'status',
         'is_active',
         'created_by',
         'updated_by',
@@ -46,13 +45,6 @@ final class ProductModel extends Model
     {
         return Attribute::make(
             set: fn (mixed $value): string => trim((string) preg_replace('/\s+/u', ' ', (string) $value))
-        );
-    }
-
-    protected function status(): Attribute
-    {
-        return Attribute::make(
-            set: fn (mixed $value): string => Str::lower(trim((string) $value))
         );
     }
 

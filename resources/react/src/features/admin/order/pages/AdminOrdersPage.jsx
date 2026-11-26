@@ -17,6 +17,7 @@ import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import OrderPrintSheet from "@/features/seller/order/components/OrderPrintSheet";
 import { OrdersChartPanel } from "@/shared/charts/ChartPanels";
 import { OrderDetailForm } from "@/features/seller/order/pages/OrderDetailPage";
+import { ManualOrderForm } from "@/features/seller/order/components/ManualOrderForm";
 import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { ExcelActionButtons } from "@/shared/excel";
 import { showSuccess, showError, confirmAction, showLoading, closeLoading } from "@/shared/utils/sweetAlert";
@@ -41,12 +42,17 @@ export default function AdminOrdersPage() {
   const updateMutation = useUpdateOrderStatus();
   const rows = ordersQuery.data?.rows || [];
   const total = useListTotalCount(ordersQuery.data?.meta, { label: "Pesanan" });
+  // Ambil setter yang stabil (useCallback [] di dalam hook) alih-alih objek
+  // `total` yang berubah identitas tiap filterState update. Memakai `total`
+  // sebagai dependency membuat callback ini baru tiap render, yang memicu efek
+  // di dalam tabel (lihat OrderManagementTable) dan berujung infinite loop.
+  const setTotalFilterState = total.onFilterStateChange;
   // Callback stabil: dipanggil efek di dalam tabel, jadi identitasnya tidak
   // boleh berubah tiap render agar tidak memicu setState berulang.
   const handleOrderFilterState = useCallback((state) => {
-    total.onFilterStateChange(state);
+    setTotalFilterState(state);
     setFilteredOrders(state?.filteredRows || []);
-  }, [total]);
+  }, [setTotalFilterState]);
   // Filter kolom tabel pesanan berjalan di client, jadi sisa halaman dimuat dulu
   // agar baris di halaman berikutnya tidak dianggap "tidak ditemukan".
   useColumnFilterAutoLoad({ activeCount: total.filterState.activeCount, query: ordersQuery });
@@ -127,15 +133,23 @@ export default function AdminOrdersPage() {
 
   return (
     <>
-      {editor.open && editor.entity ? (
-        <OrderDetailForm row={editor.entity} />
+      {editor.open ? (
+        editor.entity ? (
+          <OrderDetailForm row={editor.entity} onSaved={() => ordersQuery.refetch()} />
+        ) : (
+          <ManualOrderForm
+            onClose={editor.close}
+            onSaved={() => ordersQuery.refetch()}
+          />
+        )
       ) : (
         <ListPageFrame
 toolbar={(
             <EntityToolbar
               query={query}
               onQueryChange={setQuery}
-              hideCreate
+              createLabel="Tambah Pesanan"
+              onCreate={editor.create}
               extraActions={
                 <>
                   <ExcelActionButtons

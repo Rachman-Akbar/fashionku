@@ -5,6 +5,7 @@ import { advancedKeys } from "@/features/advanced/services/advancedMarketplaceSe
 import { apiClient, getApiMessage } from "@/core/utils/apiClient";
 import { updateOrderStatus } from "@/features/admin/order/services/orderManagementService";
 import { Input } from "@/shared/components/ui/Input";
+import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
 import OrderPrintSheet from "@/features/seller/order/components/OrderPrintSheet";
 
 function formatInputValue(date) {
@@ -118,7 +119,7 @@ export default function OrderCompletionIncomeModal({ rows = [], open, onClose, o
         <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Pemasukan sesuai dengan no order" />
       </Field>
       <Field label="Nominal Pemasukan (Rp)" required>
-        <Input type="number" min="1" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0" />
+        <FormattedNumberInput decimal min="1" step="0.01" value={amount} onChange={(value) => setAmount(value)} placeholder="0" />
       </Field>
       <Field label="Tanggal Transaksi" required>
         <Input type="datetime-local" value={occurredAt} onChange={(event) => setOccurredAt(event.target.value)} />

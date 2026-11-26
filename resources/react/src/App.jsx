@@ -35,6 +35,9 @@ const SellerOrdersPage = lazyWithRetry(() => import("@/features/seller/order/pag
 const AdminDashboardPage = lazyWithRetry(() => import("@/features/admin/pages/AdminDashboardPage"));
 const AdminOrdersPage = lazyWithRetry(() => import("@/features/admin/order/pages/AdminOrdersPage"));
 const AdminStoreSettingsPage = lazyWithRetry(() => import("@/features/admin/store/pages/AdminStoreSettingsPage"));
+const AdminStoreBiodataPage = lazyWithRetry(() => import("@/features/admin/store/pages/AdminStoreBiodataPage"));
+const AdminStoreShippingPaymentPage = lazyWithRetry(() => import("@/features/admin/store/pages/AdminStoreShippingPaymentPage"));
+const AdminStoreCodePage = lazyWithRetry(() => import("@/features/admin/store/pages/AdminStoreCodePage"));
 const AdminShell = lazyWithRetry(() => import("@/features/admin/layout/AdminShell"));
 const AdminUsersPage = lazyWithRetry(() => import("@/features/admin/users/pages/AdminUsersPage"));
 const AdminCategoryPage = lazyWithRetry(() => import("@/features/admin/category/pages/AdminCategoryPage"));
@@ -203,9 +206,14 @@ function renderAdminRoutes() {
         <Route path="/admin/planner" element={<SchedulePage />} />
         <Route path="/admin/chat" element={<RealtimeChatPage />} />
         <Route path="/admin/help" element={<HelpPage />} />
-        <Route path="/admin/store" element={<AdminStoreSettingsPage />} />
-        <Route path="/admin/shipping" element={<Navigate to="/admin/store" replace />} />
-        <Route path="/admin/code-settings" element={<Navigate to="/admin/store" replace />} />
+        <Route path="/admin/store" element={<AdminStoreSettingsPage />}>
+          <Route index element={<Navigate to="biodata" replace />} />
+          <Route path="biodata" element={<AdminStoreBiodataPage />} />
+          <Route path="pengiriman-pembayaran" element={<AdminStoreShippingPaymentPage />} />
+          <Route path="kode" element={<AdminStoreCodePage />} />
+        </Route>
+        <Route path="/admin/shipping" element={<Navigate to="/admin/store/pengiriman-pembayaran" replace />} />
+        <Route path="/admin/code-settings" element={<Navigate to="/admin/store/kode" replace />} />
       </Route>
     </Route>
   );

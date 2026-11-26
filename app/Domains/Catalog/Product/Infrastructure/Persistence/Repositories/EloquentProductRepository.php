@@ -72,7 +72,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
 
     public function facets(array $filters = []): array
     {
-        $filters['status'] = $filters['status'] ?? 'published';
         $filters['is_active'] = true;
 
         $facets = [
@@ -122,9 +121,7 @@ final class EloquentProductRepository implements ProductRepositoryInterface
         $model = ProductModel::query()
             ->withAvg('reviews', 'rating')
             ->withCount('reviews')
-            ->when(! $includeInactive, function (Builder $query): void {
-                $query->active()->where('products.status', 'published');
-            })
+            ->when(! $includeInactive, fn (Builder $query): Builder => $query->active())
             ->with($this->relationsForDetail($includeInactive))
             ->find($id);
 
@@ -136,9 +133,7 @@ final class EloquentProductRepository implements ProductRepositoryInterface
         $model = ProductModel::query()
             ->withAvg('reviews', 'rating')
             ->withCount('reviews')
-            ->when(! $includeInactive, function (Builder $query): void {
-                $query->active()->where('products.status', 'published');
-            })
+            ->when(! $includeInactive, fn (Builder $query): Builder => $query->active())
             ->with($this->relationsForDetail($includeInactive))
             ->where('slug', $slug)
             ->first();
@@ -173,7 +168,7 @@ final class EloquentProductRepository implements ProductRepositoryInterface
         $query = ProductModel::query()
             ->active()
             ->with($this->relationsForList($filters))
-            ->where('products.status', 'published');
+            ->active();
 
         $this->applyCategoryIdsFilter($query, $categoryIds);
         $this->applyOptionalFilters($query, $filters);
@@ -207,7 +202,7 @@ final class EloquentProductRepository implements ProductRepositoryInterface
         $query = ProductModel::query()
             ->active()
             ->with($this->relationsForList($filters))
-            ->where('products.status', 'published');
+            ->active();
 
         $this->applyCategoryIdsFilter($query, $categoryIds);
         $this->applyOptionalFilters($query, $filters);
@@ -232,7 +227,7 @@ final class EloquentProductRepository implements ProductRepositoryInterface
         $query = ProductModel::query()
             ->active()
             ->with($this->relationsForList($filters))
-            ->where('products.status', 'published');
+            ->active();
 
         $this->applyCategoryIdsFilter($query, $categoryIds);
         $this->applyOptionalFilters($query, $filters);
@@ -260,7 +255,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
             $model->description = $product->description();
             $model->brand = $product->brand();
             $model->thumbnail = $product->thumbnail();
-            $model->status = $product->status();
             $model->is_active = $product->isActive();
         }
 
@@ -362,11 +356,6 @@ final class EloquentProductRepository implements ProductRepositoryInterface
 
     private function applyCommonFilters(Builder $query, array $filters, bool $includeInactive): void
     {
-        if (! empty($filters['status'])) {
-            $status = Str::lower(trim((string) $filters['status']));
-            $query->where('products.status', $status);
-        }
-
         if (array_key_exists('is_active', $filters)) {
             $query->where(
                 'products.is_active',
@@ -601,7 +590,7 @@ final class EloquentProductRepository implements ProductRepositoryInterface
                 ->orderBy('variant_counts.variants_count', $direction)
                 ->orderBy('products.id', $direction);
         } else {
-            $allowed = ['id', 'name', 'status', 'is_active', 'created_at', 'updated_at'];
+            $allowed = ['id', 'name', 'is_active', 'created_at', 'updated_at'];
             $column = in_array($sortBy, $allowed, true) ? $sortBy : 'created_at';
             $query->orderBy('products.'.$column, $direction);
         }

@@ -74,4 +74,13 @@ lakukan perbaikannya bedasarkan error diatas
 
 Atur dan perbaiki agar bahan baku, kategori, user, dan pelanggan mempunyai gambar di dalam database nya. lalu perbaiki frontend (pada admin panel) dan backendnya bisa menampilka gambar dengan benar
 
-Terjadi bug dan masalh dimana admin panel tida dapat melakukan ekspor dn hanya membuka tab baru. untuk ekspor cukup langsung download saja tidak perlu membuka notifikasi
+Perbaikan pada fitur import agar leih optimal cukup tampilkan modal page 
+    1. untuk download template 
+    2. untuk upload file 
+saat melakukan import maka membuka tab baru untuk menampilkn progress berup loading bar data berhasil data gagal sampai 100% data terbaca sata melakukan import. 
+... data berhasil di import | .... gagal di import
+
+BTW Terjadi bug dan masalh dimana admin panel tidak dapat melakukan ekspor dan hanya membuka tab baru. untuk ekspor cukup langsung download saja tidak perlu membuka notifikasi
+
+Halaman bahan baku antara header table dengan list table tidak sejajar hapus juga tab Bahan Baku | Riwayat Bahan | Dampak HPP karena sudah diwakilkan oleh operasional stock dan HPP
+

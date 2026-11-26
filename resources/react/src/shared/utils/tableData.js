@@ -120,6 +120,7 @@ export function isColumnFilterEmpty(filterValue, filterType) {
     const hasStatus = filterValue.status !== undefined && filterValue.status !== null && String(filterValue.status).trim() !== "";
     return !hasMin && !hasMax && !hasStatus;
   }
+  if (Array.isArray(filterValue)) return filterValue.length === 0;
   if (filterValue === null || filterValue === undefined) return true;
   return String(filterValue).trim() === "";
 }
@@ -202,12 +203,13 @@ const TRUE_TOKENS = new Set(["true", "1", "ya", "yes", "aktif", "active", "publi
 const FALSE_TOKENS = new Set(["false", "0", "tidak", "no", "nonaktif", "non-active", "nonactive", "inactive", "draft"]);
 
 function matchesSelectFilter(value, filterValue) {
-  const wanted = normalizeFilterText(filterValue);
-  if (!wanted) return true;
-  if (typeof value === "boolean") {
-    if (TRUE_TOKENS.has(wanted)) return value === true;
-    if (FALSE_TOKENS.has(wanted)) return value === false;
-  }
+  // Filter pilihan bisa berupa satu nilai (kompatibel dengan data lama) atau
+  // array nilai dari checkbox multi-select ala Excel.
+  const wantedValues = (Array.isArray(filterValue) ? filterValue : [filterValue])
+    .map((item) => normalizeFilterText(item))
+    .filter(Boolean);
+  if (!wantedValues.length) return true;
+
   const candidates = new Set([
     normalizeFilterText(value),
     normalizeFilterText(formatTableValue(value)),
@@ -217,7 +219,14 @@ function matchesSelectFilter(value, filterValue) {
     candidates.add(value ? "ya" : "tidak");
     candidates.add(value ? "aktif" : "nonaktif");
   }
-  return candidates.has(wanted);
+
+  return wantedValues.some((wanted) => {
+    if (typeof value === "boolean") {
+      if (TRUE_TOKENS.has(wanted)) return value === true;
+      if (FALSE_TOKENS.has(wanted)) return value === false;
+    }
+    return candidates.has(wanted);
+  });
 }
 
 function matchesTextFilter(value, filterValue) {

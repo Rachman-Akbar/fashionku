@@ -19,7 +19,7 @@ final class SpreadsheetModuleRegistry
             'keyColumn' => 'sku',
             'fileKeyColumn' => 'sku',
             'required' => ['sku', 'nama', 'kategori'],
-            'columns' => ['sku', 'nama', 'kategori', 'brand', 'deskripsi', 'status', 'harga', 'berat', 'aktif'],
+            'columns' => ['sku', 'nama', 'kategori', 'brand', 'deskripsi', 'harga', 'berat', 'aktif'],
         ],
         'stock' => [
             'entity' => 'product_variants',

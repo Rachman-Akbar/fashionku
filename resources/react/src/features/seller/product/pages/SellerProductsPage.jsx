@@ -22,9 +22,9 @@ import { getSellerProductError, useDeleteSellerProduct, useSellerProducts, useUp
 import { ExcelActionButtons } from "@/shared/excel";
 
 const PER_PAGE = 20;
-const EMPTY_COLUMN_FILTERS = { product: "", mode: "", price: { min: "", max: "" }, stock: { min: "", max: "", status: "" }, active: "", status: "" };
+const EMPTY_COLUMN_FILTERS = { product: "", mode: "", price: { min: "", max: "" }, stock: { min: "", max: "", status: "" }, active: "" };
 // Kolom yang filternya sudah dikirim ke API; sisanya (kolom database) disaring di client.
-const SERVER_FILTER_KEYS = ["product", "mode", "price", "stock", "active", "status"];
+const SERVER_FILTER_KEYS = ["product", "mode", "price", "stock", "active"];
 
 export default function SellerProductsPage() {
   const [columnFilters, setColumnFilters] = useState(EMPTY_COLUMN_FILTERS);
@@ -43,19 +43,23 @@ export default function SellerProductsPage() {
   // /admin/products = tampilan admin, /seller/products = tampilan operator toko.
   const portal = location.pathname.startsWith("/admin") ? "admin" : "seller";
   const isAdmin = portal === "admin";
+  // Filter pilihan di header kini berupa array (multi-select ala Excel);
+  // API masih menerima satu nilai, jadi pakai pilihan pertama.
+  const firstFilterValue = (value) => (Array.isArray(value) ? value[0] : value);
+  const activeFilter = firstFilterValue(columnFilters.active);
+  const modeFilter = firstFilterValue(columnFilters.mode);
   const productsQuery = useSellerProducts({
     per_page: PER_PAGE,
     sort_by: sort.by,
     sort_direction: sort.direction,
     ...(deferredQuery ? { search: deferredQuery } : {}),
     ...(columnFilters.product ? { name: columnFilters.product } : {}),
-    ...(columnFilters.mode ? { mode: columnFilters.mode } : {}),
+    ...(modeFilter ? { mode: modeFilter } : {}),
     ...(columnFilters.price.min !== "" ? { price_min: columnFilters.price.min } : {}),
     ...(columnFilters.price.max !== "" ? { price_max: columnFilters.price.max } : {}),
     ...(columnFilters.stock.min !== "" ? { stock_min: columnFilters.stock.min } : {}),
     ...(columnFilters.stock.max !== "" ? { stock_max: columnFilters.stock.max } : {}),
-    ...(columnFilters.active ? { is_active: columnFilters.active === "active" } : {}),
-    ...(columnFilters.status ? { status: columnFilters.status } : {}),
+    ...(activeFilter ? { is_active: activeFilter === "active" } : {}),
     ...(columnFilters.stock.status === "low" ? { low_stock: true } : {}),
     ...(columnFilters.stock.status === "safe" ? { safe_stock: true } : {}),
   });
@@ -76,10 +80,7 @@ export default function SellerProductsPage() {
   const filterValueOf = useCallback((row, key) => resolveTableValue(row, key), []);
   // Hanya kolom yang relevan untuk marketplace single-store. Kolom teknis dari
   // API (kode, kota toko, maks. order, audit, dll.) sengaja tidak ditampilkan.
-  const columns = useMemo(
-    () => PRODUCT_TABLE_COLUMNS.filter((column) => isAdmin || column.key !== "status"),
-    [isAdmin],
-  );
+  const columns = useMemo(() => PRODUCT_TABLE_COLUMNS, []);
   // Penyimpanan pilihan kolom dipisah: susunan kolom admin dan toko berbeda.
   const columnVisibility = useColumnVisibility(columns, isAdmin ? "admin-products" : "seller-products");
   // Tipe + opsi filter untuk semua kolom (teks / pilihan / rentang angka).
@@ -99,18 +100,6 @@ export default function SellerProductsPage() {
     openDetail: (product) => editor.edit(product),
   });
   const toggleActive = (product, isActive) => activeToggle.toggle(product, isActive);
-
-  // Ubah status publikasi produk langsung dari kolom Status Admin (khusus admin).
-  const changeStatus = async (product, nextStatus) => {
-    if (!isAdmin || !nextStatus || nextStatus === product.status) return;
-    const task = notifications.startTask({ title: "Ubah Status Produk", message: `Mengubah status "${product.name}"...` });
-    try {
-      await quickUpdateMutation.mutateAsync({ id: product.id, values: { ...product, status: nextStatus }, options: { includeAdminFields: true } });
-      task.success("Status produk berhasil diperbarui.");
-    } catch (error) {
-      task.fail(getSellerProductError(error));
-    }
-  };
 
   const remove = async () => {
     if (!deleteTarget) return;
@@ -148,7 +137,6 @@ export default function SellerProductsPage() {
     isActiveOf: activeToggle.isActive,
     pendingId: quickUpdateMutation.variables?.id,
     portal,
-    onStatusChange: isAdmin ? changeStatus : undefined,
     columns,
     columnFilterTypes: columnFilterConfig.types,
     columnFilterOptions: columnFilterConfig.options,
