@@ -49,8 +49,17 @@ final class ProductMainExportSheet extends BaseExport implements WithTitle
 
     public function __construct(private Collection $products) {}
 
+    private ?Collection $cachedRows = null;
+
     public function collection(): Collection
     {
+        // collection() dipanggil beberapa kali oleh PhpSpreadsheet (FromCollection
+        // + WithDrawings). Tanpa cache, seluruh produk direkonstruksi 2x lipat
+        // sehingga export besar jadi lambat.
+        if ($this->cachedRows !== null) {
+            return $this->cachedRows;
+        }
+
         $rows = collect();
         $service = app(CategoryTreeService::class);
 
@@ -83,7 +92,7 @@ final class ProductMainExportSheet extends BaseExport implements WithTitle
             }
         }
 
-        return $rows;
+        return $this->cachedRows = $rows;
     }
 
     public function headings(): array
@@ -132,8 +141,14 @@ final class ProductMaterialExportSheet extends BaseExport implements WithTitle
 
     public function __construct(private Collection $products) {}
 
+    private ?Collection $cachedRows = null;
+
     public function collection(): Collection
     {
+        if ($this->cachedRows !== null) {
+            return $this->cachedRows;
+        }
+
         $rows = collect();
         $productIds = $this->products->pluck('id')->filter()->values();
 
@@ -164,7 +179,7 @@ final class ProductMaterialExportSheet extends BaseExport implements WithTitle
             ]);
         }
 
-        return $rows;
+        return $this->cachedRows = $rows;
     }
 
     public function headings(): array

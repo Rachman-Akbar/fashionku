@@ -10,6 +10,7 @@ import { PanelSidebar } from "@/shared/layout/PanelSidebar";
 import { usePanelBadges } from "@/shared/hooks/usePanelBadges";
 import { PanelTabBar, PanelTabsProvider } from "@/shared/layout/tabs";
 import { RouteOutletBoundary } from "@/shared/layout/RouteOutletBoundary";
+import { ImportProgressHost } from "@/shared/excel/ImportProgressHost";
 import { FocusModeContext, useFocusModeValue } from "@/shared/layout/FocusModeContext";
 import PageTransitionLoader from "@/shared/layout/PageTransitionLoader";
 import { cn } from "@/shared/utils/utils";
@@ -82,6 +83,7 @@ export default function SellerLayout() {
             <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-white pb-20 lg:pb-6">
               <div id="panel-editor-root" className={cn("relative min-h-full w-full px-4 py-6 sm:px-6 lg:px-8", isChatRoute ? "flex h-full min-h-0 flex-col" : "mx-auto max-w-6xl")}>
                 <RouteOutletBoundary className={cn("h-full w-full min-w-0 max-w-full", isChatRoute && "min-h-0 flex-1")} />
+                <ImportProgressHost />
               </div>
             </main>
           </div>

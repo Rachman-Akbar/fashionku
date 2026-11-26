@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { downloadExcelTemplate, exportExcel, getExcelError } from "@/shared/excel/excelService";
+import { downloadExcelTemplate, getExcelError } from "@/shared/excel/excelService";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
-import { ImportProgressTab } from "@/shared/excel/ImportProgressTab";
-import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
 
 const MODULE_LABELS = {
   product: "Produk",
@@ -19,7 +17,7 @@ const MODULE_LABELS = {
 };
 
 const MODULE_HELP = {
-  product: { relation: "Produk memakai 2 sheet: template_produk (baris dengan kode_produk sama digabung sebagai varian) dan template_bahan_baku (kode_sku_varian + kode_bahan + qty_pakai). Kategori wajib sudah ada dan ditulis 3 level.", content: "HPP tiap varian dihitung otomatis dari SUM(qty_pakai × harga satuan bahan) setelah resep berhasil diimport. Kode bahan atau kombinasi kategori yang tidak ditemukan membatalkan baris tersebut." },
+  product: { relation: "Produk memakai 2 sheet: template_produk (baris dengan kode_produk sama digabung sebagai varian) dan template_bahan_baku (kode_sku_varian + kode_bahan + qty_pakai). Kategori cukup ditulis 1 kolom 'kategori' berisi nama daun yang sudah ada; sistem otomatis mencari path induknya.", content: "HPP tiap varian dihitung otomatis dari SUM(qty_pakai × harga satuan bahan) setelah resep berhasil diimport. Kode bahan atau kategori yang tidak ditemukan membatalkan baris tersebut." },
   "raw-material": { relation: "Master bahan baku berdiri sendiri. Kode bahan harus unik per toko.", content: "Import ini tidak mengubah stok. Stok bahan baku dikelola melalui modul Stok Bahan Baku." },
   stock: { relation: "Gunakan SKU varian yang sudah tersedia. Import stok tidak membuat Produk atau Bahan Baku baru.", content: "Penambahan stok akan memakai bahan baku resep HPP otomatis jika resep tersedia." },
   customer: { relation: "Pelanggan dibuat sebagai User + seller_customers. Kode pelanggan unik per toko.", content: "Email digunakan untuk pencocokan pelanggan yang sudah ada." },
@@ -86,7 +84,6 @@ function Overlay({ children, onClose, size = "md" }) {
 
 function ImportPanel({ module, label, workspace }) {
   const center = useNotificationCenter();
-  const tabs = usePanelTabs();
   const [file, setFile] = useState(null);
   const [templatePending, setTemplatePending] = useState(false);
   const [importMode, setImportMode] = useState("upsert");
@@ -106,12 +103,10 @@ function ImportPanel({ module, label, workspace }) {
   };
 
   // Import berjalan pada tab progres terpisah (loading bar, data berhasil/gagal).
+  // Modal pilihan ini ditutup lebih dulu, lalu tab progres dibuka.
   const startImport = () => {
     if (!file) return;
-    tabs?.openOperationTab("import-progress", {
-      label: `Import ${label}`,
-      payload: { module, label, file, importMode, createMissingRelations: false, workspace },
-    });
+    workspace.beginImport({ file, importMode });
   };
 
   return (
@@ -121,7 +116,7 @@ function ImportPanel({ module, label, workspace }) {
         eyebrow="Import Excel"
         title={`Import ${label}`}
         description="Unduh template resmi, isi datanya, lalu unggah file untuk memulai proses import."
-        onClose={workspace.close}
+        onClose={workspace.closeImport}
       />
       <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
         <div className="px-5 py-1 sm:px-7">
@@ -179,98 +174,16 @@ function ImportPanel({ module, label, workspace }) {
   );
 }
 
-function ImportProgressPanel({ workspace, module, label, file, importMode, createMissingRelations }) {
-  const handleComplete = () => {
-    workspace.complete();
-  };
-
-  const handleCancel = () => {
-    workspace.close();
-  };
-
-  return (
-    <ImportProgressTab
-      module={module}
-      label={label}
-      file={file}
-      importMode={importMode}
-      createMissingRelations={createMissingRelations}
-      onComplete={handleComplete}
-      onCancel={handleCancel}
-      workspace={workspace}
-    />
-  );
-}
-
-function ExportPanel({ module, label, workspace, selectedIds = [] }) {
-  const center = useNotificationCenter();
-  const [pending, setPending] = useState(false);
-  const supportsImages = ["product", "category", "raw-material", "promotion", "voucher", "customer", "user"].includes(module);
-
-  const submit = async () => {
-    setPending(true);
-    const task = center.startTask({ title: `Export ${label}`, message: selectedIds.length ? `Menyiapkan ${selectedIds.length} data terpilih...` : "Menyiapkan seluruh data..." });
-    try {
-      const result = await exportExcel(module, selectedIds);
-      task.success(`Export selesai: ${result.filename}`);
-    } catch (error) {
-      task.fail(getExcelError(error));
-    } finally {
-      setPending(false);
-    }
-  };
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
-      <Header icon="download" eyebrow="Export Excel" title={`Export ${label}`} description={supportsImages ? "File berisi data + gambar thumbnail yang disematkan di sel." : "File berisi data realtime sesuai scope toko."} onClose={workspace.close} />
-      <div className="p-6">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-[10px] bg-slate-50 p-5"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Cakupan</p><p className="mt-2 text-lg font-black text-slate-900">{selectedIds.length ? `${selectedIds.length} data dipilih` : "Semua data"}</p></div>
-          <div className="rounded-[10px] bg-slate-50 p-5"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Format</p><p className="mt-2 text-lg font-black text-slate-900">Excel .xlsx</p></div>
-          <div className="rounded-[10px] bg-slate-50 p-5"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Isi</p><p className="mt-2 text-lg font-black text-slate-900">{supportsImages ? "Data + gambar" : "Data realtime"}</p></div>
-        </div>
-        <button type="button" onClick={submit} disabled={pending} className="mt-6 inline-flex h-11 w-full items-center justify-center gap-[5px] rounded-[10px] bg-emerald-600 px-5 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-60"><span className={`material-symbols-outlined text-[19px] ${pending ? "animate-spin" : ""}`}>download</span>Mulai Export</button>
-      </div>
-    </div>
-  );
-}
-
-export function ExcelImportExportModal({ workspace, module, label, selectedIds = [] }) {
+export function ExcelImportExportModal({ workspace, module, label }) {
   const moduleLabel = label || MODULE_LABELS[module] || module;
-  const activeOp = workspace.activeOperation;
 
-  if (!activeOp) return null;
-
-  if (activeOp.type === "import") {
+  // Modal pilihan import (download template / upload file) — modal biasa,
+  // tidak menambah tab apa pun. Tab progres import dirender oleh
+  // ImportProgressHost di level layout, bukan di sini.
+  if (workspace.importOpen) {
     return (
-      <Overlay onClose={workspace.close}>
+      <Overlay onClose={workspace.closeImport}>
         <ImportPanel module={module} label={moduleLabel} workspace={workspace} />
-      </Overlay>
-    );
-  }
-
-  if (activeOp.type === "import-progress") {
-    const payload = activeOp.payload || {};
-    return (
-      <Overlay onClose={workspace.close} size="lg">
-        <div className="h-[85vh] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
-          <ImportProgressPanel
-            workspace={workspace}
-            module={module}
-            label={moduleLabel}
-            file={payload.file}
-            importMode={payload.importMode}
-            createMissingRelations={payload.createMissingRelations}
-          />
-        </div>
-      </Overlay>
-    );
-  }
-
-  if (activeOp.type === "export") {
-    return (
-      <Overlay onClose={workspace.close}>
-        <ExportPanel module={module} label={moduleLabel} workspace={workspace} selectedIds={selectedIds} />
       </Overlay>
     );
   }

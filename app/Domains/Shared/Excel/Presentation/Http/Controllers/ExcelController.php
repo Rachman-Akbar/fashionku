@@ -57,6 +57,10 @@ final class ExcelController extends Controller
             'import' => ProductImport::class,
             'template' => ProductTemplateExport::class,
             'label' => 'Produk',
+            // Relasi yang sama dengan export penuh. Tanpa eager load, hasil
+            // filter (export sebagian) kehilangan kategori/varian/gambar dan
+            // memicu N+1 sehingga data di file berbeda dari yang di layar.
+            'eager' => ['primaryCategory.parent.parent', 'variants.values.attribute'],
         ],
         'category' => [
             'export' => CategoryExport::class,
@@ -378,6 +382,11 @@ final class ExcelController extends Controller
             }
         }
 
+        $eager = $config['eager'] ?? [];
+        if (! empty($eager)) {
+            $query->with($eager);
+        }
+
         return $query->get();
     }
 
@@ -395,12 +404,21 @@ final class ExcelController extends Controller
         $productRows = $productSheet->toArray(null, true, true, false);
         $headers = array_map(fn ($value): string => strtolower(trim((string) $value)), array_shift($productRows) ?? []);
 
-        $requiredColumns = ['kode_produk', 'nama_produk', 'kategori_level_1', 'kode_sku_varian'];
+        $requiredColumns = ['kode_produk', 'nama_produk', 'kode_sku_varian'];
         $missingHeaders = array_diff($requiredColumns, $headers);
         if ($missingHeaders !== []) {
             return response()->json([
                 'success' => false,
                 'message' => 'Kolom wajib hilang: '.implode(', ', $missingHeaders),
+            ], 422);
+        }
+
+        // Kategori boleh format ringkas (satu kolom "kategori") atau format lama
+        // (kategori_level_1..3). Salah satu wajib ada.
+        if (! in_array('kategori', $headers, true) && ! in_array('kategori_level_1', $headers, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kolom wajib hilang: kategori',
             ], 422);
         }
 
@@ -432,13 +450,20 @@ final class ExcelController extends Controller
                 $errors[] = "Baris {$rowNumber}: nama_produk wajib diisi.";
             }
 
-            $levels = $service->levelsFromRow($data);
-            if ($levels[0] === '') {
-                $errors[] = "Baris {$rowNumber}: kategori_level_1 wajib diisi.";
-            } elseif ($levels[2] !== '' && $levels[1] === '') {
-                $errors[] = "Baris {$rowNumber}: kategori_level_3 diisi tetapi kategori_level_2 kosong.";
-            } elseif (! $service->findPath($levels)) {
-                $errors[] = "Baris {$rowNumber}: Kombinasi kategori '".implode(' > ', array_filter($levels))."' tidak ditemukan di database.";
+            $single = trim((string) ($data['kategori'] ?? ''));
+            if ($single !== '') {
+                if (! $service->findByName($single)) {
+                    $errors[] = "Baris {$rowNumber}: Kategori '{$single}' tidak ditemukan di database.";
+                }
+            } else {
+                $levels = $service->levelsFromRow($data);
+                if ($levels[0] === '') {
+                    $errors[] = "Baris {$rowNumber}: kategori wajib diisi.";
+                } elseif ($levels[2] !== '' && $levels[1] === '') {
+                    $errors[] = "Baris {$rowNumber}: kategori_level_3 diisi tetapi kategori_level_2 kosong.";
+                } elseif (! $service->findPath($levels)) {
+                    $errors[] = "Baris {$rowNumber}: Kombinasi kategori '".implode(' > ', array_filter($levels))."' tidak ditemukan di database.";
+                }
             }
 
             if ($sku === '') {

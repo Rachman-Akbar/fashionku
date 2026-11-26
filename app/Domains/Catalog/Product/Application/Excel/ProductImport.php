@@ -68,6 +68,9 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
 
     public $spreadsheet;
 
+    /** Peta koordinat sel => drawing, dibangun sekali sebelum import. */
+    public array $drawingsByCoordinate = [];
+
     public function model(): string
     {
         return ProductModel::class;
@@ -106,6 +109,7 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
                 if ($import instanceof self) {
                     $import->spreadsheet = $event->getReader()->getDelegate();
                     $import->assertKnownSheetExists();
+                    $import->indexDrawings();
                 }
             },
         ];
@@ -116,7 +120,11 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
         return [
             'kode_produk' => 'required|string|max:100',
             'nama_produk' => 'required|string|max:255',
-            'kategori_level_1' => 'required|string|max:255',
+            // Format ringkas: satu kolom "kategori" (nama daun). Format lama
+            // 3 kolom tetap didukung, jadi semua kategori dibuat nullable di
+            // validasi bawaan dan diwajibkan manual di persistProductRow.
+            'kategori' => 'nullable|string|max:255',
+            'kategori_level_1' => 'nullable|string|max:255',
             'kategori_level_2' => 'nullable|string|max:255',
             'kategori_level_3' => 'nullable|string|max:255',
             'kode_sku_varian' => 'required|string|max:100',
@@ -126,6 +134,34 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
             'deskripsi' => 'nullable|string',
             'aktif' => 'nullable|in:ya,tidak,true,false,1,0',
         ];
+    }
+
+    /** Cache resolusi kategori per nama agar tidak query berulang. */
+    private array $categoryCache = [];
+
+    /**
+     * Resolusi kategori dari baris import. Mendukung format ringkas (satu kolom
+     * "kategori" berisi nama daun) maupun format lama (kategori_level_1..3).
+     */
+    private function resolveCategory(array $data, CategoryTreeService $service): ?CategoryModel
+    {
+        $single = trim((string) ($data['kategori'] ?? ''));
+
+        if ($single !== '') {
+            $key = $service->normalize($single);
+            if (array_key_exists($key, $this->categoryCache)) {
+                return $this->categoryCache[$key];
+            }
+
+            return $this->categoryCache[$key] = $service->findByName($single);
+        }
+
+        $levels = $service->levelsFromRow($data);
+        if ($levels[0] === '') {
+            return null;
+        }
+
+        return $service->findPath($levels);
     }
 
     public function customValidation(array $row): array
@@ -317,20 +353,16 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
         }
 
         $service = app(CategoryTreeService::class);
-        $levels = $service->levelsFromRow($data);
 
-        if ($levels[0] === '') {
-            throw new \InvalidArgumentException('kategori_level_1 wajib diisi.');
-        }
-
-        if ($levels[2] !== '' && $levels[1] === '') {
-            throw new \InvalidArgumentException('kategori_level_3 diisi tetapi kategori_level_2 kosong.');
-        }
-
-        $category = $service->findPath($levels);
+        $category = $this->resolveCategory($data, $service);
         if (! $category) {
-            $label = implode(' > ', array_filter($levels));
-            throw new \InvalidArgumentException("Kombinasi kategori '{$label}' tidak ditemukan di database.");
+            $label = trim((string) ($data['kategori'] ?? ''));
+            if ($label === '') {
+                $levels = $service->levelsFromRow($data);
+                $label = implode(' > ', array_filter($levels));
+            }
+
+            throw new \InvalidArgumentException("Kategori '{$label}' tidak ditemukan di database.");
         }
 
         $product = ProductModel::query()
@@ -621,6 +653,29 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
 
     private function applyImage(int $rowNumber, ProductModel $product): void
     {
+        // $rowNumber adalah nomor baris Excel sebenarnya (index + 2, karena baris
+        // 1 adalah heading). Jangan tambah 1 lagi — dulu gambar dicari satu baris
+        // lebih bawah sehingga gambar di sel tidak pernah cocok/tidak terimport.
+        $coordinate = $this->getColumnLetter($this->imageColumnIndex).$rowNumber;
+        $drawing = $this->drawingsByCoordinate[$coordinate] ?? null;
+
+        if (! $drawing) {
+            return;
+        }
+
+        $path = $this->saveDrawing($drawing, $rowNumber);
+        if ($path) {
+            $product->forceFill(['thumbnail' => $path])->save();
+        }
+    }
+
+    /**
+     * Bangun peta koordinat sel => drawing sekali saja. Sebelumnya setiap baris
+     * menelusuri ulang seluruh koleksi gambar (O(baris × gambar)) sehingga impor
+     * dengan banyak gambar sangat lambat.
+     */
+    public function indexDrawings(): void
+    {
         if (! $this->spreadsheet) {
             return;
         }
@@ -629,20 +684,12 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
             ?? $this->spreadsheet->getSheetByName('produk')
             ?? $this->spreadsheet->getSheet(0);
 
-        $coordinate = $this->getColumnLetter($this->imageColumnIndex).($rowNumber + 1);
-
+        $map = [];
         foreach ($sheet->getDrawingCollection() as $drawing) {
-            if ($drawing->getCoordinates() !== $coordinate) {
-                continue;
-            }
-
-            $path = $this->saveDrawing($drawing, $rowNumber);
-            if ($path) {
-                $product->forceFill(['thumbnail' => $path])->save();
-            }
-
-            return;
+            $map[$drawing->getCoordinates()] = $drawing;
         }
+
+        $this->drawingsByCoordinate = $map;
     }
 
     private function saveDrawing($drawing, int $rowNumber): ?string

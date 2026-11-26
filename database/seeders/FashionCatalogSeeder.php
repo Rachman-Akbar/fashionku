@@ -18,20 +18,13 @@ use Illuminate\Support\Facades\DB;
 final class FashionCatalogSeeder extends Seeder
 {
     /**
-     * Gambar kategori per slug (level 1, 2, dan 3). Foto level 3 diambil dari
-     * pool Unsplash yang sama dengan FashionProductsSeeder agar kategori dan
-     * produknya selaras.
+     * Gambar kategori khusus level 3 (kategori daun). Level 1 dan 2 tidak
+     * menyimpan gambar karena form gambar hanya muncul untuk level 3; ikon
+     * tetap boleh diisi di semua level lewat admin panel. Foto level 3 diambil
+     * dari pool Unsplash yang sama dengan FashionProductsSeeder agar kategori
+     * dan produknya selaras.
      */
     private const CATEGORY_IMAGES = [
-        // Level 1
-        'pakaian' => '1483985988355-763728e1935b',
-        'gaya-hidup' => '1511499767150-a48a237f0083',
-        // Level 2
-        'pakaian-pria' => '1552374196-1ab2a1c593e8',
-        'pakaian-wanita' => '1515372039744-b8f02a3ae446',
-        'alas-kaki' => '1460353581641-37baddab0fa2',
-        'tas' => '1622560480605-d83c853bc5c3',
-        'aksesori' => '1523170335258-f5ed11844a49',
         // Level 3
         'kaos' => '1521572163474-6864f9cf17ab',
         'kemeja' => '1552374196-1ab2a1c593e8',
@@ -106,7 +99,6 @@ final class FashionCatalogSeeder extends Seeder
                 sortOrder: 10,
                 actorId: $actorId,
                 now: $now,
-                imageUrl: $this->imageUrlFor($rootSlug),
             );
             $categoryCount++;
 
@@ -122,7 +114,6 @@ final class FashionCatalogSeeder extends Seeder
                     sortOrder: $subSort,
                     actorId: $actorId,
                     now: $now,
-                    imageUrl: $this->imageUrlFor($subSlug),
                 );
                 $categoryCount++;
                 $subSort += 10;
@@ -193,11 +184,30 @@ final class FashionCatalogSeeder extends Seeder
         $existingId = DB::table('categories')->where('full_slug', $fullSlug)->value('id');
 
         if ($existingId !== null) {
-            if ($imageUrl !== null) {
+            // Rapikan level/parent bila data lama pernah bergeser, dan pastikan
+            // hanya kategori level 3 yang menyimpan gambar.
+            $updates = [
+                'parent_id' => $parentId,
+                'parent_scope_id' => $parentId ?? 0,
+                'level' => $level,
+                'full_slug' => $fullSlug,
+                'updated_at' => $now,
+            ];
+
+            DB::table('categories')->where('id', $existingId)->update($updates);
+
+            if ($level === 3) {
+                if ($imageUrl !== null) {
+                    DB::table('categories')
+                        ->where('id', $existingId)
+                        ->whereNull('image_url')
+                        ->update(['image_url' => $imageUrl, 'updated_at' => $now]);
+                }
+            } else {
                 DB::table('categories')
                     ->where('id', $existingId)
-                    ->whereNull('image_url')
-                    ->update(['image_url' => $imageUrl, 'updated_at' => $now]);
+                    ->whereNotNull('image_url')
+                    ->update(['image_url' => null, 'updated_at' => $now]);
             }
 
             return (int) $existingId;
@@ -213,7 +223,7 @@ final class FashionCatalogSeeder extends Seeder
             'name' => $name,
             'slug' => $slug,
             'full_slug' => $fullSlug,
-            'image_url' => $imageUrl,
+            'image_url' => $level === 3 ? $imageUrl : null,
             'icon_url' => null,
             'created_by' => $actorId,
             'updated_by' => $actorId,

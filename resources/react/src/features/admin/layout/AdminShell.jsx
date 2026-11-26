@@ -9,6 +9,7 @@ import { PanelSidebar } from "@/shared/layout/PanelSidebar";
 import { usePanelBadges } from "@/shared/hooks/usePanelBadges";
 import { PanelTabBar, PanelTabsProvider } from "@/shared/layout/tabs";
 import { RouteOutletBoundary } from "@/shared/layout/RouteOutletBoundary";
+import { ImportProgressHost } from "@/shared/excel/ImportProgressHost";
 import { FocusModeContext, useFocusModeValue } from "@/shared/layout/FocusModeContext";
 import PageTransitionLoader from "@/shared/layout/PageTransitionLoader";
 import { AdminThemeControl } from "@/features/admin/layout/AdminThemeControl";
@@ -120,6 +121,7 @@ export default function AdminShell({ children }) {
                   sebagai strip tipis di bawah tab dan sisanya putih kosong. */}
               <div id="panel-editor-root" className={cn("relative min-h-full w-full min-w-0 pb-8 pt-0", isChatRoute ? "flex h-full min-h-0 flex-col" : "")}>
                 {children || <RouteOutletBoundary className={cn("h-full w-full min-w-0 max-w-full", isChatRoute && "min-h-0 flex-1")} />}
+                <ImportProgressHost />
               </div>
             </main>
           </div>

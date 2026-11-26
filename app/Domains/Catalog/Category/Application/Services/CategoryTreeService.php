@@ -70,6 +70,27 @@ final class CategoryTreeService
     }
 
     /**
+     * Cari kategori berdasarkan satu nama (format import ringkas: satu kolom
+     * "kategori"). Nama dicocokkan case-insensitive; bila ada di beberapa level,
+     * dipilih yang paling dalam (level tertinggi) agar cocok sebagai daun.
+     */
+    public function findByName(?string $name): ?CategoryModel
+    {
+        $name = $this->normalize($name);
+
+        if ($name === '') {
+            return null;
+        }
+
+        return CategoryModel::query()
+            ->withTrashed()
+            ->whereRaw('LOWER(TRIM(name)) = ?', [$name])
+            ->orderByDesc('level')
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    /**
      * Proses level 1 -> 2 -> 3 dengan firstOrCreate yang terikat parent_id.
      *
      * @param  array<int, string>  $levels

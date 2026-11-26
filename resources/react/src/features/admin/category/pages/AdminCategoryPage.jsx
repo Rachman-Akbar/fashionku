@@ -2,8 +2,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } f
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
-import { CrudDialog } from "@/shared/components/crud/CrudDialog"; 
-import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
+import { FormActionDock, FormEditorLayout } from "@/shared/components/crud";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { useDatabaseTableColumns, useTableSelection, useViewMode } from "@/shared/hooks";
 import { useColumnFilterState } from "@/shared/hooks";
@@ -12,6 +11,11 @@ import { ColumnFilterHeader } from "@/shared/components/crud/ColumnFilterHeader"
 import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
+import { FormField, inputClassName } from "@/shared/components/form/FormField";
+import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
+import { useTabDirtyGuard } from "@/shared/hooks/useTabDirtyGuard";
+import { toTitleCase } from "@/shared/utils/textFormatter";
+import { FormPageLayout } from "@/shared/components/crud/FormPageLayout";
 import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
 import { useActiveToggle } from "@/shared/hooks/useActiveToggle";
 import { InteractiveColGroup } from "@/shared/components/table/InteractiveTableHeader";
@@ -26,105 +30,7 @@ import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { ExcelActionButtons } from "@/shared/excel";
 
-function CategoryEditor({ open, category, onClose, onSave, saving, parents, levelOf }) {
-  const [form, setForm] = useState({
-    name: category?.name || "",
-    parent_id: category?.parentId ?? "",
-    sort_order: category?.sortOrder ?? 0,
-    is_active: category?.isActive !== false,
-    image_url: category?.imageUrl || "",
-    icon_url: category?.iconUrl || "",
-  });
-  const level = form.parent_id ? (levelOf(form.parent_id) || 1) + 1 : 1;
-
-  return (
-    <CrudDialog open={open} title={category ? "Edit Kategori" : "Tambah Kategori"} subtitle="Kelola kategori produk untuk katalog marketplace." onClose={onClose} size="max-w-md">
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSave(form);
-        }}
-        className="space-y-4 p-5"
-      >
-        <div className="space-y-2">
-          <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Nama Kategori</label>
-          <input
-            required
-            value={form.name}
-            onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-            className="h-9 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
-            disabled={saving}
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Kategori Induk</label>
-          <select
-            value={form.parent_id ?? ""}
-            onChange={(event) => setForm((current) => ({ ...current, parent_id: event.target.value }))}
-            className="h-9 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
-            disabled={saving}
-          >
-            <option value="">Tidak ada (root)</option>
-            {parents.map((parent) => (
-              <option key={parent.id} value={parent.id}>
-                {parent.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Urutan</label>
-            <FormattedNumberInput
-              value={form.sort_order}
-              onChange={(value) => setForm((current) => ({ ...current, sort_order: Number(value) || 0 }))}
-              className="h-9 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
-              disabled={saving}
-            />
-          </div>
-          <div className="space-y-2 pt-6">
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-              <input
-                type="checkbox"
-                checked={form.is_active}
-                onChange={(event) => setForm((current) => ({ ...current, is_active: event.target.checked }))}
-                className="h-4 w-4 shrink-0 rounded border-slate-300 accent-emerald-600 disabled:opacity-60"
-                disabled={saving}
-              />
-              Aktif
-            </label>
-          </div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          {level === 3 ? (
-            <div className="space-y-2">
-              <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Gambar Kategori (image_url)</label>
-              <ImageFilePicker value={form.image_url} onChange={(url) => setForm((current) => ({ ...current, image_url: url }))} scope="categories" label="Unggah gambar kategori" aspectClassName="aspect-square" disabled={saving} />
-            </div>
-          ) : (
-            <p className="self-center rounded-[10px] bg-slate-50 px-3 py-2 text-xs text-slate-500">
-              Gambar hanya tersedia untuk kategori level 3.
-            </p>
-          )}
-          <div className="space-y-2">
-            <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Ikon Kategori (icon_url)</label>
-            <ImageFilePicker value={form.icon_url} onChange={(url) => setForm((current) => ({ ...current, icon_url: url }))} scope="categories" label="Unggah ikon kategori" aspectClassName="aspect-square" disabled={saving} />
-          </div>
-        </div>
-        <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-[10px] border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60">
-            Batal
-          </button>
-          <button type="submit" disabled={saving} className="h-10 rounded-[10px] bg-emerald-600 px-4 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60">
-            {saving ? "Menyimpan..." : "Simpan"}
-          </button>
-        </div>
-      </form>
-    </CrudDialog>
-  );
-}
-
-function CategoryDetail({ category, parents, onBack, onSave, onDelete, saving, levelOf }) {
+function CategoryFormPage({ category, parents = [], levelOf, onSave, onDelete, saving }) {
   const initial = useMemo(() => ({
     name: category?.name || "",
     parent_id: category?.parentId ?? "",
@@ -135,85 +41,192 @@ function CategoryDetail({ category, parents, onBack, onSave, onDelete, saving, l
   }), [category]);
   const [form, setForm] = useState(initial);
   useEffect(() => { setForm(initial); }, [initial]);
-  const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+
+  const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(initial), [form, initial]);
+  useTabDirtyGuard(dirty);
+
+  const setField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
   const level = form.parent_id ? (levelOf(form.parent_id) || 1) + 1 : 1;
-  const fieldClass = "h-10 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60";
-  const parentOptions = (parents || []).filter((parent) => String(parent.id) !== String(category?.id));
+  const isLeafLevel = level === 3;
+
+  // Induk hanya boleh level 1 & 2 (agar hasilnya maksimal level 3) dan tidak
+  // boleh dirinya sendiri / turunannya, supaya hierarki tidak membentuk siklus.
+  const parentOptions = useMemo(() => {
+    const excluded = new Set();
+    const categoryId = category?.id;
+
+    if (categoryId) {
+      excluded.add(String(categoryId));
+      const childrenByParent = (parents || []).reduce((map, row) => {
+        const key = String(row.parentId ?? "");
+        (map[key] ||= []).push(String(row.id));
+        return map;
+      }, {});
+      const stack = [String(categoryId)];
+
+      while (stack.length) {
+        const current = stack.pop();
+        for (const childId of childrenByParent[current] || []) {
+          if (!excluded.has(childId)) {
+            excluded.add(childId);
+            stack.push(childId);
+          }
+        }
+      }
+    }
+
+    return (parents || [])
+      .filter((row) => !excluded.has(String(row.id)))
+      .filter((row) => (levelOf(row.id) || 1) < 3)
+      .map((row) => {
+        const parentLevel = levelOf(row.id) || 1;
+        return {
+          value: String(row.id),
+          label: `L${parentLevel} · ${"— ".repeat(parentLevel - 1)}${toTitleCase(row.name)}`,
+          keywords: row.fullSlug || row.slug || row.name,
+        };
+      })
+      .sort((left, right) => left.label.localeCompare(right.label, "id"));
+  }, [category?.id, levelOf, parents]);
+
+  const submit = () => {
+    if (!String(form.name || "").trim() || saving) return;
+    onSave(form);
+  };
 
   return (
-    <CrudDialog open presentation="page" title={category?.name || "Detail Kategori"} subtitle="Lihat dan ubah data kategori langsung pada halaman ini." onClose={onBack}>
-      <form onSubmit={(event) => { event.preventDefault(); if (dirty && !saving) onSave(form); }}>
-        <FormEditorLayout
-          actions={<FormActionDock tone="emerald" save={{ icon: "save", label: "Simpan" }} disabled={!dirty || saving} onDelete={onDelete} deleteLabel="Hapus" />}
-        >
-          <div className="grid gap-4">
-            <div className="flex flex-wrap items-center gap-4 border-b border-slate-100 pb-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-[12px] bg-emerald-50 text-emerald-700">
-                <span className="material-symbols-outlined text-[26px]">category</span>
+    <form onSubmit={(event) => { event.preventDefault(); submit(); }}>
+      <FormEditorLayout
+        actions={(
+          <FormActionDock
+            tone="emerald"
+            save={{ icon: category ? "save" : "add", label: category ? "Simpan" : "Tambah" }}
+            disabled={!dirty || saving}
+            onDelete={category ? onDelete : undefined}
+          />
+        )}
+      >
+        <FormPageLayout header={null}>
+          <div className="space-y-6">
+            <section className="rounded-[10px] bg-white p-5 ring-1 ring-slate-200">
+              <div className="flex items-center gap-[5px]">
+                <span className="material-symbols-outlined text-slate-400">description</span>
+                <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-500">Informasi Umum</h2>
               </div>
-              <div className="min-w-0">
-                <h2 className="truncate text-lg font-extrabold text-slate-900">{form.name || "-"}</h2>
-                <p className="truncate text-sm text-slate-500">Level {level}</p>
+              <p className="mt-0.5 text-xs text-slate-500">Data utama kategori untuk katalog marketplace dan navigasi menu.</p>
+
+              <div className="mt-3 grid gap-4 md:grid-cols-2">
+                <FormField label="Nama kategori" required>
+                  <input
+                    value={form.name}
+                    onChange={(event) => setField("name", event.target.value)}
+                    className={inputClassName}
+                    disabled={saving}
+                  />
+                </FormField>
+
+                <FormField label="Kategori induk" hint="Kosongkan untuk kategori root (level 1). Level dibatasi sampai 3.">
+                  <SearchableSelect
+                    value={form.parent_id ?? ""}
+                    onChange={(nextValue) => setField("parent_id", nextValue)}
+                    options={parentOptions}
+                    placeholder="Tidak ada (root)"
+                    searchPlaceholder="Cari kategori induk"
+                    emptyText="Semua kategori sudah menjadi induk"
+                    disabled={saving}
+                    clearable
+                  />
+                </FormField>
+
+                <FormField label="Urutan" hint="Urutan tampil antar kategori dalam induk yang sama.">
+                  <FormattedNumberInput
+                    value={form.sort_order}
+                    onChange={(value) => setField("sort_order", Number(value) || 0)}
+                    className={inputClassName}
+                    disabled={saving}
+                  />
+                </FormField>
+
+                <FormField label="Status aktif" hint="Kategori nonaktif disembunyikan dari katalog dan menu.">
+                  <InlineActiveSwitch
+                    checked={form.is_active}
+                    onChange={(checked) => setField("is_active", checked)}
+                  />
+                </FormField>
               </div>
-              <div className="ml-auto">
-                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${form.is_active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                  {form.is_active ? "Aktif" : "Nonaktif"}
-                </span>
+            </section>
+
+            <section className="rounded-[10px] bg-white p-5 ring-1 ring-slate-200">
+              <div className="flex items-center gap-[5px]">
+                <span className="material-symbols-outlined text-slate-400">imagesmode</span>
+                <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-500">Ikon & Gambar</h2>
               </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-1.5 text-sm font-bold text-slate-700">
-                <span>Nama Kategori<span className="ml-1 text-red-500">*</span></span>
-                <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className={fieldClass} required />
-              </label>
-              <label className="grid gap-1.5 text-sm font-bold text-slate-700">
-                <span>Kategori Induk</span>
-                <select value={form.parent_id ?? ""} onChange={(event) => setForm((current) => ({ ...current, parent_id: event.target.value }))} className={fieldClass}>
-                  <option value="">Tidak ada (root)</option>
-                  {parentOptions.map((parent) => (
-                    <option key={parent.id} value={parent.id}>{parent.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1.5 text-sm font-bold text-slate-700">
-                <span>Urutan</span>
-                <FormattedNumberInput value={form.sort_order} onChange={(value) => setForm((current) => ({ ...current, sort_order: Number(value) || 0 }))} className={fieldClass} />
-              </label>
-              <label className="grid gap-1.5 text-sm font-bold text-slate-700">
-                <span>Status</span>
-                <span className="flex h-10 items-center gap-2 rounded-[10px] border border-slate-200 px-3 text-sm font-semibold text-slate-700">
-                  <input type="checkbox" checked={form.is_active} onChange={(event) => setForm((current) => ({ ...current, is_active: event.target.checked }))} className="h-4 w-4 accent-emerald-600" />
-                  Aktif
-                </span>
-              </label>
-              <div className="rounded-[10px] border border-slate-100 px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Jumlah Produk</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{category?.productsCount ?? 0}</p>
+              <p className="mt-0.5 text-xs text-slate-500">Gambar kategori hanya muncul saat kategori ini berada di level 3.</p>
+
+              <div className="mt-3 grid gap-4 md:grid-cols-2">
+                <FormField label="Ikon kategori" hint="Dipakai pada menu/navigasi kecil. Boleh diisi semua level.">
+                  <ImageFilePicker
+                    value={form.icon_url}
+                    onChange={(url) => setField("icon_url", url)}
+                    scope="categories"
+                    label="Unggah ikon kategori"
+                    aspectClassName="aspect-square"
+                    disabled={saving}
+                  />
+                </FormField>
+
+                {isLeafLevel ? (
+                  <FormField label="Gambar kategori" hint="Tampil sebagai ilustrasi kategori level 3 di katalog.">
+                    <ImageFilePicker
+                      value={form.image_url}
+                      onChange={(url) => setField("image_url", url)}
+                      scope="categories"
+                      label="Unggah gambar kategori"
+                      aspectClassName="aspect-square"
+                      disabled={saving}
+                    />
+                  </FormField>
+                ) : (
+                  <div className="flex flex-col justify-center rounded-[10px] border border-dashed border-slate-200 bg-slate-50 px-4 py-5">
+                    <span className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-slate-500">
+                      <span className="material-symbols-outlined text-[16px]">info</span>
+                      Gambar belum tersedia
+                    </span>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      Pilih kategori induk level 2 agar kategori ini menjadi level 3, lalu form gambar akan muncul otomatis.
+                    </p>
+                  </div>
+                )}
               </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              {level === 3 ? (
-                <div className="space-y-2">
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Gambar Kategori (image_url)</label>
-                  <ImageFilePicker value={form.image_url} onChange={(url) => setForm((current) => ({ ...current, image_url: url }))} scope="categories" label="Unggah gambar kategori" aspectClassName="aspect-square" disabled={saving} />
+            </section>
+
+            <section className="rounded-[10px] bg-white p-5 ring-1 ring-slate-200">
+              <div className="flex items-center gap-[5px]">
+                <span className="material-symbols-outlined text-slate-400">hub</span>
+                <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-500">Hierarki</h2>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-[8px] bg-slate-50 px-3 py-2 ring-1 ring-inset ring-slate-200">
+                  <p className="text-[11px] font-bold text-slate-500">Level kategori</p>
+                  <p className="text-sm font-extrabold text-slate-900">{level}</p>
                 </div>
-              ) : (
-                <p className="self-center rounded-[10px] bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                  Gambar hanya tersedia untuk kategori level 3.
-                </p>
-              )}
-              <div className="space-y-2">
-                <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Ikon Kategori (icon_url)</label>
-                <ImageFilePicker value={form.icon_url} onChange={(url) => setForm((current) => ({ ...current, icon_url: url }))} scope="categories" label="Unggah ikon kategori" aspectClassName="aspect-square" disabled={saving} />
+                <div className="rounded-[8px] bg-slate-50 px-3 py-2 ring-1 ring-inset ring-slate-200">
+                  <p className="text-[11px] font-bold text-slate-500">Induk</p>
+                  <p className="truncate text-sm font-extrabold text-slate-900">{parentOptions.find((option) => option.value === String(form.parent_id ?? ""))?.label || "Root"}</p>
+                </div>
+                <div className="rounded-[8px] bg-slate-50 px-3 py-2 ring-1 ring-inset ring-slate-200">
+                  <p className="text-[11px] font-bold text-slate-500">Jumlah produk</p>
+                  <p className="text-sm font-extrabold text-slate-900">{category?.productsCount ?? 0}</p>
+                </div>
               </div>
-            </div>
+            </section>
           </div>
-        </FormEditorLayout>
-        <FormEditorFooter onCancel={onBack} onSave={() => { if (dirty && !saving) onSave(form); }} submitLabel="Simpan" submitIcon="save" disabled={!dirty || saving} onDelete={onDelete} deleteLabel="Hapus" tone="emerald" />
-      </form>
-    </CrudDialog>
+        </FormPageLayout>
+      </FormEditorLayout>
+    </form>
   );
 }
+
 export default function AdminCategoryPage() {
   const [viewMode, setViewMode] = useViewMode("admin-categories");
   const [query, setQuery] = useState("");
@@ -308,13 +321,7 @@ export default function AdminCategoryPage() {
   const filterState = useColumnFilterState({ rows, getValue: categoryFilterValue, filterTypes });
   const filteredRows = filterState.rows;
   const selection = useTableSelection(filteredRows);
-  const parentOptions = useMemo(
-    () => rows.filter((c) => !editor.entity || c.id !== editor.entity.id).map((c) => ({ id: c.id, name: c.name })),
-    [rows, editor.entity],
-  );
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: categoriesQuery.refetch });
-
-  const closeEditor = editor.close;
 
   // Header kategori bisa digeser (drag & drop) dan lebarnya ditarik, sama
   // seperti tabel produk/pesanan. Urutan & lebar disimpan di localStorage.
@@ -510,8 +517,10 @@ export default function AdminCategoryPage() {
     try {
       if (editor.entity?.id) {
         await updateMutation.mutateAsync({ id: editor.entity.id, values: payload });
+        toastSuccess("Simpan Kategori", "Perubahan kategori berhasil disimpan.");
       } else {
         await createMutation.mutateAsync(payload);
+        toastSuccess("Tambah Kategori", "Kategori baru berhasil dibuat.");
       }
       editor.completeSave();
       categoriesQuery.refetch();
@@ -522,27 +531,6 @@ export default function AdminCategoryPage() {
 
   const handleActivate = (category, next = !category.isActive) => {
     activeToggle.toggle(category, next);
-  };
-
-  const saveDetailCategory = async (form) => {
-    if (!editor.entity) return;
-    const level = form.parent_id ? levelOf(form.parent_id) + 1 : 1;
-    const payload = {
-      name: String(form.name || "").trim(),
-      parent_id: form.parent_id ? Number(form.parent_id) : null,
-      sort_order: Number(form.sort_order) || 0,
-      is_active: Boolean(form.is_active),
-      image_url: level === 3 ? form.image_url || null : null,
-      icon_url: form.icon_url || null,
-    };
-    try {
-      await updateMutation.mutateAsync({ id: editor.entity.id, values: payload });
-      toastSuccess("Simpan Kategori", "Perubahan kategori berhasil disimpan.");
-      editor.completeSave();
-      categoriesQuery.refetch();
-    } catch {
-      // handled by mutation hook
-    }
   };
 
   const remove = async () => {
@@ -559,27 +547,15 @@ export default function AdminCategoryPage() {
 
   return (
     <>
-      {editor.open && !editor.entity ? (
-        <CategoryEditor
-          open
-          key="create"
-          category={null}
-          onClose={closeEditor}
-          onSave={handleSave}
-          saving={updateMutation.isPending || createMutation.isPending}
-          parents={parentOptions}
-          levelOf={levelOf}
-        />
-      ) : editor.open && editor.entity ? (
-        <CategoryDetail
-          key={editor.activeTab?.id || "detail"}
-          category={editor.entity}
+      {editor.open ? (
+        <CategoryFormPage
+          key={editor.activeTab?.id || "category-form"}
+          category={editor.entity || null}
           parents={rows}
-          onBack={closeEditor}
-          onSave={(form) => saveDetailCategory(form)}
-          onDelete={() => setDeleteTarget(editor.entity)}
-          saving={updateMutation.isPending}
           levelOf={levelOf}
+          onSave={handleSave}
+          onDelete={editor.entity ? () => setDeleteTarget(editor.entity) : undefined}
+          saving={createMutation.isPending || updateMutation.isPending}
         />
       ) : (
         <ListPageFrame

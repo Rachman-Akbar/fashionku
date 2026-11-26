@@ -23,9 +23,7 @@ class ProductTemplateExport implements Export, WithMultipleSheets
         'kode_produk',
         'gambar',
         'nama_produk',
-        'kategori_level_1',
-        'kategori_level_2',
-        'kategori_level_3',
+        'kategori',
         'kode_sku_varian',
         'atribut_varian',
         'harga',
@@ -57,7 +55,7 @@ class ProductTemplateExport implements Export, WithMultipleSheets
     {
         return [
             self::PRODUCT_HEADINGS,
-            ['PRD-001', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-POLOS', '', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
+            ['PRD-001', '', 'kaos polos premium', 'kaos', 'KAOS-POLOS', '', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
         ];
     }
 
@@ -69,9 +67,9 @@ class ProductTemplateExport implements Export, WithMultipleSheets
     {
         return [
             self::PRODUCT_HEADINGS,
-            ['PRD-002', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-L-BLK', 'ukuran:large, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
-            ['PRD-002', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-M-BLK', 'ukuran:medium, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
-            ['PRD-002', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-L-WHT', 'ukuran:large, warna:putih', 155000, 'fashionku', 'Kaos katun premium', 'ya'],
+            ['PRD-002', '', 'kaos polos premium', 'kaos', 'KAOS-L-BLK', 'ukuran:large, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
+            ['PRD-002', '', 'kaos polos premium', 'kaos', 'KAOS-M-BLK', 'ukuran:medium, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
+            ['PRD-002', '', 'kaos polos premium', 'kaos', 'KAOS-L-WHT', 'ukuran:large, warna:putih', 155000, 'fashionku', 'Kaos katun premium', 'ya'],
         ];
     }
 
@@ -82,7 +80,7 @@ class ProductTemplateExport implements Export, WithMultipleSheets
     {
         return [
             self::PRODUCT_HEADINGS,
-            ['PRD-003', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-POLOS', '', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
+            ['PRD-003', '', 'kaos polos premium', 'kaos', 'KAOS-POLOS', '', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
             [],
             self::MATERIAL_HEADINGS,
             ['KAOS-POLOS', 'BHN-001', 0.25],
@@ -97,9 +95,9 @@ class ProductTemplateExport implements Export, WithMultipleSheets
     {
         return [
             self::PRODUCT_HEADINGS,
-            ['PRD-004', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-L-BLK', 'ukuran:large, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
-            ['PRD-004', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-M-BLK', 'ukuran:medium, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
-            ['PRD-004', '', 'kaos polos premium', 'pakaian', 'atasan', 'kaos', 'KAOS-L-WHT', 'ukuran:large, warna:putih', 155000, 'fashionku', 'Kaos katun premium', 'ya'],
+            ['PRD-004', '', 'kaos polos premium', 'kaos', 'KAOS-L-BLK', 'ukuran:large, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
+            ['PRD-004', '', 'kaos polos premium', 'kaos', 'KAOS-M-BLK', 'ukuran:medium, warna:hitam', 150000, 'fashionku', 'Kaos katun premium', 'ya'],
+            ['PRD-004', '', 'kaos polos premium', 'kaos', 'KAOS-L-WHT', 'ukuran:large, warna:putih', 155000, 'fashionku', 'Kaos katun premium', 'ya'],
             [],
             self::MATERIAL_HEADINGS,
             ['KAOS-L-BLK', 'BHN-001', 0.25],
@@ -116,9 +114,7 @@ class ProductTemplateExport implements Export, WithMultipleSheets
             ['kode_produk', 'Wajib', 'Teks', 'Kode pengelompokan produk. Baris dengan kode_produk sama digabung sebagai varian dari satu produk induk.'],
             ['gambar', 'Opsional', 'Gambar dalam sel', 'Thumbnail produk disematkan pada sel ini (bukan URL).'],
             ['nama_produk', 'Wajib', 'Teks', 'Nama produk induk.'],
-            ['kategori_level_1', 'Wajib', 'Teks (lowercase)', 'Nama kategori level 1 yang sudah ada. Diproses strtolower(trim()).'],
-            ['kategori_level_2', 'Opsional', 'Teks (lowercase)', 'Sub kategori, harus berada di bawah level 1 baris tersebut.'],
-            ['kategori_level_3', 'Opsional', 'Teks (lowercase)', 'Child kategori, harus berada di bawah level 2 baris tersebut.'],
+            ['kategori', 'Wajib', 'Teks (nama daun)', 'Cukup tulis nama kategori (level daun) yang sudah ada. Sistem otomatis mencari path induknya. Cocokkan case-insensitive.'],
             ['kode_sku_varian', 'Wajib', 'Teks unik', 'SKU custom per varian. Boleh diisi kode buatan sendiri; kosongkan untuk dibuat otomatis dari rumus SKU.'],
             ['atribut_varian', 'Opsional', 'atribut:nilai, atribut:nilai', 'Contoh: ukuran:large, gula:normal. Satu atribut hanya boleh sekali per baris. Kosongkan jika produk tidak memiliki varian.'],
             ['harga', 'Opsional', 'Angka', 'Harga jual varian.'],

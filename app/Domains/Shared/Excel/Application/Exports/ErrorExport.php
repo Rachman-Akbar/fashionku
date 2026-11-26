@@ -28,7 +28,6 @@ class ErrorExport implements FromCollection, WithHeadings, WithStyles, WithColum
         foreach ($this->errors as $error) {
             $row = [
                 'baris' => $error['row'] ?? 0,
-                'error' => $error['error'] ?? '',
             ];
 
             if (isset($error['data'])) {
@@ -45,6 +44,10 @@ class ErrorExport implements FromCollection, WithHeadings, WithStyles, WithColum
                 $row['detail'] = is_array($error['errors']) ? implode('; ', $error['errors']) : $error['errors'];
             }
 
+            // Kolom error ditaruh paling kanan supaya mudah dicek tanpa harus
+            // mencari-cari di antara kolom data.
+            $row['error'] = $error['error'] ?? '';
+
             $rows[] = $row;
         }
 
@@ -53,7 +56,7 @@ class ErrorExport implements FromCollection, WithHeadings, WithStyles, WithColum
 
     public function headings(): array
     {
-        $headings = ['baris', 'error'];
+        $headings = ['baris'];
 
         if (! empty($this->errors) && isset($this->errors[0]['data'])) {
             $headings = array_merge($headings, array_keys($this->errors[0]['data']));
@@ -62,6 +65,9 @@ class ErrorExport implements FromCollection, WithHeadings, WithStyles, WithColum
         if (! empty($this->errors) && (isset($this->errors[0]['attribute']) || isset($this->errors[0]['errors']))) {
             $headings = array_merge($headings, ['field', 'detail']);
         }
+
+        // Selalu chiwarnakan "error" sebagai kolom terakhir (paling kanan).
+        $headings[] = 'error';
 
         return $headings;
     }

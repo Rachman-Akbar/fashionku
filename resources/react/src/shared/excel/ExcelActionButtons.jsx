@@ -193,7 +193,6 @@ export function ExcelActionButtons({
         workspace={workspace}
         module={module}
         label={label}
-        selectedIds={selectedIds}
       />
       {deleteConfirm && (
         <ConfirmDialog
