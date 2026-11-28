@@ -1,7 +1,6 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
-import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { FormActionDock, FormEditorLayout } from "@/shared/components/crud";
 import { AsyncState } from "@/shared/components/feedback/AsyncState";
 import { useDatabaseTableColumns, useTableSelection, useViewMode } from "@/shared/hooks";
@@ -27,6 +26,7 @@ import { ImageFilePicker } from "@/shared/components/form/ImageFilePicker";
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/features/admin/category/services/categoryService";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
+import { confirmDelete } from "@/shared/utils/sweetAlert";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { ExcelActionButtons } from "@/shared/excel";
 
@@ -535,14 +535,19 @@ export default function AdminCategoryPage() {
 
   const remove = async () => {
     if (!deleteTarget) return;
+    const confirmed = await confirmDelete({
+      title: "Hapus Kategori",
+      text: `Kategori "${deleteTarget.name}" akan dihapus.`,
+    });
+    if (!confirmed.isConfirmed) return;
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
-      setDeleteTarget(null);
       if (editor.entity && String(editor.entity.id) === String(deleteTarget.id)) editor.close();
       categoriesQuery.refetch();
     } catch {
       // handled by mutation hook
     }
+    setDeleteTarget(null);
   };
 
   return (
@@ -769,14 +774,6 @@ export default function AdminCategoryPage() {
           ) : null}
         </ListPageFrame>
       )}
-      <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        title="Hapus Kategori"
-        message={`Kategori "${deleteTarget?.name || ""}" akan dihapus.`}
-        pending={deleteMutation.isPending}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={remove}
-      />
     </>
   );
 }

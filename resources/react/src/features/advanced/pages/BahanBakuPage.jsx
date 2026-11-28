@@ -4,8 +4,6 @@ import {
   advancedError,
   useAdjustRawMaterial,
   useDeleteRawMaterial,
-  useRawMaterialCostImpacts,
-  useRawMaterialMovements,
   useRawMaterials,
   useSaveRawMaterial,
 } from "@/features/advanced/services/advancedMarketplaceService";
@@ -21,7 +19,7 @@ import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { ImageFilePicker } from "@/shared/components/form/ImageFilePicker";
 import { useViewMode } from "@/shared/hooks/useViewMode";
-import { useEntityEditor, useRefreshOnListActivation, useTableSelection, useColumnVisibility } from "@/shared/hooks";
+import { useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import { ExcelActionButtons } from "@/shared/excel";
@@ -39,7 +37,6 @@ function number(value, digits = 4) {
 
 export default function BahanBakuPage() {
   const [viewMode, setViewMode] = useViewMode("raw-materials");
-  const [tab, setTab] = useState("materials");
   const [query, setQuery] = useState("");
   const deferred = useDeferredValue(query.trim());
   const [materialForm, setMaterialForm] = useState(null);
@@ -59,8 +56,6 @@ export default function BahanBakuPage() {
   const [optimisticMaterialStates, setOptimisticMaterialStates] = useState({});
 
   const materials = useRawMaterials({ per_page: 100, ...(deferred ? { search: deferred } : {}) });
-  const materialMovements = useRawMaterialMovements({ per_page: 100 });
-  const costImpacts = useRawMaterialCostImpacts({ per_page: 100, direction: "increase" });
   const saveMaterial = useSaveRawMaterial();
   const deleteMaterial = useDeleteRawMaterial();
   const adjustMaterial = useAdjustRawMaterial();
@@ -102,10 +97,6 @@ export default function BahanBakuPage() {
   };
 
   const totalMaterials = useListTotalCount(materials.data?.meta, { label: "Bahan Baku" });
-  const totalMaterialHistory = useListTotalCount(materialMovements.data?.meta, { label: "Pergerakan" });
-  const totalCostImpact = useListTotalCount(costImpacts.data?.meta, { label: "Dampak HPP" });
-  const tabs = [["materials", "Bahan Baku"], ["material-history", "Riwayat Bahan"], ["cost-impact", "Dampak HPP"]];
-  const activeTotal = tab === "materials" ? totalMaterials : tab === "material-history" ? totalMaterialHistory : totalCostImpact;
 
   const openMaterial = (row) => {
     if (row?.id) editor.edit(row);
@@ -117,7 +108,6 @@ export default function BahanBakuPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
     if (!searchParams.has("new")) return;
-    setTab("materials");
     openMaterial(null);
     const next = new URLSearchParams(searchParams);
     next.delete("new");
@@ -180,53 +170,6 @@ export default function BahanBakuPage() {
     ...buildDatabaseColumns(materialRows, {
       omit: ["id", "code", "name", "image", "unit", "stock", "minimum_stock", "average_cost", "is_active"],
       labels: { created_at: "Dibuat", updated_at: "Diubah", deleted_at: "Dihapus" },
-    }),
-  ];
-
-  const materialHistoryColumns = [
-    { key: "occurred_at", label: "Waktu", render: (row) => row.occurred_at ? new Date(row.occurred_at).toLocaleString("id-ID") : "-" },
-    { key: "material_name", label: "Bahan Baku", render: (row) => row.material?.name || row.material_name || "-" },
-    { key: "type", label: "Jenis" },
-    { key: "quantity_delta", label: "Perubahan" },
-    { key: "balance_after", label: "Saldo" },
-    { key: "unit_cost", label: "Biaya/Satuan", render: (row) => money(row.unit_cost) },
-    { key: "reference_number", label: "Referensi" },
-    // Sisa kolom database pergerakan stok bahan baku.
-    ...buildDatabaseColumns(materialMovements.data?.rows || [], {
-      omit: ["id", "raw_material_id", "raw_material_stock_movement_id", "occurred_at", "type", "quantity_delta", "balance_after", "unit_cost", "reference_number", "material"],
-      labels: {
-        total_cost: "Total Biaya",
-        reference_type: "Tipe Referensi",
-        notes: "Catatan",
-        created_at: "Dibuat",
-        updated_at: "Diubah",
-      },
-    }),
-  ];
-  const impactColumns = [
-    { key: "occurred_at", label: "Waktu", render: (row) => row.occurred_at ? new Date(row.occurred_at).toLocaleString("id-ID") : "-" },
-    { key: "material", label: "Bahan Baku", render: (row) => `${row.material?.code || ""} ${row.material?.name || ""}`.trim() || "-" },
-    { key: "product", label: "Produk", render: (row) => row.product?.name || "-" },
-    { key: "old_cost", label: "Biaya Lama", render: (row) => money(row.cost_history?.old_average_cost || row.costHistory?.old_average_cost) },
-    { key: "new_cost", label: "Biaya Baru", render: (row) => money(row.cost_history?.new_average_cost || row.costHistory?.new_average_cost) },
-    { key: "old_hpp", label: "HPP Lama", render: (row) => money(row.old_hpp) },
-    { key: "new_hpp", label: "HPP Baru", render: (row) => money(row.new_hpp) },
-    { key: "hpp_change_percent", label: "Kenaikan HPP", render: (row) => `${number(row.hpp_change_percent, 2)}%` },
-    { key: "new_suggested_price", label: "Saran Harga Baru", render: (row) => money(row.new_suggested_price) },
-    // Sisa kolom database riwayat biaya (selisih, arah, referensi).
-    ...buildDatabaseColumns(costImpacts.data?.rows || [], {
-      omit: ["id", "raw_material_id", "raw_material_stock_movement_id", "occurred_at", "old_cost", "new_cost", "old_hpp", "new_hpp", "hpp_change_percent", "new_suggested_price", "material", "product", "cost_history"],
-      labels: {
-        change_amount: "Selisih Biaya",
-        change_percent: "Persentase Selisih",
-        direction: "Arah",
-        reference_type: "Tipe Referensi",
-        reference_number: "Referensi",
-        created_at: "Dibuat",
-        updated_at: "Diubah",
-        old_average_cost: "Biaya Rata-rata Lama",
-        new_average_cost: "Biaya Rata-rata Baru",
-      },
     }),
   ];
 
@@ -326,49 +269,35 @@ export default function BahanBakuPage() {
         subtitle="Kelola master data bahan baku yang digunakan oleh produk. Stok berkurang otomatis saat produk dengan resep bahan baku diproduksi."
         query={query}
         onQueryChange={setQuery}
-        onRefresh={() => { materials.refetch(); materialMovements.refetch(); costImpacts.refetch(); }}
+        onRefresh={() => { materials.refetch(); }}
         refreshing={false}
-        totalCount={activeTotal?.totalCount}
-        totalLabel={activeTotal?.totalLabel}
-        totalTitle={activeTotal?.totalTitle}
-        onCreate={tab === "materials" ? () => openMaterial(null) : undefined}
+        totalCount={totalMaterials?.totalCount}
+        totalLabel={totalMaterials?.totalLabel}
+        totalTitle={totalMaterials?.totalTitle}
+        onCreate={() => openMaterial(null)}
         createLabel="Bahan Baku"
-        selectionEnabled={tab === "materials" && materialSelected.size > 0}
-        selectedCount={tab === "materials" ? materialSelected.size : 0}
-        onToggleSelection={tab === "materials" ? () => (materialSelected.size ? setMaterialSelected(new Set()) : setMaterialSelected(new Set(materialRows.map((row) => row.id)))) : undefined}
+        selectionEnabled={materialSelected.size > 0}
+        selectedCount={materialSelected.size}
+        onToggleSelection={() => (materialSelected.size ? setMaterialSelected(new Set()) : setMaterialSelected(new Set(materialRows.map((row) => row.id))))}
         bulkActions={[]}
         viewMode={viewMode}
         onChangeViewMode={setViewMode}
         extraActions={
-          tab === "materials" ? (
-            <ExcelActionButtons
-              module="raw-material"
-              label="Bahan Baku"
-              selection={{ enabled: materialSelected.size > 0, selectedCount: materialSelected.size, selectedRows: materialRows.filter((row) => materialSelected.has(row.id)), toggleEnabled: () => (materialSelected.size ? setMaterialSelected(new Set()) : setMaterialSelected(new Set(materialRows.map((row) => row.id)))) }}
-              rows={materialRows}
-              onRefresh={() => { materials.refetch(); materialMovements.refetch(); costImpacts.refetch(); }}
-              onCompleted={() => {}}
-              getRowId={(row) => row.id}
-              allowImport={true}
-              allowExport={true}
-              allowDelete={true}
-            />
-          ) : null
+          <ExcelActionButtons
+            module="raw-material"
+            label="Bahan Baku"
+            selection={{ enabled: materialSelected.size > 0, selectedCount: materialSelected.size, selectedRows: materialRows.filter((row) => materialSelected.has(row.id)), toggleEnabled: () => (materialSelected.size ? setMaterialSelected(new Set()) : setMaterialSelected(new Set(materialRows.map((row) => row.id)))) }}
+            rows={materialRows}
+            onRefresh={() => { materials.refetch(); }}
+            onCompleted={() => {}}
+            getRowId={(row) => row.id}
+            allowImport={true}
+            allowExport={true}
+            allowDelete={true}
+          />
         }
       >
-        <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">{tabs.map(([id, label]) => <button key={id} type="button" onClick={() => setTab(id)} className={`h-9 px-4 text-sm font-bold ${tab === id ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}>{label}</button>)}</div>
-        {tab === "materials" ? (
-          <DataGrid viewMode={viewMode} card={materialCard} storageKey="inventory.raw-materials-v2" onFilterStateChange={totalMaterials.onFilterStateChange} columns={materialColumns} rows={materialRows} emptyText="Bahan baku belum tersedia." onRowClick={(row) => (row.id ? openMaterial(row) : undefined)} selectionEnabled selectedIds={materialSelected} allSelected={materialAllSelected} onToggleRow={toggleMaterialRow} onToggleAll={toggleMaterialAll} />
-        ) : null}
-        {tab === "material-history" ? (
-          <DataGrid viewMode={viewMode} storageKey="inventory.material-history" onFilterStateChange={totalMaterialHistory.onFilterStateChange} columns={materialHistoryColumns} rows={materialMovements.data?.rows || []} emptyText="Riwayat stok bahan baku belum tersedia." />
-        ) : null}
-        {tab === "cost-impact" ? (
-          <>
-            <div className="border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">Laporan ini muncul otomatis saat average cost bahan baku naik dan perubahan tersebut menaikkan HPP produk. Harga jual aktif tidak diubah otomatis; Seller dapat memakai kolom Saran Harga Baru sebagai dasar keputusan.</div>
-            <DataGrid viewMode={viewMode} storageKey="inventory.cost-impact" onFilterStateChange={totalCostImpact.onFilterStateChange} columns={impactColumns} rows={costImpacts.data?.rows || []} emptyText="Belum ada kenaikan biaya bahan baku yang memengaruhi HPP." />
-          </>
-        ) : null}
+        <DataGrid viewMode={viewMode} card={materialCard} storageKey="inventory.raw-materials-v2" onFilterStateChange={totalMaterials.onFilterStateChange} columns={materialColumns} rows={materialRows} emptyText="Bahan baku belum tersedia." onRowClick={(row) => (row.id ? openMaterial(row) : undefined)} selectionEnabled selectedIds={materialSelected} allSelected={materialAllSelected} onToggleRow={toggleMaterialRow} onToggleAll={toggleMaterialAll} />
       </ModuleFrame> : null}
 
       <FormModal presentation="page" open={Boolean(materialForm)} title={materialForm?.id ? "Edit Bahan Baku" : "Data Baru Bahan Baku"} onClose={() => { setMaterialForm(null); setMaterialInitial(null); }} onSubmit={submitMaterial} busy={saveMaterial.isPending} dirty={materialDirty} submitLabel="Simpan" onDelete={materialForm?.id ? () => { setMaterialDelete(materialForm); setMaterialForm(null); setMaterialInitial(null); } : undefined} extraActions={materialForm?.id ? [{ icon: "add_box", label: "Stock / Restock", tone: "teal", onClick: () => { const row = materialForm; setMaterialForm(null); setMaterialInitial(null); editor.close(); openStock(row); } }] : []}>

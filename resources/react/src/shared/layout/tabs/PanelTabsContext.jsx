@@ -78,6 +78,7 @@ export function PanelTabsProvider({ children, items = [] }) {
   const [listRevisionByParent, setListRevisionByParent] = useState({});
   const [dirtyTabIds, setDirtyTabIds] = useState({});
   const dirtyTabIdsRef = useRef(dirtyTabIds);
+  const draftRef = useRef({});
 
   useEffect(() => {
     dirtyTabIdsRef.current = dirtyTabIds;
@@ -166,13 +167,6 @@ export function PanelTabsProvider({ children, items = [] }) {
     });
   }, []);
 
-  const markTabClean = useCallback((tabId) => {
-    if (!tabId) return;
-    if (!dirtyTabIdsRef.current[tabId]) return;
-    dirtyTabIdsRef.current = { ...dirtyTabIdsRef.current, [tabId]: false };
-    clearDirtyTabs([tabId]);
-  }, [clearDirtyTabs]);
-
   /**
    * Menyimpan isi form yang belum disimpan sebagai draft milik tab, supaya
    * pengguna bisa pindah tab lain (atau membuka halaman lain) tanpa kehilangan
@@ -180,6 +174,13 @@ export function PanelTabsProvider({ children, items = [] }) {
    */
   const setTabDraft = useCallback((tabId, draft) => {
     if (!tabId) return;
+    if (draft) {
+      draftRef.current = { ...draftRef.current, [tabId]: draft };
+    } else {
+      const next = { ...draftRef.current };
+      delete next[tabId];
+      draftRef.current = next;
+    }
     setChildrenByParent((current) => {
       let changed = false;
       const next = {};
@@ -198,10 +199,18 @@ export function PanelTabsProvider({ children, items = [] }) {
     });
   }, []);
 
+  const markTabClean = useCallback((tabId) => {
+    if (!tabId) return;
+    if (!dirtyTabIdsRef.current[tabId]) return;
+    dirtyTabIdsRef.current = { ...dirtyTabIdsRef.current, [tabId]: false };
+    clearDirtyTabs([tabId]);
+    setTabDraft(tabId, null);
+  }, [clearDirtyTabs, setTabDraft]);
+
   const confirmDirtyTabs = useCallback(async (tabsToCheck) => {
     // Tab yang punya draft tersimpan juga dianggap belum disimpan, supaya
     // menutup tab dengan sengaja tetap meminta konfirmasi.
-    const dirtyTargets = tabsToCheck.filter((tab) => dirtyTabIdsRef.current[tab.id] || tab.draft);
+    const dirtyTargets = tabsToCheck.filter((tab) => dirtyTabIdsRef.current[tab.id] || draftRef.current[tab.id]);
     if (!dirtyTargets.length) return true;
     const confirmed = await confirmDiscardChanges(dirtyTargets.length === 1 ? dirtyTargets[0].label : `${dirtyTargets.length} tab`);
     if (!confirmed) return false;
@@ -427,7 +436,7 @@ export function PanelTabsProvider({ children, items = [] }) {
   // Tab dengan draft tersimpan juga ditandai "belum disimpan" pada tab bar.
   const dirtyTabIdsWithDrafts = useMemo(() => {
     const withDrafts = Object.values(childrenByParent).flat().reduce((next, tab) => {
-      if (tab.draft) next[tab.id] = true;
+      if (draftRef.current[tab.id]) next[tab.id] = true;
       return next;
     }, { ...dirtyTabIds });
 

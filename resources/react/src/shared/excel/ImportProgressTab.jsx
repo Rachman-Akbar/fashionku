@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
 
+// Cache hasil import per runId (level modul). Jika komponen di-remount (mis.
+// berpindah menu lalu kembali, atau StrictMode), hasil dipulihkan dari sini
+// alih-alih menjalankan ulang proses import.
+const importRunCache = new Map();
+
 export function ImportProgressTab({ 
   module, 
   label, 
@@ -9,7 +14,8 @@ export function ImportProgressTab({
   createMissingRelations,
   onComplete,
   onCancel,
-  workspace 
+  workspace,
+  runId,
 }) {
   const tabs = usePanelTabs();
   const [progress, setProgress] = useState(0);
@@ -20,9 +26,12 @@ export function ImportProgressTab({
   const [logs, setLogs] = useState([]);
   const abortControllerRef = useRef(null);
   const animationFrameRef = useRef(null);
+  const logsRef = useRef([]);
 
   const addLog = (message, type = "info") => {
-    setLogs((prev) => [...prev, { id: Date.now(), message, type, time: new Date().toLocaleTimeString() }]);
+    const entry = { id: Date.now(), message, type, time: new Date().toLocaleTimeString() };
+    logsRef.current = [...logsRef.current, entry];
+    setLogs((prev) => [...prev, entry]);
   };
 
   const animateProgress = (targetProgress, duration = 500) => {
@@ -127,6 +136,17 @@ export function ImportProgressTab({
       if (result.download_error_url) {
         addLog("File error tersedia untuk diunduh", "warning");
       }
+
+      if (runId) {
+        importRunCache.set(runId, {
+          status: "completed",
+          progress: 100,
+          stats: { total: result.total_rows || 0, success: result.success_count || result.inserted_count || 0, failed: result.failed_count || result.error_count || 0 },
+          result,
+          logs: logsRef.current,
+          error: null,
+        });
+      }
       
       onComplete?.(result);
       
@@ -136,13 +156,41 @@ export function ImportProgressTab({
       setError(message);
       setStatus("error");
       addLog(`Error: ${message}`, "error");
+      if (runId) {
+        importRunCache.set(runId, {
+          status: "error",
+          progress: 0,
+          stats: { total: 0, success: 0, failed: 0 },
+          result: null,
+          logs: logsRef.current,
+          error: message,
+        });
+      }
       onCancel?.();
     }
   };
 
   useEffect(() => {
-    executeImport();
+    if (!file) return undefined;
+    // Tunda 1 tick: React StrictMode menjalankan mount → cleanup → mount lagi
+    // untuk tiap mount. Timer instance pertama dibatalkan sebelum berjalan,
+    // sehingga import hanya dieksekusi sekali (tidak berulang).
+    const timer = setTimeout(() => {
+      const cached = runId ? importRunCache.get(runId) : null;
+      if (cached) {
+        setStatus(cached.status);
+        setProgress(cached.progress ?? 100);
+        setStats(cached.stats);
+        setResult(cached.result);
+        setError(cached.error || null);
+        logsRef.current = cached.logs || [];
+        setLogs(cached.logs || []);
+        return;
+      }
+      executeImport();
+    }, 0);
     return () => {
+      clearTimeout(timer);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }

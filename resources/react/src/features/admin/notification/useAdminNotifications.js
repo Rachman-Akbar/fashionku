@@ -6,6 +6,7 @@ import {
   fetchAdminNotificationState,
   markAdminNotificationRead,
   markAllAdminNotificationsRead,
+  deleteAdminNotification,
 } from "./adminNotificationApi";
 
 const CHANNEL_SUFFIX = ".notifications";
@@ -172,6 +173,15 @@ export function useAdminNotifications() {
     }
   }, []);
 
+  const deleteNotification = useCallback(async (id) => {
+    try {
+      await deleteAdminNotification(id);
+      setItems((current) => current.filter((row) => String(row.id) !== String(id)));
+    } catch {
+      // noop
+    }
+  }, []);
+
   return {
     userId,
     connected,
@@ -184,5 +194,6 @@ export function useAdminNotifications() {
     refresh,
     markRead,
     markAllRead,
+    deleteNotification,
   };
 }

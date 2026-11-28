@@ -14,6 +14,7 @@ use App\Domains\Catalog\Product\Infrastructure\Persistence\Models\ProductVariant
 use App\Domains\Seller\Inventory\Infrastructure\Persistence\Models\RawMaterialModel;
 use App\Domains\Shared\Codes\Application\Services\CodePatternService;
 use App\Domains\Shared\Excel\Application\Imports\BaseImport;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -70,6 +71,12 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
 
     /** Peta koordinat sel => drawing, dibangun sekali sebelum import. */
     public array $drawingsByCoordinate = [];
+
+    /** Mode import: 'upsert' (perbarui/data baru) atau 'skip' (lewati duplikat). */
+    public string $importMode = 'upsert';
+
+    /** Jumlah baris yang dilewati pada mode skip. */
+    private int $skippedCount = 0;
 
     public function model(): string
     {
@@ -220,13 +227,13 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
                         try {
                             DB::transaction(fn () => $this->persistProductRow($item['data'], $item['row']));
                         } catch (Throwable $exception) {
-                            $this->recordError($item['row'], $exception->getMessage(), $item['data']);
+                            $this->recordError($item['row'], $this->friendlyError($exception), $item['data']);
                         }
                     }
                 });
             } catch (Throwable $exception) {
                 foreach ($items as $item) {
-                    $this->recordError($item['row'], $exception->getMessage(), $item['data']);
+                    $this->recordError($item['row'], $this->friendlyError($exception), $item['data']);
                 }
             }
         }
@@ -336,7 +343,7 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
                 $this->importedCount += count($materials);
             } catch (Throwable $exception) {
                 foreach ($materials as $material) {
-                    $this->recordError($material['row'], $exception->getMessage(), $material['data']);
+                    $this->recordError($material['row'], $this->friendlyError($exception), $material['data']);
                 }
             }
         }
@@ -365,9 +372,33 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
             throw new \InvalidArgumentException("Kategori '{$label}' tidak ditemukan di database.");
         }
 
+        // Cocokkan berdasarkan kode produk (kunci utama, lebih aman).
         $product = ProductModel::query()
             ->whereRaw('LOWER(TRIM(code)) = ?', [Str::lower($code)])
             ->first();
+
+        // Produk lain yang sudah memakai nama yang sama (kolom name unik).
+        $nameOwner = ProductModel::query()
+            ->whereRaw('LOWER(TRIM(name)) = ?', [Str::lower($name)])
+            ->when($product, fn ($query) => $query->where('id', '!=', $product->id))
+            ->first();
+
+        if ($this->importMode === 'skip') {
+            if ($product || $nameOwner) {
+                $this->skippedCount++;
+
+                return;
+            }
+        } else {
+            // Mode upsert: rekonsiliasi agar tidak melempar error duplikat.
+            if (! $product && $nameOwner) {
+                // Kode belum ada tetapi nama sudah dipakai → perbarui produk itu.
+                $product = $nameOwner;
+            } elseif ($product && $nameOwner) {
+                // Kode cocok ke produk A, tetapi nama dipakai produk B → konflik.
+                throw new \InvalidArgumentException("Nama produk '{$name}' sudah dipakai produk lain dengan kode berbeda. Gunakan kode yang sesuai atau ubah nama.");
+            }
+        }
 
         $payload = [
             'code' => $code,
@@ -378,15 +409,6 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
             'primary_category_id' => $category->id,
             'updated_by' => auth()->id(),
         ];
-
-        $duplicateName = ProductModel::query()
-            ->whereRaw('LOWER(TRIM(name)) = ?', [Str::lower($name)])
-            ->when($product, fn ($query) => $query->where('id', '!=', $product->id))
-            ->exists();
-
-        if ($duplicateName) {
-            throw new \InvalidArgumentException("Nama produk '{$name}' sudah digunakan produk lain.");
-        }
 
         if ($product) {
             $payload['slug'] = $this->uniqueSlug($name, (int) $product->id);
@@ -452,6 +474,50 @@ class ProductImport extends BaseImport implements SkipsUnknownSheets, WithEvents
             'error' => "Baris {$rowNumber}: {$message}",
         ];
         Log::warning("Product import row {$rowNumber}: {$message}");
+    }
+
+    public function getSkippedCount(): int
+    {
+        return $this->skippedCount;
+    }
+
+    /**
+     * Terjemahkan exception (terutama error database) menjadi teks awam yang
+     * mudah dipahami pengguna, bukan dump SQL mentah.
+     */
+    private function friendlyError(Throwable $exception): string
+    {
+        $message = $exception->getMessage();
+
+        if ($exception instanceof QueryException) {
+            $code = (int) ($exception->errorInfo[1] ?? 0);
+
+            if ($code === 1062) {
+                if (preg_match("/Duplicate entry '([^']*)' for key '([^']+)'/", $message, $matches)) {
+                    $value = $matches[1];
+                    $key = $matches[2];
+                    $column = preg_replace('/^.*\./', '', $key);
+                    $column = preg_replace('/^(products|product_variants|product_materials)_/', '', $column);
+
+                    return "Data duplikat: '{$value}' sudah dipakai pada kolom {$column}. Gunakan nilai berbeda atau perbarui data yang sudah ada.";
+                }
+
+                return "Data duplikat: nilai yang sama sudah ada. Perbarui data yang sudah ada atau gunakan nilai berbeda.";
+            }
+
+            if ($code === 1452) {
+                return "Data rujukan tidak ditemukan. Pastikan kategori atau bahan terkait sudah ada di database.";
+            }
+
+            return "Gagal menyimpan ke database. Periksa kembali isian pada baris ini.";
+        }
+
+        // Sembunyikan detail teknis SQL bila bocor lewat exception non-standar.
+        if (stripos($message, 'SQLSTATE') !== false || stripos($message, 'insert into') !== false) {
+            return "Gagal menyimpan data. Periksa kembali isian pada baris ini.";
+        }
+
+        return $message;
     }
 
     private function normalizeRow(array $data): array

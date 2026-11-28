@@ -105,6 +105,7 @@ export default function AdminShell({ children }) {
                   onRefresh={notifications.refresh}
                   onMarkRead={notifications.markRead}
                   onMarkAllRead={notifications.markAllRead}
+                  onDelete={notifications.deleteNotification}
                 />
               )}
               onNotificationOpen={(open) => { if (open) notifications.refresh(); }}

@@ -35,7 +35,7 @@ function PatternField({ item, value, onChange, onReset }) {
   const isCustomized = value && value !== item.default;
 
   return (
-    <div className="panel-surface space-y-3 p-4">
+    <div className="space-y-3 rounded-[10px] bg-white p-4 ring-1 ring-slate-200">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-extrabold text-slate-800">{item.label}</p>
@@ -120,11 +120,14 @@ export default function CodePatternSettingsPage() {
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="panel-surface space-y-3 p-4">
+      <div className="space-y-3 rounded-[10px] bg-white p-5 ring-1 ring-slate-200">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-extrabold text-slate-800">Rumus Kode Unik</h2>
-            <p className="text-[11px] text-slate-500">
+          <div className="min-w-0">
+            <div className="flex items-center gap-[5px]">
+              <span className="material-symbols-outlined text-slate-400">data_object</span>
+              <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-500">Rumus Kode Unik</h2>
+            </div>
+            <p className="mt-0.5 text-xs text-slate-500">
               Atur pola kode yang dibuat otomatis oleh sistem. Kode tetap bisa diketik manual pada form produk, bahan baku, pesanan, dan stok.
             </p>
           </div>
@@ -168,8 +171,8 @@ export default function CodePatternSettingsPage() {
         ) : null}
       </div>
 
-      {query.isLoading ? <div className="panel-surface p-6 text-center text-sm text-slate-500">Memuat rumus kode unik...</div> : null}
-      {query.isError ? <div className="panel-surface p-6 text-center text-sm text-rose-600">Rumus kode unik gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div> : null}
+      {query.isLoading ? <div className="rounded-[10px] bg-white p-6 text-center text-sm text-slate-500 ring-1 ring-slate-200">Memuat rumus kode unik...</div> : null}
+      {query.isError ? <div className="rounded-[10px] bg-white p-6 text-center text-sm text-rose-600 ring-1 ring-slate-200">Rumus kode unik gagal dimuat. Muat ulang halaman untuk mencoba lagi.</div> : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         {items.map((item) => (

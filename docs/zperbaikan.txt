@@ -84,3 +84,12 @@ BTW Terjadi bug dan masalh dimana admin panel tidak dapat melakukan ekspor dan h
 
 Halaman bahan baku antara header table dengan list table tidak sejajar hapus juga tab Bahan Baku | Riwayat Bahan | Dampak HPP karena sudah diwakilkan oleh operasional stock dan HPP
 
+Notifikasi pada admin panel agar lebih optimal dan tidak mengganggu user experience. Notifikasi yang muncul mempunyai tab switch Antrean | Marketplace:
+    1.  Antrean adalah proses yang dilakukan admin di dalam panelnya. Misal CRUD data, bayar, dll. Jika data berhasil tekan untuk menandakan telah berhasil dibaca dan akan menghilang. 
+        Jika data gagal di proses maka tetap ada sebagai riwayat dan user bisa menekan untuk menuju ke data yang gagal sebelumnya termasuk data baru yang gagal disimpan. 
+    2.  Marketplace adalah hasil yang dilakukan oleh buyer di marketplace. Misal orderan, pembayaran, dll. Jika data berhasil maka selesai dan menghilang.
+
+Lakukan perbaikan antara logika user dengan data pelanggan.
+    1. User hanya punya 1 pelanggan
+    2. User bisa mendaftar dan melengkapi biodata di profile (hanya buyer)
+    3. Data pelanggan harus mempunyai user dengan role Buyer. Aatur logika pada saat admin menambahkan data pelanggan agar otomatis membuatkan user dengan role buyer (redirect ke halaman tambah user saja).

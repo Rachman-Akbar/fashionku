@@ -1,7 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
-import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { CrudDialog } from "@/shared/components/crud/CrudDialog";
 import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 import { FormPageLayout } from "@/shared/components/crud/FormPageLayout";
@@ -24,6 +23,7 @@ import { ImageFilePicker } from "@/shared/components/form/ImageFilePicker";
 import { useUsersPage, useCreateUser, useUpdateUser, useDeleteUser } from "@/features/admin/users/services/usersService";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
+import { confirmDelete } from "@/shared/utils/sweetAlert";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { Input } from "@/shared/components/ui/Input";
@@ -401,14 +401,19 @@ export default function AdminUsersPage() {
 
   const remove = async () => {
     if (!deleteTarget) return;
+    const confirmed = await confirmDelete({
+      title: "Hapus Pengguna",
+      text: `Pengguna "${deleteTarget.name}" akan dihapus dari platform.`,
+    });
+    if (!confirmed.isConfirmed) return;
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
-      setDeleteTarget(null);
       if (editor.entity && String(editor.entity.id) === String(deleteTarget.id)) editor.close();
       usersQuery.refetch();
     } catch {
       // error handled by mutation
     }
+    setDeleteTarget(null);
   };
 
   return (
@@ -551,14 +556,6 @@ export default function AdminUsersPage() {
           ) : null}
         </ListPageFrame>
       )}
-      <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        title="Hapus Pengguna"
-        message={`Pengguna “${deleteTarget?.name || ""}” akan dihapus dari platform.`}
-        pending={deleteMutation.isPending}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={remove}
-      />
     </>
   );
 }

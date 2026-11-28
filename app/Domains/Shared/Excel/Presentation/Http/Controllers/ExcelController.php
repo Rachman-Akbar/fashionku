@@ -158,6 +158,7 @@ final class ExcelController extends Controller
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls',
             'create_missing_relations' => 'nullable|boolean',
+            'import_mode' => 'nullable|string|in:skip,upsert',
         ]);
 
         $file = $request->file('file');
@@ -168,10 +169,16 @@ final class ExcelController extends Controller
         $importClass = $config['import'];
         $import = new $importClass;
 
+        // Teruskan mode import (upsert/skip) ke importer bila didukung.
+        if (property_exists($import, 'importMode')) {
+            $import->importMode = $request->input('import_mode', 'upsert');
+        }
+
         Excel::import($import, $file);
 
         $successCount = $import->getImportedCount();
         $errorCount = $import->getFailedCount();
+        $skippedCount = method_exists($import, 'getSkippedCount') ? $import->getSkippedCount() : 0;
         $errors = $import->getErrors();
 
         if ($errorCount > 0) {
@@ -194,6 +201,7 @@ final class ExcelController extends Controller
             'data' => [
                 'success_count' => $successCount,
                 'error_count' => $errorCount,
+                'skipped_count' => $skippedCount,
             ],
         ]);
     }
@@ -204,7 +212,7 @@ final class ExcelController extends Controller
 
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls',
-            'import_mode' => 'nullable|string|in:create,update,upsert',
+            'import_mode' => 'nullable|string|in:create,update,upsert,skip',
         ]);
 
         $file = $request->file('file');

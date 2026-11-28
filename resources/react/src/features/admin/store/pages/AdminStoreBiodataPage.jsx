@@ -2,13 +2,20 @@ import AdminStoreAddressPage from "@/features/admin/store/pages/AdminStoreAddres
 
 export default function AdminStoreBiodataPage() {
   return (
-    <section>
-      <div className="mb-3">
-        <h2 className="text-base font-extrabold text-slate-900">Alamat Toko</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Informasi alamat dan koordinat asal toko untuk operasional dan perhitungan ongkir.
+    <section className="space-y-4">
+      <header>
+        <div className="flex items-center gap-[5px]">
+          <span className="material-symbols-outlined text-slate-400">badge</span>
+          <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-500">
+            Biodata & Alamat Toko
+          </h2>
+        </div>
+        <p className="mt-0.5 text-xs text-slate-500">
+          Identitas toko, alamat lengkap, dan koordinat asal pengiriman untuk operasional serta
+          perhitungan ongkir.
         </p>
-      </div>
+      </header>
+
       <AdminStoreAddressPage />
     </section>
   );

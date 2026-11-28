@@ -3,6 +3,7 @@ import { InfiniteScrollSentinel } from "@/shared/components/ui/InfiniteScrollSen
 import { useTableColumnLayout } from "@/shared/hooks/useTableColumnLayout";
 import { useHorizontalScroll } from "@/shared/hooks/useHorizontalScroll";
 import { TopScrollbar } from "@/shared/components/table/TopScrollbar";
+import { InteractiveColGroup } from "@/shared/components/table/InteractiveTableHeader";
 import { useColumnVisibility } from "@/shared/hooks/useColumnVisibility";
 import { formatTableValue, resolveTableValue } from "@/shared/utils/tableData";
 import { DataViewHeader } from "@/shared/components/data-view/DataViewHeader";
@@ -167,13 +168,21 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
     body = (
       <div ref={hScroll.scrollRef} onScroll={handleBodyScroll} className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [overflow-y:clip] border-x border-b border-slate-200 bg-white">
         <table className="table-fixed border-collapse text-left text-sm" style={{ width: Math.max(tableWidth, 760), minWidth: "100%" }}>
+          {/* table-fixed membagi kolom rata bila body tidak punya lebar kolom,
+              sehingga daftar akan bergeser dari header. ColGroup ini memakai
+              lebar yang sama persis dengan header (termasuk kolom seleksi). */}
+          <InteractiveColGroup
+            columns={layout.orderedColumns}
+            getColumnStyle={layout.getColumnStyle}
+            leadingWidth={selectionEnabled ? 44 : 0}
+          />
           <tbody className="divide-y divide-slate-100">
             {sortedRows.map((row) => {
               const inactive = isInactiveRow(row);
               return (
                 <tr key={row.id} onClick={() => onRowClick?.(row)} className={cn("relative", inactive && "bg-slate-50", onRowClick ? "cursor-pointer hover:bg-emerald-50/40" : "hover:bg-slate-50")}>
                   {selectionEnabled ? (
-                    <td className={cn("px-3 py-2.5 text-center", inactive && "opacity-50 saturate-50")} onClick={(event) => event.stopPropagation()}>
+                    <td className={cn("px-4 py-2.5 text-center align-middle", inactive && "opacity-50 saturate-50")} onClick={(event) => event.stopPropagation()}>
                       {!isRowSelectable || isRowSelectable(row) ? (
                         <input type="checkbox" checked={selectedIds.has(String(row.id)) || selectedIds.has(Number(row.id))} onChange={() => onToggleRow?.(row.id)} aria-label={`Pilih data ${row.id}`} />
                       ) : null}
@@ -182,14 +191,14 @@ export function DataGrid({ columns, rows, emptyText = "Data belum tersedia.", on
                   {layout.orderedColumns.map((column) => {
                     if (column.key === HEADER_ACTIONS_KEY) {
                       return (
-                        <td key={column.key} className="px-3 py-2.5 text-right" onClick={(event) => event.stopPropagation()}>
+                        <td key={column.key} className="px-4 py-2.5 text-right align-middle" onClick={(event) => event.stopPropagation()}>
                           {renderSpecialActions ? renderSpecialActions(row) : null}
                         </td>
                       );
                     }
                     const content = column.render ? column.render(row) : formatTableValue(resolveTableValue(row, column.key));
                     return (
-                      <td key={column.key} className={cn("overflow-hidden px-3 py-2.5 align-top text-slate-700", column.align === "right" && "text-right", column.align === "center" && "text-center")}>
+                      <td key={column.key} className={cn("overflow-hidden px-4 py-2.5 align-middle text-slate-700", column.align === "right" && "text-right", column.align === "center" && "text-center")}>
                         <div className={cn("truncate", inactive && "opacity-50 saturate-50")}>{content}</div>
                       </td>
                     );

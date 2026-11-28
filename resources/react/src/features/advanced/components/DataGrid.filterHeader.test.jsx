@@ -119,6 +119,16 @@ describe("DataGrid filter header di setiap mode tampilan", () => {
     cleanup();
   });
 
+  it("lebar kolom body sama dengan header sehingga tidak bergeser", () => {
+    const { container } = render(<DataGrid columns={columns} rows={rows} selectionEnabled />);
+    const [headerTable, bodyTable] = container.querySelectorAll("table");
+    const headerWidths = [...headerTable.querySelectorAll("thead th")].map((th) => th.style.width);
+    const bodyWidths = [...bodyTable.querySelectorAll("colgroup col")].map((col) => col.style.width);
+    expect(headerWidths.length).toBe(3); // seleksi + 2 kolom
+    expect(bodyWidths).toEqual(headerWidths);
+    cleanup();
+  });
+
   it("checkbox multi-select menyaring beberapa nilai sekaligus", () => {
     const { container } = render(<DataGrid columns={statusColumns} rows={statusRows} viewMode="grid" />);
     openColumnFilter("Status");

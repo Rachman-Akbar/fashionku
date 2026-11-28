@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
@@ -34,9 +34,15 @@ function PanelHeaderComponent({
   const { logout } = useAuth();
   const navigate = useNavigate();
   const [logoutPending, setLogoutPending] = useState(false);
+  const [customPanelOpen, setCustomPanelOpen] = useState(false);
+  const customPanelOpenRef = useRef(customPanelOpen);
   const localUnreadCount = center.queueItems.length + center.infoItems.length;
   const unreadCount = notificationCount ?? localUnreadCount;
   const hasRealtimeNotification = notificationCount !== undefined;
+
+  useEffect(() => {
+    customPanelOpenRef.current = customPanelOpen;
+  }, [customPanelOpen]);
 
   useSaveShortcut();
 
@@ -53,12 +59,19 @@ function PanelHeaderComponent({
   };
 
   const handleNotificationOpenChange = (next) => {
+    if (notificationPanel) {
+      setCustomPanelOpen(next);
+      onNotificationOpen?.(next);
+      return;
+    }
     if (next) {
       center.openPanel(center.activeTab);
       return;
     }
     center.closePanel();
   };
+
+  const isNotificationOpen = notificationPanel ? customPanelOpen : center.open && center.openMode === "panel";
 
   const notificationButton = (state) => (
     <button
@@ -103,13 +116,10 @@ function PanelHeaderComponent({
             {notificationPanel ? (
               <Popover
                 trigger={(state) => notificationButton(state)}
-                onOpenChange={(next) => {
-                  onNotificationOpen?.(next);
-                  handleNotificationOpenChange(next);
-                }}
-                open={center.open && center.openMode === "panel"}
+                onOpenChange={handleNotificationOpenChange}
+                open={isNotificationOpen}
               >
-                {notificationPanel}
+                {notificationPanel({ close: () => setCustomPanelOpen(false) })}
               </Popover>
             ) : notificationButton()}
             {backToMarketplace ? (

@@ -10,6 +10,8 @@ import {
   sellerStoreKeys,
 } from "@/features/seller/store/services/sellerStoreService";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
+import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
+import { FormField, inputClassName, textAreaClassName } from "@/shared/components/form/FormField";
 import { Button } from "@/shared/components/ui/Button";
 import { useObjectUrl } from "@/shared/hooks/useObjectUrl";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
@@ -140,144 +142,151 @@ export default function AdminQrisSettingsPage() {
   };
 
   if (settingsQuery.isPending) {
-    return <div className="mt-6 text-sm text-slate-500">Memuat...</div>;
+    return (
+      <div className="rounded-[10px] bg-white p-5 text-sm text-slate-500 ring-1 ring-slate-200">
+        Memuat pengaturan QRIS...
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-3xl">
-      <form
-        onSubmit={submit}
-        className="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-5"
-      >
-        {settingsQuery.isError ? (
-          <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-            {getApiMessage(
-              settingsQuery.error,
-              "Gagal memuat pengaturan QRIS.",
-            )}
-          </p>
-        ) : null}
-
-        <div className="space-y-2">
-          <span className="text-sm font-semibold text-slate-700">
-            Gambar QRIS
-          </span>
-          <div className="flex flex-wrap items-start gap-4">
-            <div className="h-44 w-44 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-              {previewUrl ? (
-                <img
-                  src={previewUrl}
-                  alt="Preview gambar QRIS"
-                  className="h-full w-full object-contain"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-slate-400">
-                  <span className="material-symbols-outlined text-4xl">
-                    qr_code
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className="min-w-56 flex-1 space-y-2">
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(event) => setImage(event.target.files?.[0] || null)}
-                className="block w-full text-xs text-slate-500"
-              />
-              <p className="text-xs text-slate-500">
-                Format JPG, PNG, atau Webp, maksimal {MAX_IMAGE_KB} KB.
-                Mengunggah gambar baru otomatis mengaktifkan QRIS.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {qris?.image_url && !image ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={pending}
-                    onClick={removeImage}
-                  >
-                    Hapus gambar
-                  </Button>
-                ) : null}
-                {image ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={pending}
-                    onClick={() => setImage(null)}
-                  >
-                    Batalkan pilihan gambar
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <div>
-            <span className="block text-sm font-semibold text-slate-700">
-              Aktifkan QRIS
-            </span>
-            <span className="text-xs text-slate-500">
-              Tampilkan QRIS sebagai metode pembayaran pada halaman checkout
-              pembeli.
-            </span>
-          </div>
-          <InlineActiveSwitch
-            checked={form.qris_enabled}
-            onChange={(checked) =>
-              setForm((current) => ({ ...current, qris_enabled: checked }))
-            }
+    <form onSubmit={submit}>
+      <FormEditorLayout
+        className="px-0 py-0"
+        actions={(
+          <FormActionDock
+            tone="emerald"
+            save={{ icon: "save", label: "Simpan" }}
             disabled={pending}
-            activeLabel="Aktif"
-            inactiveLabel="Nonaktif"
           />
-        </div>
+        )}
+      >
+        <section className="rounded-[10px] bg-white p-5 ring-1 ring-slate-200">
+          <div className="flex items-center gap-[5px]">
+            <span className="material-symbols-outlined text-slate-400">qr_code_2</span>
+            <h3 className="text-sm font-extrabold uppercase tracking-wide text-slate-500">
+              Pembayaran QRIS
+            </h3>
+          </div>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Tampilkan gambar QRIS pembayaran pada halaman checkout pembeli.
+          </p>
 
-        <label className="block text-sm">
-          <span className="font-semibold text-slate-700">
-            Nama merchant QRIS
-          </span>
-          <input
-            type="text"
-            maxLength={120}
-            value={form.qris_merchant_name}
-            onChange={change("qris_merchant_name")}
-            placeholder="Contoh: Fashionku Store"
-            className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3 outline-none transition focus:border-emerald-500"
-          />
-          <span className="mt-1 block text-xs text-slate-500">
-            Maksimal 120 karakter. Tampil sebagai nama penerima pada QRIS.
-          </span>
-        </label>
+          {settingsQuery.isError ? (
+            <p className="mt-3 rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+              {getApiMessage(
+                settingsQuery.error,
+                "Gagal memuat pengaturan QRIS.",
+              )}
+            </p>
+          ) : null}
 
-        <label className="block text-sm">
-          <span className="font-semibold text-slate-700">Catatan</span>
-          <textarea
-            rows={3}
-            maxLength={500}
-            value={form.qris_notes}
-            onChange={change("qris_notes")}
-            placeholder="Scan QRIS lalu kirim bukti transfer"
-            className="mt-1 min-h-20 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-emerald-500"
-          />
-          <span className="mt-1 block text-xs text-slate-500">
-            Maksimal 500 karakter. Ditampilkan di bawah gambar QRIS saat
-            pembeli memilih metode pembayaran.
-          </span>
-        </label>
+          <div className="mt-3 grid gap-4 md:grid-cols-2">
+            <FormField label="Gambar QRIS" hint="Format JPG, PNG, atau Webp, maksimal 2048 KB. Mengunggah gambar baru otomatis mengaktifkan QRIS.">
+              <div className="flex flex-wrap items-start gap-4">
+                <div className="h-44 w-44 shrink-0 overflow-hidden rounded-[10px] border border-slate-200 bg-slate-50">
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt="Preview gambar QRIS"
+                      className="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-slate-400">
+                      <span className="material-symbols-outlined text-4xl">
+                        qr_code
+                      </span>
+                    </div>
+                  )}
+                </div>
 
-        <div className="pt-1">
-          <Button type="submit" disabled={pending}>
-            {pending ? "Menyimpan..." : "Simpan Pengaturan QRIS"}
-          </Button>
-        </div>
-      </form>
-    </div>
+                <div className="min-w-56 flex-1 space-y-2">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) => setImage(event.target.files?.[0] || null)}
+                    disabled={pending}
+                    className="block w-full text-xs text-slate-500"
+                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    {qris?.image_url && !image ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={pending}
+                        onClick={removeImage}
+                      >
+                        Hapus gambar
+                      </Button>
+                    ) : null}
+                    {image ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={pending}
+                        onClick={() => setImage(null)}
+                      >
+                        Batalkan pilihan gambar
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </FormField>
+
+            <div className="space-y-4">
+              <FormField label="Nama merchant QRIS" hint="Maksimal 120 karakter. Tampil sebagai nama penerima pada QRIS.">
+                <input
+                  type="text"
+                  maxLength={120}
+                  value={form.qris_merchant_name}
+                  onChange={change("qris_merchant_name")}
+                  placeholder="Contoh: Fashionku Store"
+                  disabled={pending}
+                  className={inputClassName}
+                />
+              </FormField>
+
+              <FormField label="Status QRIS" hint="QRIS tampil di checkout pembeli hanya saat aktif.">
+                <span className="flex h-11 items-center gap-3 rounded-[10px] border border-slate-200 bg-white px-3">
+                  <InlineActiveSwitch
+                    checked={form.qris_enabled}
+                    onChange={(checked) =>
+                      setForm((current) => ({ ...current, qris_enabled: checked }))
+                    }
+                    disabled={pending}
+                    activeLabel="Aktif"
+                    inactiveLabel="Nonaktif"
+                  />
+                </span>
+              </FormField>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <FormField label="Catatan" hint="Maksimal 500 karakter. Ditampilkan di bawah gambar QRIS saat pembeli memilih metode pembayaran.">
+              <textarea
+                rows={3}
+                maxLength={500}
+                value={form.qris_notes}
+                onChange={change("qris_notes")}
+                placeholder="Scan QRIS lalu kirim bukti transfer"
+                disabled={pending}
+                className={textAreaClassName}
+              />
+            </FormField>
+          </div>
+        </section>
+      </FormEditorLayout>
+
+      <FormEditorFooter
+        submitLabel="Simpan Pengaturan QRIS"
+        submitIcon="save"
+        disabled={pending}
+        tone="emerald"
+      />
+    </form>
   );
 }

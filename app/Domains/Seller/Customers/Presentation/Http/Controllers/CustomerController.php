@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Seller\Customers\Presentation\Http\Controllers;
 
+use App\Domains\Seller\Customers\Application\Services\CustomerCodeGenerator;
 use App\Domains\Seller\Customers\Application\Services\CustomerService;
 use App\Domains\Seller\Customers\Presentation\Http\Resources\CustomerResource;
 use App\Http\Controllers\Controller;
@@ -11,12 +12,13 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 final class CustomerController extends Controller
 {
-    public function __construct(private CustomerService $service) {}
+    public function __construct(
+        private CustomerService $service,
+        private CustomerCodeGenerator $codes,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -87,20 +89,6 @@ return response()->json(['success' => true, 'message' => 'Pelanggan berhasil dih
 
     private function generateCustomerCode(string $name): string
     {
-        $words = explode(' ', Str::upper(trim($name)));
-        $prefix = implode('', array_map(fn ($w) => $w[0], $words));
-        $prefix = preg_replace('/[^A-Z0-9]/', '', $prefix) ?: 'CUST';
-
-        $sequence = 1;
-        while (true) {
-            $code = $prefix . '-' . str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
-            $exists = DB::table('seller_customers')->where('code', $code)->exists();
-            if (! $exists) {
-                break;
-            }
-            $sequence++;
-        }
-
-        return $code;
+        return $this->codes->generate($name);
     }
 }

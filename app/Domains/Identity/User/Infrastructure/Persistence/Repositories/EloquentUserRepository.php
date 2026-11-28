@@ -8,6 +8,7 @@ use App\Domains\Identity\User\Application\DTOs\CreateUserDTO;
 use App\Domains\Identity\User\Application\DTOs\UpdateUserDTO;
 use App\Domains\Identity\User\Domain\Entities\User;
 use App\Domains\Identity\User\Domain\Repositories\UserRepositoryInterface;
+use App\Domains\Seller\Customers\Application\Services\CustomerRecordProvisioner;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -19,6 +20,10 @@ use RuntimeException;
 
 final class EloquentUserRepository implements UserRepositoryInterface
 {
+    public function __construct(
+        private readonly CustomerRecordProvisioner $customerRecords,
+    ) {}
+
     public function paginate(int $perPage = 15): LengthAwarePaginator
     {
         return User::query()
@@ -85,6 +90,10 @@ final class EloquentUserRepository implements UserRepositoryInterface
                 $user->roles()->sync($this->activeRoleIds($dto->roleIds));
             }
 
+            // Invarian: setiap user ber-role buyer selalu punya tepat satu
+            // baris data pelanggan (registrasi, admin, dan import memakai jalur ini).
+            $this->syncCustomerRecord($user);
+
             return $user->refresh()->load('roles:id,name,is_active');
         });
     }
@@ -140,6 +149,8 @@ final class EloquentUserRepository implements UserRepositoryInterface
             if ($dto->isActive === false) {
                 $user->tokens()->delete();
             }
+
+            $this->syncCustomerRecord($user);
         });
 
         return $user->refresh()->load('roles:id,name,is_active');
@@ -297,6 +308,26 @@ final class EloquentUserRepository implements UserRepositoryInterface
         \Illuminate\Support\Facades\Cache::forget('admin.notification.recipients');
 
         $user->unsetRelation('roles');
+
+        if ($roleName === 'buyer') {
+            $this->syncCustomerRecord($user);
+        }
+    }
+
+    /**
+     * Jaga invarian "user buyer = satu baris data pelanggan". Baris yang sudah
+     * ada tidak pernah dihapus walau role berubah, sehingga riwayat kode &
+     * catatan pelanggan tetap utuh.
+     */
+    private function syncCustomerRecord(User $user): void
+    {
+        $user->unsetRelation('roles');
+
+        if (! $user->hasRole('buyer')) {
+            return;
+        }
+
+        $this->customerRecords->ensureForBuyer((string) $user->id, (string) ($user->name ?? ''));
     }
 
     public function getActiveRoleFromCurrentToken(User $user): ?string

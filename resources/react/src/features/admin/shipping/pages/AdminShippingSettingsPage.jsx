@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiClient, getApiMessage, unwrapApiData } from "@/core/utils/apiClient";
-import { Button } from "@/shared/components/ui/Button";
+import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
+import { FormField, inputClassName } from "@/shared/components/form/FormField";
 import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 
@@ -64,45 +65,110 @@ export default function AdminShippingSettingsPage() {
     }
   }
 
-  return (
-    <>
-      <div className="max-w-2xl">
-        {loading ? (
-          <div className="mt-6 text-sm text-slate-500">Memuat...</div>
-        ) : (
-          <form onSubmit={onSave} className="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block text-sm">
-                <span className="font-semibold text-slate-700">Latitude Toko</span>
-                <input type="number" step="any" required value={form.store_latitude} onChange={set("store_latitude")} className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3" placeholder="-6.200000" />
-              </label>
-              <label className="block text-sm">
-                <span className="font-semibold text-slate-700">Longitude Toko</span>
-                <input type="number" step="any" required value={form.store_longitude} onChange={set("store_longitude")} className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3" placeholder="106.816666" />
-              </label>
-            </div>
-            <label className="block text-sm">
-              <span className="font-semibold text-slate-700">Tarif per KM (Rp)</span>
-              <FormattedNumberInput decimal min="0" step="any" value={form.rate_per_km} onChange={setNum("rate_per_km")} className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3" />
-              <span className="mt-1 block text-xs text-slate-500">Biaya per kilometer jarak (Haversine).</span>
-            </label>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block text-sm">
-                <span className="font-semibold text-slate-700">Tarif Dasar / Flat (Rp)</span>
-                <FormattedNumberInput decimal min="0" step="any" value={form.default_flat_rate} onChange={setNum("default_flat_rate")} className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3" />
-              </label>
-              <label className="block text-sm">
-                <span className="font-semibold text-slate-700">Gratis Ongkir s/d (KM)</span>
-                <FormattedNumberInput decimal min="0" step="any" value={form.free_shipping_max_distance} onChange={setNum("free_shipping_max_distance")} className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3" />
-              </label>
-            </div>
-            <p className="text-xs text-slate-500">Rumus: ongkir = tarif dasar + max(0, jarak - gratis s/d) × tarif per KM. Pastikan alamat penerima memiliki koordinat.</p>
-            <div className="pt-2">
-              <Button type="submit" disabled={saving || !canSave}>{saving ? "Menyimpan..." : "Simpan Pengaturan"}</Button>
-            </div>
-          </form>
-        )}
+  if (loading) {
+    return (
+      <div className="rounded-[10px] bg-white p-5 text-sm text-slate-500 ring-1 ring-slate-200">
+        Memuat pengaturan ongkir...
       </div>
-    </>
+    );
+  }
+
+  return (
+    <form onSubmit={onSave}>
+      <FormEditorLayout
+        className="px-0 py-0"
+        actions={(
+          <FormActionDock
+            tone="emerald"
+            save={{ icon: "save", label: "Simpan" }}
+            disabled={saving || !canSave}
+          />
+        )}
+      >
+        <section className="rounded-[10px] bg-white p-5 ring-1 ring-slate-200">
+          <div className="flex items-center gap-[5px]">
+            <span className="material-symbols-outlined text-slate-400">local_shipping</span>
+            <h3 className="text-sm font-extrabold uppercase tracking-wide text-slate-500">
+              Pengaturan Pengiriman & Ongkir
+            </h3>
+          </div>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Atur titik asal toko, tarif dasar, tarif per kilometer, dan radius gratis ongkir.
+          </p>
+
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <FormField label="Latitude Toko" hint="Titik asal jarak Haversine." required>
+              <input
+                type="number"
+                step="any"
+                required
+                value={form.store_latitude}
+                onChange={set("store_latitude")}
+                disabled={saving}
+                className={inputClassName}
+                placeholder="-6.200000"
+              />
+            </FormField>
+            <FormField label="Longitude Toko" hint="Titik asal jarak Haversine." required>
+              <input
+                type="number"
+                step="any"
+                required
+                value={form.store_longitude}
+                onChange={set("store_longitude")}
+                disabled={saving}
+                className={inputClassName}
+                placeholder="106.816666"
+              />
+            </FormField>
+            <FormField label="Tarif Dasar / Flat (Rp)">
+              <FormattedNumberInput
+                decimal
+                min="0"
+                step="any"
+                value={form.default_flat_rate}
+                onChange={setNum("default_flat_rate")}
+                disabled={saving}
+                className={inputClassName}
+              />
+            </FormField>
+            <FormField label="Tarif per KM (Rp)" hint="Biaya per kilometer jarak (Haversine).">
+              <FormattedNumberInput
+                decimal
+                min="0"
+                step="any"
+                value={form.rate_per_km}
+                onChange={setNum("rate_per_km")}
+                disabled={saving}
+                className={inputClassName}
+              />
+            </FormField>
+            <FormField label="Gratis Ongkir s/d (KM)" hint="Jarak maksimal yang dibebaskan dari ongkir.">
+              <FormattedNumberInput
+                decimal
+                min="0"
+                step="any"
+                value={form.free_shipping_max_distance}
+                onChange={setNum("free_shipping_max_distance")}
+                disabled={saving}
+                className={inputClassName}
+              />
+            </FormField>
+          </div>
+
+          <p className="mt-3 rounded-[10px] bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            Rumus: ongkir = tarif dasar + max(0, jarak - gratis s/d) × tarif per KM. Pastikan alamat
+            penerima memiliki koordinat.
+          </p>
+        </section>
+      </FormEditorLayout>
+
+      <FormEditorFooter
+        submitLabel="Simpan Pengaturan"
+        submitIcon="save"
+        disabled={saving || !canSave}
+        tone="emerald"
+      />
+    </form>
   );
 }

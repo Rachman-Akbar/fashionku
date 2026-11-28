@@ -3,25 +3,22 @@ import AdminShippingSettingsPage from "@/features/admin/shipping/pages/AdminShip
 
 export default function AdminStoreShippingPaymentPage() {
   return (
-    <section className="grid items-start gap-6 md:grid-cols-2">
-      <div>
-        <div className="mb-3">
-          <h2 className="text-base font-extrabold text-slate-900">Pengaturan Pengiriman &amp; Ongkir</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Atur tarif dasar, tarif per kilometer, dan radius gratis ongkir.
-          </p>
+    <section className="space-y-4">
+      <header>
+        <div className="flex items-center gap-[5px]">
+          <span className="material-symbols-outlined text-slate-400">local_shipping</span>
+          <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-500">
+            Pengiriman & Pembayaran
+          </h2>
         </div>
-        <AdminShippingSettingsPage />
-      </div>
-      <div>
-        <div className="mb-3">
-          <h2 className="text-base font-extrabold text-slate-900">Pembayaran QRIS</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Tampilkan gambar QRIS pembayaran pada halaman checkout pembeli.
-          </p>
-        </div>
-        <AdminQrisSettingsPage />
-      </div>
+        <p className="mt-0.5 text-xs text-slate-500">
+          Tarif ongkir berbasis jarak, gambar QRIS pembayaran, dan pengaturan lain yang berlaku di
+          halaman checkout pembeli.
+        </p>
+      </header>
+
+      <AdminShippingSettingsPage />
+      <AdminQrisSettingsPage />
     </section>
   );
 }

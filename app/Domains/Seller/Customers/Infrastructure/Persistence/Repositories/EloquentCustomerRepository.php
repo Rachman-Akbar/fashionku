@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Seller\Customers\Infrastructure\Persistence\Repositories;
 
 use App\Domains\Identity\User\Domain\Entities\User;
+use App\Domains\Seller\Customers\Application\Services\CustomerCodeGenerator;
 use App\Domains\Seller\Customers\Domain\Repositories\CustomerRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -250,21 +251,7 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
 
     private function generateCustomerCode(string $name): string
     {
-        $words = explode(' ', Str::upper(trim($name)));
-        $prefix = implode('', array_map(fn ($w) => $w[0], $words));
-        $prefix = preg_replace('/[^A-Z0-9]/', '', $prefix) ?: 'CUST';
-
-        $sequence = 1;
-        while (true) {
-            $code = $prefix . '-' . str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
-            $exists = DB::table('seller_customers')->where('code', $code)->exists();
-            if (! $exists) {
-                break;
-            }
-            $sequence++;
-        }
-
-        return $code;
+        return app(CustomerCodeGenerator::class)->generate($name);
     }
 
     public function deleteCustomer(string $userId): bool

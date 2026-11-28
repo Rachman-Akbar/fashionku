@@ -48,7 +48,7 @@ export function DataViewHeader({
           <thead className={theadClassName}>
             <tr>
               {selection?.enabled ? (
-                <th className="w-11 border-b border-slate-200 px-3 py-2.5 text-center">
+                <th className="w-11 border-b border-slate-200 px-4 py-2.5 text-center" style={{ width: 44, minWidth: 44, maxWidth: 44 }}>
                   <input
                     type="checkbox"
                     checked={Boolean(selection.allSelected)}

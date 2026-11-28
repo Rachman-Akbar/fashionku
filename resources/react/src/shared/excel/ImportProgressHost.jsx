@@ -29,6 +29,7 @@ export function ImportProgressHost() {
     <div className={isActive ? "h-full min-h-[60vh] w-full" : "hidden"} aria-hidden={!isActive}>
       <ImportProgressTab
         key={payload.runId || importTab.id}
+        runId={payload.runId}
         module={payload.module}
         label={payload.label}
         file={payload.file}

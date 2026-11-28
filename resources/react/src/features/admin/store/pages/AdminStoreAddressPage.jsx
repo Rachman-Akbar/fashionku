@@ -9,7 +9,8 @@ import {
   getAddresses,
   updateAddress,
 } from "@/features/profile/address/addressService";
-import { Button } from "@/shared/components/ui/Button";
+import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
+import { FormField, inputClassName, textAreaClassName } from "@/shared/components/form/FormField";
 import { toastError, toastInfo, toastSuccess } from "@/shared/utils/userFeedback";
 
 const STORE_ADDRESS_LABEL = "Alamat Toko";
@@ -41,27 +42,25 @@ const FIELD_LABELS = {
   subdistrict: "Kelurahan / Desa",
   postal_code: "Kode Pos",
   full_address: "Alamat Lengkap",
+  notes: "Catatan Alamat",
   latitude: "Latitude",
   longitude: "Longitude",
 };
 
 const REQUIRED_FIELDS = Object.keys(FIELD_LABELS);
 
-const INPUT_FIELDS = [
-  ["store_name", "Nama Toko"],
-  ["recipient_name", "Nama Penanggung Jawab"],
-  ["phone_number", "Telepon Toko"],
-  ["country", "Negara"],
-  ["province", "Provinsi"],
-  ["city_or_regency", "Kota / Kabupaten"],
-  ["district", "Kecamatan"],
-  ["subdistrict", "Kelurahan / Desa"],
-  ["postal_code", "Kode Pos"],
-  ["full_address", "Alamat Lengkap"],
-  ["latitude", "Latitude", "number"],
-  ["longitude", "Longitude", "number"],
-  ["notes", "Catatan Alamat"],
-];
+function SectionCard({ icon, title, description, children }) {
+  return (
+    <section className="rounded-[10px] bg-white p-5 ring-1 ring-slate-200">
+      <div className="flex items-center gap-[5px]">
+        <span className="material-symbols-outlined text-slate-400">{icon}</span>
+        <h3 className="text-sm font-extrabold uppercase tracking-wide text-slate-500">{title}</h3>
+      </div>
+      <p className="mt-0.5 text-xs text-slate-500">{description}</p>
+      <div className="mt-3 grid gap-4 md:grid-cols-2">{children}</div>
+    </section>
+  );
+}
 
 function isInRange(value, min, max) {
   const number = Number(value);
@@ -285,66 +284,130 @@ export default function AdminStoreAddressPage() {
     }
   };
 
-  return (
-    <>
-      <div className="max-w-3xl">
-        {loading ? (
-          <div className="mt-6 text-sm text-slate-500">Memuat...</div>
-        ) : (
-          <form
-            onSubmit={submit}
-            className="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-5"
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              {INPUT_FIELDS.map(([key, label, type]) => (
-                <label key={key} className="block text-sm">
-                  <span className="font-semibold text-slate-700">
-                    {label}
-                    {REQUIRED_FIELDS.includes(key) ? (
-                      <span className="ml-1 text-red-500">*</span>
-                    ) : null}
-                  </span>
-                  <input
-                    ref={registerField(key)}
-                    type={type || "text"}
-                    step={type === "number" ? "any" : undefined}
-                    value={form[key]}
-                    onChange={change(key)}
-                    aria-invalid={Boolean(fieldErrors[key])}
-                    className={`mt-1 h-11 w-full rounded-xl border px-3 outline-none transition ${
-                      fieldErrors[key]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300 focus:border-emerald-500"
-                    }`}
-                  />
-                  {fieldErrors[key] ? (
-                    <span className="mt-1 block text-xs font-medium text-red-500">
-                      {fieldErrors[key]}
-                    </span>
-                  ) : null}
-                </label>
-              ))}
-            </div>
-
-            {message ? (
-              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                {message}
-              </p>
-            ) : null}
-
-            <p className="text-xs text-slate-500">
-              Koordinat otomatis dipakai sebagai titik asal pengiriman. Rumus
-              ongkir: tarif dasar + max(0, jarak - gratis s/d) × tarif per KM.
-            </p>
-
-            <div className="pt-1">
-              <Button type="submit" disabled={saving}>
-                {saving ? "Menyimpan..." : "Simpan Alamat Toko"}
-              </Button>
-            </div>
-          </form>
-        )}
+  if (loading) {
+    return (
+      <div className="rounded-[10px] bg-white p-5 text-sm text-slate-500 ring-1 ring-slate-200">
+        Memuat data alamat toko...
       </div>
-    </>
+    );
+  }
+
+  const field = (key, type) => ({
+    ref: registerField(key),
+    type: type || "text",
+    step: type === "number" ? "any" : undefined,
+    value: form[key],
+    onChange: change(key),
+    className: inputClassName,
+    disabled: saving,
+    "aria-invalid": Boolean(fieldErrors[key]),
+  });
+
+  return (
+    <form onSubmit={submit}>
+      <FormEditorLayout
+        className="px-0 py-0"
+        actions={(
+          <FormActionDock
+            tone="emerald"
+            save={{ icon: "save", label: "Simpan" }}
+            disabled={saving}
+          />
+        )}
+      >
+        <div className="space-y-4">
+          {message ? (
+            <p className="rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+              {message}
+            </p>
+          ) : null}
+
+          <SectionCard
+            icon="badge"
+            title="Identitas Toko"
+            description="Nama toko, penanggung jawab, dan nomor telepon yang tampil pada katalog dan invoice."
+          >
+            <FormField label="Nama Toko" error={fieldErrors.store_name} required>
+              <input {...field("store_name")} />
+            </FormField>
+            <FormField label="Nama Penanggung Jawab" error={fieldErrors.recipient_name} required>
+              <input {...field("recipient_name")} />
+            </FormField>
+            <FormField label="Telepon Toko" error={fieldErrors.phone_number} required>
+              <input {...field("phone_number")} />
+            </FormField>
+          </SectionCard>
+
+          <SectionCard
+            icon="location_on"
+            title="Alamat Toko"
+            description="Alamat lengkap yang dipakai untuk data toko, faktur, dan pencarian produk berdasarkan lokasi."
+          >
+            <FormField label="Negara" error={fieldErrors.country} required>
+              <input {...field("country")} />
+            </FormField>
+            <FormField label="Provinsi" error={fieldErrors.province} required>
+              <input {...field("province")} />
+            </FormField>
+            <FormField label="Kota / Kabupaten" error={fieldErrors.city_or_regency} required>
+              <input {...field("city_or_regency")} />
+            </FormField>
+            <FormField label="Kecamatan" error={fieldErrors.district} required>
+              <input {...field("district")} />
+            </FormField>
+            <FormField label="Kelurahan / Desa" error={fieldErrors.subdistrict} required>
+              <input {...field("subdistrict")} />
+            </FormField>
+            <FormField label="Kode Pos" error={fieldErrors.postal_code} required>
+              <input {...field("postal_code")} />
+            </FormField>
+            <FormField label="Alamat Lengkap" error={fieldErrors.full_address} className="md:col-span-2" required>
+              <textarea
+                ref={registerField("full_address")}
+                value={form.full_address}
+                onChange={change("full_address")}
+                disabled={saving}
+                aria-invalid={Boolean(fieldErrors.full_address)}
+                className={textAreaClassName}
+              />
+            </FormField>
+            <FormField label="Catatan Alamat" error={fieldErrors.notes} className="md:col-span-2" required>
+              <textarea
+                ref={registerField("notes")}
+                value={form.notes}
+                onChange={change("notes")}
+                disabled={saving}
+                aria-invalid={Boolean(fieldErrors.notes)}
+                className={textAreaClassName}
+              />
+            </FormField>
+          </SectionCard>
+
+          <SectionCard
+            icon="my_location"
+            title="Koordinat Asal Pengiriman"
+            description="Titik asal jarak Haversine untuk tarif ongkir berbasis jarak."
+          >
+            <FormField label="Latitude" error={fieldErrors.latitude} required>
+              <input {...field("latitude", "number")} placeholder="-6.200000" />
+            </FormField>
+            <FormField label="Longitude" error={fieldErrors.longitude} required>
+              <input {...field("longitude", "number")} placeholder="106.816666" />
+            </FormField>
+            <p className="text-xs text-slate-500 md:col-span-2">
+              Koordinat otomatis dipakai sebagai titik asal pengiriman. Rumus ongkir: tarif dasar +
+              max(0, jarak - gratis s/d) × tarif per KM. Pastikan alamat penerima memiliki koordinat.
+            </p>
+          </SectionCard>
+        </div>
+      </FormEditorLayout>
+
+      <FormEditorFooter
+        submitLabel="Simpan Alamat Toko"
+        submitIcon="save"
+        disabled={saving}
+        tone="emerald"
+      />
+    </form>
   );
 }
