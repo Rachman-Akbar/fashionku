@@ -6,8 +6,8 @@ use App\Domains\Support\Ticket\Presentation\Http\Controllers\TicketController;
 use Illuminate\Support\Facades\Route;
 
 // active.role diperlukan agar controller tahu panel mana yang aktif
-// (admin = pengelola semua Help, buyer/seller = pengaju & pembalas).
-Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:buyer,seller,admin', 'permission:tickets.create,tickets.manage'])
+// Admin mengelola seluruh Help; buyer mengajukan dan membalas tiketnya.
+Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:buyer,admin', 'permission:tickets.create,tickets.manage'])
     ->prefix('support/tickets')
     ->group(function (): void {
         Route::get('/', [TicketController::class, 'index']);

@@ -23,7 +23,7 @@ final class MediaController extends Controller
         $scope = $scope !== '' ? $scope : 'general';
 
         $activeRole = strtolower((string) $request->attributes->get('active_role', ''));
-        if (! in_array($activeRole, ['seller', 'admin'], true)) {
+        if ($activeRole !== 'admin') {
             $allowedScopes = ['reviews', 'profiles', 'general'];
             if (! in_array($scope, $allowedScopes, true)) {
                 return response()->json([

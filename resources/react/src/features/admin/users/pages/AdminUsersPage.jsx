@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
 import { CrudDialog } from "@/shared/components/crud/CrudDialog";
@@ -28,18 +29,19 @@ import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { Input } from "@/shared/components/ui/Input";
 import { ExcelActionButtons } from "@/shared/excel";
+import { useAdminActionTrackerContext } from "@/features/admin/notification/AdminActionTrackerContext";
 
-const ROLES = ["buyer", "seller", "admin"];
+const ROLES = ["buyer", "admin"];
 
 function roleLabel(role) {
   if (role === "admin") return "Administrator";
-  if (role === "seller") return "Penjual";
   return "Pembeli";
 }
 
+const ROLE_OPTIONS = ROLES.map((role) => ({ value: role, label: roleLabel(role) }));
+
 function roleBadgeClass(role) {
   if (role === "admin") return "bg-amber-50 text-amber-700";
-  if (role === "seller") return "bg-emerald-50 text-emerald-700";
   return "bg-slate-100 text-slate-600";
 }
 
@@ -93,18 +95,16 @@ function UserEditor({ open, user, onClose, onSave, saving }) {
         </div>
         <div className="space-y-2">
           <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Role</label>
-          <select
+          <SearchableSelect
             value={form.role}
-            onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}
-            className="h-9 w-full rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
+            onChange={(nextValue) => setForm((current) => ({ ...current, role: nextValue }))}
+            options={ROLE_OPTIONS}
+            placeholder="Pilih role"
+            searchPlaceholder="Cari role"
+            clearable={false}
+            buttonClassName="h-9 rounded-[10px]"
             disabled={saving}
-          >
-            {ROLES.map((role) => (
-              <option key={role} value={role}>
-                {role === "admin" ? "Administrator" : role === "seller" ? "Penjual" : "Pembeli"}
-              </option>
-            ))}
-          </select>
+          />
         </div>
         <div className="space-y-2">
           <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Avatar</label>
@@ -196,11 +196,15 @@ function UserDetail({ user, onBack, onSave, onDelete, saving }) {
                 </label>
                 <label className="grid gap-1.5 text-sm font-bold text-slate-700">
                   <span>Role</span>
-                  <select value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))} className={fieldClass}>
-                    {ROLES.map((role) => (
-                      <option key={role} value={role}>{role === "admin" ? "Administrator" : role === "seller" ? "Penjual" : "Pembeli"}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={form.role}
+                    onChange={(nextValue) => setForm((current) => ({ ...current, role: nextValue }))}
+                    options={ROLE_OPTIONS}
+                    placeholder="Pilih role"
+                    searchPlaceholder="Cari role"
+                    clearable={false}
+                    buttonClassName="h-10 rounded-[10px]"
+                  />
                 </label>
                 <label className="grid gap-1.5 text-sm font-bold text-slate-700">
                   <span>Status</span>
@@ -238,6 +242,8 @@ function UserDetail({ user, onBack, onSave, onDelete, saving }) {
 }
 
 export default function AdminUsersPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useViewMode("admin-users");
   const [query, setQuery] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -256,12 +262,19 @@ export default function AdminUsersPage() {
     openDetail: (user) => editor.edit(user),
   });
   const editor = useEntityEditor({ getEditLabel: (row) => row.name || row.email || "Pengguna" });
+  useEffect(() => {
+    if (!location.state?.createBuyer) return;
+
+    editor.create();
+    navigate(location.pathname, { replace: true, state: null });
+  }, [editor.create, location.pathname, location.state, navigate]);
   const editUser = editor.entity;
   const deferredQuery = useDeferredValue(query.trim());
   const usersQuery = useUsersPage({ ...(deferredQuery ? { search: deferredQuery } : {}), per_page: 100 });
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
+  const actionTracker = useAdminActionTrackerContext();
   useRefreshOnListActivation({ isListActive: editor.isListActive, listRevision: editor.listRevision, refetch: usersQuery.refetch });
   const rows = usersQuery.data?.rows || [];
   const total = useListTotalCount(usersQuery.data?.meta || {}, { label: "Pengguna", fallbackTotal: rows.length });
@@ -319,7 +332,7 @@ export default function AdminUsersPage() {
   }), [filterConfig.types]);
   const filterOptions = useMemo(() => ({
     ...filterConfig.options,
-    role: [...new Set(["buyer", "seller", "admin"])].map((role) => ({ value: roleLabel(role), label: roleLabel(role) })),
+    role: ROLES.map((role) => ({ value: roleLabel(role), label: roleLabel(role) })),
     status: [{ value: "Aktif", label: "Aktif" }, { value: "Nonaktif", label: "Nonaktif" }],
   }), [filterConfig.options]);
   const filterState = useColumnFilterState({ rows, getValue: userFilterValue, filterTypes });
@@ -350,30 +363,88 @@ export default function AdminUsersPage() {
       return;
     }
     const payload = { name: form.name, email: form.email, role: form.role, is_active: form.is_active, avatar: form.avatar || null };
+    const actionId = actionTracker.startAction({
+      title: editUser ? "Perbarui Pengguna" : "Tambah Pengguna",
+      message: "Sedang menyimpan data pengguna...",
+      module: "users",
+      loadingTitle: "Menyimpan...",
+      loadingMessage: editUser ? "Perbarui pengguna..." : "Tambah pengguna...",
+      url: "/admin/users",
+      onStart: () => editor.completeSave(),
+    });
+
     if (editUser) {
-      updateMutation.mutate({ id: editUser.id, values: payload }, { onSuccess: () => editor.completeSave() });
+      updateMutation.mutate({ id: editUser.id, values: payload }, {
+        onSuccess: () => {
+          actionTracker.completeAction(actionId, { success: true, message: "Pengguna berhasil diperbarui.", toastTitle: "Sukses", toastMessage: "Pengguna berhasil diperbarui.", autoClosePanel: false });
+          editor.completeSave();
+        },
+        onError: (error) => {
+          const msg = error?.response?.data?.message || "Gagal memperbarui pengguna.";
+          actionTracker.failAction(actionId, msg, { retryLabel: "Coba Lagi", onRetry: () => handleSave(form), detailLabel: "Lihat Data", onDetail: () => editor.edit(editor.entity) });
+        },
+      });
     } else {
-      createMutation.mutate(payload, { onSuccess: () => editor.completeSave() });
+      createMutation.mutate(payload, {
+        onSuccess: () => {
+          actionTracker.completeAction(actionId, { success: true, message: "Pengguna berhasil ditambahkan.", toastTitle: "Sukses", toastMessage: "Pengguna berhasil ditambahkan.", autoClosePanel: false });
+          editor.completeSave();
+        },
+        onError: (error) => {
+          const msg = error?.response?.data?.message || "Gagal menambahkan pengguna.";
+          actionTracker.failAction(actionId, msg, { retryLabel: "Coba Lagi", onRetry: () => handleSave(form), detailLabel: "Lihat Data", onDetail: () => editor.create() });
+        },
+      });
     }
   };
 
   // Aktif / nonaktif cukup satu saklar (tanpa sistem banned).
-  const handleActivate = (user, nextActive) => {
-    activeToggle.toggle(user, nextActive);
+  const handleActivate = async (user, nextActive) => {
+    const actionId = actionTracker.startAction({
+      title: "Ubah Status Pengguna",
+      message: `Sedang mengubah status ${user.name}...`,
+      module: "users",
+      loadingTitle: "Mengubah status...",
+      loadingMessage: `Mengubah status ${user.name}...`,
+      url: "/admin/users",
+    });
+
+    try {
+      await updateMutation.mutateAsync({
+        id: user.id,
+        values: { ...user.raw, is_active: nextActive },
+      });
+      actionTracker.completeAction(actionId, { success: true, message: "Status pengguna berhasil diubah.", toastTitle: "Sukses", toastMessage: "Status berhasil diubah.", autoClosePanel: false });
+      usersQuery.refetch();
+    } catch (error) {
+      const msg = error?.response?.data?.message || "Gagal mengubah status pengguna.";
+      actionTracker.failAction(actionId, msg, { retryLabel: "Coba Lagi", onRetry: () => handleActivate(user, nextActive), detailLabel: "Lihat Data", onDetail: () => editor.edit(user) });
+    }
   };
 
   const saveDetailUser = async (form) => {
     if (!editor.entity) return;
+    const actionId = actionTracker.startAction({
+      title: "Simpan Detail Pengguna",
+      message: "Sedang menyimpan detail pengguna...",
+      module: "users",
+      loadingTitle: "Menyimpan...",
+      loadingMessage: "Menyimpan detail pengguna...",
+      url: "/admin/users",
+      onStart: () => editor.close(),
+    });
+
     try {
       await updateMutation.mutateAsync({
         id: editor.entity.id,
         values: { name: form.name, email: form.email, role: form.role, is_active: form.is_active, avatar: form.avatar || null },
       });
-      toastSuccess("Simpan Pengguna", "Perubahan data pengguna berhasil disimpan.");
+      actionTracker.completeAction(actionId, { success: true, message: "Perubahan data pengguna berhasil disimpan.", toastTitle: "Sukses", toastMessage: "Perubahan data pengguna berhasil disimpan.", autoClosePanel: false });
       editor.completeSave();
       usersQuery.refetch();
-    } catch {
-      // handled by mutation hook
+    } catch (error) {
+      const msg = error?.response?.data?.message || "Gagal menyimpan detail pengguna.";
+      actionTracker.failAction(actionId, msg, { retryLabel: "Coba Lagi", onRetry: () => saveDetailUser(form), detailLabel: "Lihat Data", onDetail: () => editor.edit(editor.entity) });
     }
   };
 
@@ -406,12 +477,28 @@ export default function AdminUsersPage() {
       text: `Pengguna "${deleteTarget.name}" akan dihapus dari platform.`,
     });
     if (!confirmed.isConfirmed) return;
+
+    const actionId = actionTracker.startAction({
+      title: "Hapus Pengguna",
+      message: `Sedang menghapus ${deleteTarget.name}...`,
+      module: "users",
+      loadingTitle: "Menghapus...",
+      loadingMessage: `Menghapus ${deleteTarget.name}...`,
+      url: "/admin/users",
+      onStart: () => {
+        setDeleteTarget(null);
+        if (editor.entity && String(editor.entity.id) === String(deleteTarget.id)) editor.close();
+      },
+    });
+
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
+      actionTracker.completeAction(actionId, { success: true, message: "Pengguna berhasil dihapus.", toastTitle: "Sukses", toastMessage: "Pengguna berhasil dihapus.", autoClosePanel: false });
       if (editor.entity && String(editor.entity.id) === String(deleteTarget.id)) editor.close();
       usersQuery.refetch();
-    } catch {
-      // error handled by mutation
+    } catch (error) {
+      const msg = error?.response?.data?.message || "Gagal menghapus pengguna.";
+      actionTracker.failAction(actionId, msg, { retryLabel: "Coba Lagi", onRetry: () => remove(), detailLabel: "Lihat Data", onDetail: () => editor.edit(editor.entity) });
     }
     setDeleteTarget(null);
   };

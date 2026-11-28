@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { CrudDialog, FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
@@ -28,97 +29,176 @@ async function getProductOptions(portal, query = "") {
 
 function ProductMultiSelect({ value, onChange, options, labels, loading, search, onSearch }) {
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [anchorRect, setAnchorRect] = useState(null);
   const rootRef = useRef(null);
+  const panelRef = useRef(null);
   const inputRef = useRef(null);
-  const selected = Array.isArray(value) ? value : [];
+  const selected = useMemo(() => (Array.isArray(value) ? value : []), [value]);
 
   useEffect(() => {
     if (!open) return undefined;
 
-    const close = (event) => {
-      if (!rootRef.current?.contains(event.target)) setOpen(false);
+    const updatePosition = () => {
+      const node = rootRef.current;
+      if (!node) return;
+      const box = node.getBoundingClientRect();
+      setAnchorRect({ top: box.top, left: box.left, width: box.width, bottom: box.bottom });
     };
 
-    const escape = (event) => {
-      if (event.key === "Escape") setOpen(false);
+    const close = (event) => {
+      if (!rootRef.current?.contains(event.target) && !panelRef.current?.contains(event.target)) {
+        setOpen(false);
+        onSearch("");
+      }
     };
 
     document.addEventListener("mousedown", close);
-    window.addEventListener("keydown", escape);
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
     requestAnimationFrame(() => inputRef.current?.focus());
 
     return () => {
       document.removeEventListener("mousedown", close);
-      window.removeEventListener("keydown", escape);
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
     };
-  }, [open]);
+  }, [open, onSearch]);
+
+  const openDropdown = () => {
+    if (open) return;
+    const node = rootRef.current;
+    if (node) {
+      const box = node.getBoundingClientRect();
+      setAnchorRect({ top: box.top, left: box.left, width: box.width, bottom: box.bottom });
+    }
+    setOpen(true);
+  };
+
+  const closeDropdown = () => {
+    setOpen(false);
+    setActiveIndex(-1);
+    onSearch("");
+  };
 
   const toggle = (id) => {
     onChange(selected.includes(id) ? selected.filter((item) => item !== id) : [...selected, id]);
   };
 
+  const handleQuery = (next) => {
+    onSearch(next);
+    setActiveIndex(0);
+    openDropdown();
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeDropdown();
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (!open) openDropdown();
+      if (!options.length) return;
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      let index = activeIndex;
+      if (index < 0) index = step > 0 ? -1 : 0;
+      setActiveIndex((index + step + options.length) % options.length);
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const option = options[activeIndex];
+      if (option) toggle(option.id);
+    }
+  };
+
+  const panel = (() => {
+    if (!open || !anchorRect || typeof document === "undefined") return null;
+    const gap = 6;
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const spaceBelow = viewportHeight - anchorRect.bottom - gap;
+    const spaceAbove = anchorRect.top - gap;
+    const openUp = spaceBelow < 260 && spaceAbove > spaceBelow;
+    const width = Math.min(Math.max(anchorRect.width, 260), viewportWidth - 16);
+    const left = Math.max(8, Math.min(anchorRect.left, viewportWidth - width - 8));
+    const maxHeight = Math.max(140, Math.min(320, openUp ? spaceAbove : spaceBelow));
+    const style = {
+      position: "fixed",
+      left,
+      width,
+      maxHeight,
+      zIndex: 9999,
+      ...(openUp ? { bottom: viewportHeight - anchorRect.top + gap } : { top: anchorRect.bottom + gap }),
+    };
+
+    return createPortal(
+      <div ref={panelRef} style={style} className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-xl">
+        <div className="overflow-y-auto py-1" role="listbox" aria-multiselectable="true" style={{ maxHeight }}>
+          {loading && !options.length ? <p className="px-3 py-5 text-center text-xs font-semibold text-slate-400">Memuat produk...</p> : null}
+          {!loading && !options.length ? <p className="px-3 py-5 text-center text-xs font-semibold text-slate-400">Produk tidak ditemukan.</p> : null}
+          {options.map((option, index) => {
+            const active = selected.includes(option.id);
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => toggle(option.id)}
+                onMouseEnter={() => setActiveIndex(index)}
+                className={`flex w-full items-center gap-[5px] px-3 py-2 text-left text-sm ${active ? "bg-emerald-50 font-bold text-emerald-800" : "text-slate-700 hover:bg-slate-50"} ${index === activeIndex && !active ? "bg-slate-100" : ""}`}
+                role="option"
+                aria-selected={active}
+              >
+                <span aria-hidden="true" className={`material-symbols-outlined text-[17px] ${active ? "text-emerald-600" : "text-slate-300"}`}>{active ? "check_box" : "check_box_outline_blank"}</span>
+                <span className="min-w-0 flex-1 truncate">{option.name}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="border-t border-slate-100 bg-slate-50 px-3 py-2 text-[11px] text-slate-400">Kosongkan = semua produk.</p>
+      </div>,
+      document.body,
+    );
+  })();
+
   return (
     <div ref={rootRef} className="relative min-w-0">
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        className="flex min-h-11 w-full flex-wrap items-center gap-1.5 rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-left text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-        aria-haspopup="listbox"
-        aria-expanded={open}
+      <div
+        onClick={openDropdown}
+        className="flex min-h-11 w-full flex-wrap items-center gap-1.5 rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-left text-sm outline-none transition focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-100"
       >
-        {selected.length ? selected.map((id) => (
+        {selected.map((id) => (
           <span
             key={id}
             role="button"
             tabIndex={0}
-            onClick={(event) => { event.stopPropagation(); toggle(id); }}
-            onKeyDown={(event) => { if (event.key === "Enter") { event.stopPropagation(); toggle(id); } }}
+            onClick={(event) => { event.preventDefault(); event.stopPropagation(); toggle(id); }}
+            onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.stopPropagation(); toggle(id); } }}
             className="inline-flex max-w-full items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700"
           >
             <span className="truncate">{labels[id] || `Produk #${id}`}</span>
             <span aria-hidden="true" className="material-symbols-outlined text-[13px]">close</span>
           </span>
-        )) : <span className="py-1 text-sm text-slate-400">Semua produk</span>}
+        ))}
+        <input
+          ref={inputRef}
+          value={search}
+          onChange={(event) => handleQuery(event.target.value)}
+          onFocus={openDropdown}
+          onKeyDown={handleKeyDown}
+          role="combobox"
+          aria-expanded={open}
+          aria-autocomplete="list"
+          className="min-w-[90px] flex-1 bg-transparent py-1 text-sm outline-none placeholder:text-slate-400"
+          placeholder={selected.length ? "Tambah produk lain..." : "Semua produk · ketik untuk mencari"}
+        />
         <span aria-hidden="true" className="material-symbols-outlined ml-auto shrink-0 text-[18px] text-slate-400">search</span>
-      </button>
+      </div>
 
-      {open ? (
-        <div className="absolute left-0 right-0 top-full z-[100] mt-1 overflow-hidden border border-slate-200 bg-white">
-          <div className="border-b border-slate-100 p-2">
-            <div className="flex items-center gap-[5px] bg-slate-50 px-2">
-              <span aria-hidden="true" className="material-symbols-outlined text-[17px] text-slate-400">search</span>
-              <input
-                ref={inputRef}
-                value={search}
-                onChange={(event) => onSearch(event.target.value)}
-                className="h-9 min-w-0 flex-1 bg-transparent text-sm outline-none"
-                placeholder="Cari produk (maks. 20 hasil)"
-              />
-            </div>
-          </div>
-          <div className="max-h-64 overflow-y-auto py-1" role="listbox" aria-multiselectable="true">
-            {loading && !options.length ? <p className="px-3 py-5 text-center text-xs font-semibold text-slate-400">Memuat produk...</p> : null}
-            {!loading && !options.length ? <p className="px-3 py-5 text-center text-xs font-semibold text-slate-400">Produk tidak ditemukan.</p> : null}
-            {options.map((option) => {
-              const active = selected.includes(option.id);
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => toggle(option.id)}
-                  className={`flex w-full items-center gap-[5px] px-3 py-2 text-left text-sm ${active ? "bg-emerald-50 font-bold text-emerald-800" : "text-slate-700 hover:bg-slate-50"}`}
-                  role="option"
-                  aria-selected={active}
-                >
-                  <span aria-hidden="true" className={`material-symbols-outlined text-[17px] ${active ? "text-emerald-600" : "text-slate-300"}`}>{active ? "check_box" : "check_box_outline_blank"}</span>
-                  <span className="min-w-0 flex-1 truncate">{option.name}</span>
-                </button>
-              );
-            })}
-          </div>
-          <p className="border-t border-slate-100 bg-slate-50 px-3 py-2 text-[11px] text-slate-400">Kosongkan = semua produk.</p>
-        </div>
-      ) : null}
+      {panel}
     </div>
   );
 }

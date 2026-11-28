@@ -27,7 +27,7 @@ final class ProductCostingController extends Controller
     {
         $data = $request->validate([
             'materials' => ['array'], 'materials.*.raw_material_id' => ['required', 'integer', 'distinct'], 'materials.*.quantity' => ['required', 'numeric', 'gt:0'],
-            'labor_cost' => ['nullable', 'numeric', 'min:0'], 'overhead_cost' => ['nullable', 'numeric', 'min:0'], 'other_cost' => ['nullable', 'numeric', 'min:0'], 'margin_percent' => ['nullable', 'numeric', 'min:0'], 'selling_price' => ['nullable', 'numeric', 'min:0'], 'apply_to_variants' => ['nullable', 'boolean'],
+            'labor_cost' => ['nullable', 'numeric', 'min:0'], 'overhead_cost' => ['nullable', 'numeric', 'min:0'], 'yield_quantity' => ['nullable', 'numeric', 'gt:0'], 'other_cost' => ['nullable', 'numeric', 'min:0'], 'margin_percent' => ['nullable', 'numeric', 'min:0'], 'selling_price' => ['nullable', 'numeric', 'min:0'], 'apply_to_variants' => ['nullable', 'boolean'],
         ]);
         try {
             return response()->json(['success' => true, 'data' => $this->service->save($productId, $data)]);

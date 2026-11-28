@@ -29,6 +29,7 @@ import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import { confirmDelete } from "@/shared/utils/sweetAlert";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
 import { ExcelActionButtons } from "@/shared/excel";
+import { useAdminActionTrackerContext } from "@/features/admin/notification/AdminActionTrackerContext";
 
 function CategoryFormPage({ category, parents = [], levelOf, onSave, onDelete, saving }) {
   const initial = useMemo(() => ({
@@ -251,6 +252,7 @@ export default function AdminCategoryPage() {
   const createMutation = useCreateCategory();
   const updateMutation = useUpdateCategory();
   const deleteMutation = useDeleteCategory();
+  const actionTracker = useAdminActionTrackerContext();
   const rows = categoriesQuery.data || [];
   const total = useListTotalCount({ total: rows.length }, { label: "Kategori" });
   // Kolom kurasi + semua kolom database lain (kecuali kolom ID).
@@ -514,23 +516,51 @@ export default function AdminCategoryPage() {
       image_url: level === 3 ? form.image_url || null : null,
       icon_url: form.icon_url || null,
     };
+    const isEdit = Boolean(editor.entity?.id);
+    const actionId = actionTracker.startAction({
+      title: isEdit ? "Perbarui Kategori" : "Tambah Kategori",
+      message: isEdit ? "Sedang menyimpan perubahan kategori..." : "Sedang membuat kategori baru...",
+      module: "categories",
+      loadingTitle: "Menyimpan...",
+      loadingMessage: isEdit ? "Perbarui kategori..." : "Tambah kategori...",
+      url: "/admin/categories",
+      onStart: () => editor.completeSave(),
+    });
+
     try {
-      if (editor.entity?.id) {
+      if (isEdit) {
         await updateMutation.mutateAsync({ id: editor.entity.id, values: payload });
-        toastSuccess("Simpan Kategori", "Perubahan kategori berhasil disimpan.");
+        actionTracker.completeAction(actionId, { success: true, message: "Perubahan kategori berhasil disimpan.", toastTitle: "Sukses", toastMessage: "Perubahan kategori berhasil disimpan.", autoClosePanel: false });
       } else {
         await createMutation.mutateAsync(payload);
-        toastSuccess("Tambah Kategori", "Kategori baru berhasil dibuat.");
+        actionTracker.completeAction(actionId, { success: true, message: "Kategori baru berhasil dibuat.", toastTitle: "Sukses", toastMessage: "Kategori baru berhasil dibuat.", autoClosePanel: false });
       }
       editor.completeSave();
       categoriesQuery.refetch();
-    } catch {
-      // handled by mutation hooks
+    } catch (error) {
+      const msg = error?.response?.data?.message || "Gagal menyimpan kategori.";
+      actionTracker.failAction(actionId, msg, { retryLabel: "Coba Lagi", onRetry: () => handleSave(form), detailLabel: "Lihat Data", onDetail: () => editor.edit(editor.entity) });
     }
   };
 
-  const handleActivate = (category, next = !category.isActive) => {
-    activeToggle.toggle(category, next);
+  const handleActivate = async (category, next = !category.isActive) => {
+    const actionId = actionTracker.startAction({
+      title: "Ubah Status Kategori",
+      message: `Sedang mengubah status ${category.name}...`,
+      module: "categories",
+      loadingTitle: "Mengubah status...",
+      loadingMessage: `Mengubah status ${category.name}...`,
+      url: "/admin/categories",
+    });
+
+    try {
+      await updateMutation.mutateAsync({ id: category.id, values: { ...category, is_active: next } });
+      actionTracker.completeAction(actionId, { success: true, message: "Status kategori berhasil diubah.", toastTitle: "Sukses", toastMessage: "Status berhasil diubah.", autoClosePanel: false });
+      categoriesQuery.refetch();
+    } catch (error) {
+      const msg = error?.response?.data?.message || "Gagal mengubah status kategori.";
+      actionTracker.failAction(actionId, msg, { retryLabel: "Coba Lagi", onRetry: () => handleActivate(category, next), detailLabel: "Lihat Data", onDetail: () => editor.edit(category) });
+    }
   };
 
   const remove = async () => {
@@ -540,12 +570,28 @@ export default function AdminCategoryPage() {
       text: `Kategori "${deleteTarget.name}" akan dihapus.`,
     });
     if (!confirmed.isConfirmed) return;
+
+    const actionId = actionTracker.startAction({
+      title: "Hapus Kategori",
+      message: `Sedang menghapus ${deleteTarget.name}...`,
+      module: "categories",
+      loadingTitle: "Menghapus...",
+      loadingMessage: `Menghapus ${deleteTarget.name}...`,
+      url: "/admin/categories",
+      onStart: () => {
+        setDeleteTarget(null);
+        if (editor.entity && String(editor.entity.id) === String(deleteTarget.id)) editor.close();
+      },
+    });
+
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
+      actionTracker.completeAction(actionId, { success: true, message: "Kategori berhasil dihapus.", toastTitle: "Sukses", toastMessage: "Kategori berhasil dihapus.", autoClosePanel: false });
       if (editor.entity && String(editor.entity.id) === String(deleteTarget.id)) editor.close();
       categoriesQuery.refetch();
-    } catch {
-      // handled by mutation hook
+    } catch (error) {
+      const msg = error?.response?.data?.message || "Gagal menghapus kategori.";
+      actionTracker.failAction(actionId, msg, { retryLabel: "Coba Lagi", onRetry: () => remove(), detailLabel: "Lihat Data", onDetail: () => editor.edit(editor.entity) });
     }
     setDeleteTarget(null);
   };
@@ -713,24 +759,19 @@ export default function AdminCategoryPage() {
                               const currentParentMissing = category.parentId != null && category.parentId !== "" && !availableParents.some((parent) => String(parent.id) === String(category.parentId));
                               return (
                                 <td key={column.key} className="px-4 py-3 text-slate-700" onClick={(event) => event.stopPropagation()}>
-                                  <select
+                                  <SearchableSelect
                                     value={category.parentId ?? ""}
                                     disabled={pendingParent}
-                                    onChange={(event) => handleParentChange(category, event.target.value)}
-                                    aria-label={`Kategori induk ${category.name}`}
-                                    title="Pilih kategori induk"
-                                    className="h-8 w-full min-w-[150px] cursor-pointer rounded-[8px] border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:cursor-wait disabled:opacity-60"
-                                  >
-                                    <option value="">Tidak ada (root)</option>
-                                    {currentParentMissing ? (
-                                      <option value={category.parentId}>{parentNameOf(category)}</option>
-                                    ) : null}
-                                    {availableParents.map((parent) => (
-                                      <option key={parent.id} value={parent.id}>
-                                        {parent.name}
-                                      </option>
-                                    ))}
-                                  </select>
+                                    onChange={(nextValue) => handleParentChange(category, nextValue)}
+                                    options={[
+                                      ...(currentParentMissing ? [{ value: String(category.parentId), label: parentNameOf(category) }] : []),
+                                      ...availableParents.map((parent) => ({ value: String(parent.id), label: parent.name })),
+                                    ]}
+                                    placeholder="Tidak ada (root)"
+                                    searchPlaceholder="Cari kategori induk"
+                                    emptyText="Kategori induk tidak ditemukan"
+                                    buttonClassName="h-8 min-w-[150px] rounded-[8px] px-2 text-sm font-semibold"
+                                  />
                                 </td>
                               );
                             }

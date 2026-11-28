@@ -3,7 +3,6 @@ import { useAuth } from "@/features/auth/context/AuthContext";
 
 function getRedirectPath(activeRole) {
   if (activeRole === "admin") return "/admin";
-  if (activeRole === "seller") return "/seller";
   return "/";
 }
 

@@ -39,6 +39,7 @@ final class RoleRequest extends FormRequest
                 $this->isMethod('post') ? 'required' : 'sometimes',
                 'string',
                 'max:50',
+                Rule::in(['admin', 'buyer']),
                 Rule::unique('roles', 'name')->ignore($id),
             ],
             'description' => ['sometimes', 'nullable', 'string', 'max:255'],

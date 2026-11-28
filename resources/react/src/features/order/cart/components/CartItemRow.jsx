@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { LoaderCircle, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { formatPrice } from "@/shared/utils/utils";
 import { resolveMediaUrl } from "@/core/utils/mediaUrl";
@@ -12,12 +13,25 @@ export function CartItemRow({
   onToggle,
   onDecrease,
   onIncrease,
+  onSetQuantity,
   onRemove,
   syncing = false,
 }) {
   const itemKey = getItemKey(item);
   const stock = item.stock ?? item.availableStock ?? null;
   const atMaximum = stock !== null && Number(stock) > 0 && item.quantity >= stock;
+  const [draft, setDraft] = useState(String(item.quantity ?? 1));
+
+  useEffect(() => {
+    setDraft(String(item.quantity ?? 1));
+  }, [item.quantity]);
+
+  const commitQuantity = () => {
+    const max = stock !== null && Number(stock) > 0 ? Number(stock) : Infinity;
+    const next = Math.max(1, Math.min(max, Math.floor(Number(draft) || 1)));
+    setDraft(String(next));
+    if (onSetQuantity && next !== Number(item.quantity || 0)) onSetQuantity(item, next);
+  };
 
   return (
     <div className="flex gap-4 py-4 group">
@@ -79,17 +93,24 @@ export function CartItemRow({
               >
                 <Minus size={16} strokeWidth={2.4} />
               </button>
-              <span className="flex min-w-[54px] items-center justify-center gap-1 px-2 text-center text-sm font-bold tabular-nums text-[#181c1f] transition-all duration-150">
-{item.quantity}
-                {syncing ? (
-                  <LoaderCircle
-                    size={13}
-                    strokeWidth={2.4}
-                    className="animate-spin text-[#047857]"
-                    aria-hidden="true"
-                  />
-                ) : null}
-              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value.replace(/\D/g, ""))}
+                onBlur={commitQuantity}
+                onKeyDown={(event) => { if (event.key === "Enter") { event.currentTarget.blur(); } }}
+                className="min-w-[54px] bg-transparent px-1 text-center text-sm font-bold tabular-nums text-[#181c1f] outline-none"
+                aria-label="Jumlah"
+              />
+              {syncing ? (
+                <LoaderCircle
+                  size={13}
+                  strokeWidth={2.4}
+                  className="animate-spin text-[#047857]"
+                  aria-hidden="true"
+                />
+              ) : null}
               <button
                 type="button"
                 disabled={atMaximum}

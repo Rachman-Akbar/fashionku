@@ -39,6 +39,22 @@ final class ProductCostingService
                 throw new InvalidArgumentException('Produk tidak ditemukan.');
             }
 
+            $existingCosting = ProductCostingModel::query()
+                ->where('product_id', $productId)
+                ->lockForUpdate()
+                ->first();
+            $oldMaterialCost = (float) ($existingCosting?->material_cost ?? 0);
+            $oldHpp = (float) ($existingCosting?->hpp ?? 0);
+            $oldSuggestedPrice = (float) ($existingCosting?->suggested_price ?? 0);
+            $defaultVariant = $existingCosting ? null : DB::table('product_variants')
+                ->where('product_id', $productId)
+                ->orderByDesc('is_default')
+                ->orderBy('id')
+                ->first(['price', 'price_sale']);
+            $oldSellingPrice = $existingCosting
+                ? (float) $existingCosting->selling_price
+                : (float) ($defaultVariant?->price_sale ?? $defaultVariant?->price ?? 0);
+
             DB::table('product_materials')->where('product_id', $productId)->delete();
             $materialCost = 0.0;
             $materialIds = [];
@@ -78,7 +94,11 @@ final class ProductCostingService
             $labor = max(0, (float) ($data['labor_cost'] ?? 0));
             $overhead = max(0, (float) ($data['overhead_cost'] ?? 0));
             $other = max(0, (float) ($data['other_cost'] ?? 0));
-            $hpp = $materialCost + $labor + $overhead + $other;
+            // Biaya resep dihitung untuk SATU kali produksi, lalu dibagi hasil
+            // jadi (yield) agar HPP yang tersimpan adalah HPP per unit.
+            $yieldQuantity = max(0.0001, (float) ($data['yield_quantity'] ?? 1));
+            $batchCost = $materialCost + $labor + $overhead + $other;
+            $hpp = $batchCost / $yieldQuantity;
             $margin = max(0, (float) ($data['margin_percent'] ?? 0));
             $suggested = round($hpp * (1 + $margin / 100), 2);
             $selling = array_key_exists('selling_price', $data) && $data['selling_price'] !== null && $data['selling_price'] !== ''
@@ -92,12 +112,39 @@ final class ProductCostingService
                     'labor_cost' => $labor,
                     'overhead_cost' => $overhead,
                     'other_cost' => $other,
+                    'yield_quantity' => $yieldQuantity,
                     'hpp' => $hpp,
                     'margin_percent' => $margin,
                     'suggested_price' => $suggested,
                     'selling_price' => $selling,
                 ]
             );
+
+            $changeAmount = $hpp - $oldHpp;
+            $costingChanged = abs($materialCost - $oldMaterialCost) >= 0.0001
+                || abs($changeAmount) >= 0.0001
+                || abs($suggested - $oldSuggestedPrice) >= 0.01;
+            $sellingPriceChanged = abs($selling - $oldSellingPrice) >= 0.01;
+
+            if (! $existingCosting || $costingChanged || $sellingPriceChanged) {
+                ProductCostingImpactModel::query()->create([
+                    'product_id' => $productId,
+                    'raw_material_id' => null,
+                    'raw_material_cost_history_id' => null,
+                    'old_material_cost' => $oldMaterialCost,
+                    'new_material_cost' => $materialCost,
+                    'old_hpp' => $oldHpp,
+                    'new_hpp' => $hpp,
+                    'hpp_change_amount' => $changeAmount,
+                    'hpp_change_percent' => $oldHpp > 0 ? ($changeAmount / $oldHpp) * 100 : ($hpp > 0 ? 100 : 0),
+                    'old_suggested_price' => $oldSuggestedPrice,
+                    'new_suggested_price' => $suggested,
+                    'old_selling_price' => $oldSellingPrice,
+                    'new_selling_price' => $selling,
+                    'trigger_type' => $costingChanged ? 'product_costing_change' : 'product_price_change',
+                    'occurred_at' => now(),
+                ]);
+            }
 
             if (($data['apply_to_variants'] ?? false) && $selling > 0) {
                 $variants = DB::table('product_variants')->where('product_id', $productId)->select('id', 'price_original')->get();
@@ -153,7 +200,8 @@ final class ProductCostingService
                 ]);
 
                 $newMaterialCost = (float) DB::table('product_materials')->where('product_id', $productId)->sum('total_cost');
-                $newHpp = $newMaterialCost + (float) $costing->labor_cost + (float) $costing->overhead_cost + (float) $costing->other_cost;
+                $yieldQuantity = max(0.0001, (float) ($costing->yield_quantity ?? 1));
+                $newHpp = ($newMaterialCost + (float) $costing->labor_cost + (float) $costing->overhead_cost + (float) $costing->other_cost) / $yieldQuantity;
                 $newSuggested = round($newHpp * (1 + (float) $costing->margin_percent / 100), 2);
 
                 $costing->forceFill([

@@ -16,9 +16,8 @@ import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { useAdminOrders, useSellerOrders } from "@/features/admin/order/services/orderManagementService";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
-import { inputClassName } from "@/shared/components/form/FormField";
 import { ExcelActionButtons } from "@/shared/excel";
-import { showSuccess, showError, confirmDelete, showLoading, closeLoading } from "@/shared/utils/sweetAlert";
+import { showSuccess, showError, showLoading, closeLoading } from "@/shared/utils/sweetAlert";
 import { useUnsavedChangesGuard, useFormDirty } from "@/shared/hooks/useUnsavedChanges";
 import { MultiImagePicker } from "@/shared/components/form";
 import { DetailTabs } from "@/shared/components/ui/DetailTabs";
@@ -94,7 +93,6 @@ function FinanceFormContent({
   setOrderSearch,
   autoReference,
   typeLabel,
-  inputClassName,
   money,
   proofImages,
   setProofImages,
@@ -103,14 +101,24 @@ function FinanceFormContent({
     <>
     <div className="grid gap-4 md:grid-cols-2">
       <Field label="Jenis" required>
-        <select value={form.type} onChange={(event) => { const nextType = event.target.value; setForm((current) => ({ ...current, type: nextType, status: statusOptionsFor(nextType).includes(current.status) ? current.status : statusOptionsFor(nextType)[0], reference_number: current.reference_number === autoReference(current.type) || !String(current.reference_number).trim() ? autoReference(nextType) : current.reference_number })); }} className={inputClassName} required>
-          {allowedTypes.map((item) => <option key={item} value={item}>{typeLabel(item)}</option>)}
-        </select>
+        <SearchableSelect
+          value={form.type}
+          onChange={(nextType) => setForm((current) => ({ ...current, type: nextType, status: statusOptionsFor(nextType).includes(current.status) ? current.status : statusOptionsFor(nextType)[0], reference_number: current.reference_number === autoReference(current.type) || !String(current.reference_number).trim() ? autoReference(nextType) : current.reference_number }))}
+          options={allowedTypes.map((item) => ({ value: item, label: typeLabel(item) }))}
+          placeholder="Pilih jenis transaksi"
+          searchPlaceholder="Cari jenis transaksi"
+          clearable={false}
+        />
       </Field>
       <Field label="Status" required>
-        <select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))} className={inputClassName}>
-          {statusOptionsFor(form.type).map((item) => <option key={item}>{item}</option>)}
-        </select>
+        <SearchableSelect
+          value={form.status}
+          onChange={(nextValue) => setForm((current) => ({ ...current, status: nextValue }))}
+          options={statusOptionsFor(form.type).map((item) => ({ value: item, label: item }))}
+          placeholder="Pilih status"
+          searchPlaceholder="Cari status"
+          clearable={false}
+        />
       </Field>
     </div>
     <div className="grid gap-4 md:grid-cols-2">
@@ -576,8 +584,6 @@ export default function FinancePage({ mode = "cashflow" }) {
 
   async function remove() {
     if (!deleteTarget) return;
-    const confirmed = await confirmDelete({ title: `Hapus ${typeLabel(deleteTarget.type)}`, text: `${deleteTarget.reference_number || deleteTarget.title} akan dihapus permanen.` });
-    if (!confirmed.isConfirmed) return;
     const loading = showLoading("Menghapus...", "Data keuangan sedang dihapus");
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
@@ -703,9 +709,19 @@ export default function FinancePage({ mode = "cashflow" }) {
             <FormattedNumberInput decimal min="0.01" step="0.01" max={paymentRow?.outstanding_amount || undefined} value={paymentAmount} onChange={(value) => setPaymentAmount(value)} required />
           </Field>
           <Field label="Metode Pembayaran">
-            <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} className={inputClassName}>
-              <option value="transfer">Transfer</option><option value="cash">Tunai</option><option value="ewallet">E-Wallet</option><option value="manual">Lainnya</option>
-            </select>
+            <SearchableSelect
+              value={paymentMethod}
+              onChange={setPaymentMethod}
+              options={[
+                { value: "transfer", label: "Transfer" },
+                { value: "cash", label: "Tunai" },
+                { value: "ewallet", label: "E-Wallet" },
+                { value: "manual", label: "Lainnya" },
+              ]}
+              placeholder="Pilih metode pembayaran"
+              searchPlaceholder="Cari metode pembayaran"
+              clearable={false}
+            />
           </Field>
         </div>
         <Field label="Nomor Referensi"><Input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} /></Field>
@@ -773,7 +789,6 @@ export default function FinancePage({ mode = "cashflow" }) {
                           setOrderSearch={setOrderSearch}
                           autoReference={autoReference}
                           typeLabel={typeLabel}
-                          inputClassName={inputClassName}
                           money={money}
                           proofImages={proofImages}
                           setProofImages={setProofImages}
@@ -808,7 +823,6 @@ export default function FinancePage({ mode = "cashflow" }) {
                 setOrderSearch={setOrderSearch}
                 autoReference={autoReference}
                 typeLabel={typeLabel}
-                inputClassName={inputClassName}
                 money={money}
                 proofImages={proofImages}
                 setProofImages={setProofImages}
@@ -826,7 +840,6 @@ export default function FinancePage({ mode = "cashflow" }) {
             setOrderSearch={setOrderSearch}
             autoReference={autoReference}
             typeLabel={typeLabel}
-            inputClassName={inputClassName}
             money={money}
             proofImages={proofImages}
             setProofImages={setProofImages}

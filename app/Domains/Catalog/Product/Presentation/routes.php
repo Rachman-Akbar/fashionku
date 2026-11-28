@@ -20,14 +20,21 @@ Route::middleware('cache.headers:public;max_age=60;etag')
             ->name('variants.public-index');
     });
 
-Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:seller,admin'])
+Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:admin'])
     ->prefix('products/sku')
     ->name('products.sku.')
     ->group(function (): void {
         Route::post('/generate', [ProductController::class, 'generateSku'])->name('generate');
     });
 
-Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:seller,admin'])
+Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:admin'])
+    ->prefix('products/units')
+    ->name('products.units.')
+    ->group(function (): void {
+        Route::get('/', [ProductController::class, 'units'])->name('index');
+    });
+
+Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:admin'])
     ->prefix('products/attributes')
     ->name('product-attributes.')
     ->group(function (): void {
@@ -38,7 +45,7 @@ Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:seller
         Route::delete('/{id}', [ProductAttributeController::class, 'destroy'])->whereNumber('id')->name('destroy');
     });
 
-Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'active.role:seller'])
+Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'active.role:admin'])
     ->prefix('seller/products')
     ->name('seller.products.')
     ->group(function (): void {

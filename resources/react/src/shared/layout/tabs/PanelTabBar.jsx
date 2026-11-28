@@ -160,7 +160,7 @@ export const PanelTabBar = memo(function PanelTabBar() {
         <button
           type="button"
           onClick={() => {
-            const helpHref = context.activeParentId?.startsWith("/admin") ? "/admin/help" : "/seller/help";
+            const helpHref = "/admin/help";
             const helpItem = context.items.find((item) => item.href === helpHref);
             if (helpItem) context.openParent(helpItem);
             else context.navigate(helpHref);

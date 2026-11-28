@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { createPortal } from "react-dom";
 import { downloadExcelTemplate, getExcelError } from "@/shared/excel/excelService";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
 
@@ -66,23 +65,7 @@ function Step({ number, title, children }) {
   );
 }
 
-function Overlay({ children, onClose, size = "md" }) {
-  if (typeof document === "undefined") return null;
-  const width = size === "lg" ? "max-w-5xl" : "max-w-3xl";
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 sm:p-8"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose?.();
-      }}
-    >
-      <div className={`my-auto w-full ${width}`}>{children}</div>
-    </div>,
-    document.body,
-  );
-}
-
-function ImportPanel({ module, label, workspace }) {
+function ImportPanel({ module, label, onStart, onClose }) {
   const center = useNotificationCenter();
   const [file, setFile] = useState(null);
   const [templatePending, setTemplatePending] = useState(false);
@@ -102,21 +85,19 @@ function ImportPanel({ module, label, workspace }) {
     }
   };
 
-  // Import berjalan pada tab progres terpisah (loading bar, data berhasil/gagal).
-  // Modal pilihan ini ditutup lebih dulu, lalu tab progres dibuka.
   const startImport = () => {
     if (!file) return;
-    workspace.beginImport({ file, importMode });
+    onStart?.({ file, importMode });
   };
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+    <div className="min-h-[65vh] overflow-hidden border border-slate-200 bg-white">
       <Header
         icon="upload_file"
         eyebrow="Import Excel"
         title={`Import ${label}`}
         description="Unduh template resmi, isi datanya, lalu unggah file untuk memulai proses import."
-        onClose={workspace.closeImport}
+        onClose={onClose}
       />
       <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
         <div className="px-5 py-1 sm:px-7">
@@ -167,26 +148,14 @@ function ImportPanel({ module, label, workspace }) {
             <span className="material-symbols-outlined text-[19px]">play_arrow</span>
             Mulai Import
           </button>
-          <p className="mt-2 text-center text-[11px] text-slate-500">Proses berjalan di tab progres terpisah.</p>
+          <p className="mt-2 text-center text-[11px] text-slate-500">Proses import akan ditampilkan di tab ini.</p>
         </aside>
       </div>
     </div>
   );
 }
 
-export function ExcelImportExportModal({ workspace, module, label }) {
+export function ExcelImportPage({ module, label, onStart, onClose }) {
   const moduleLabel = label || MODULE_LABELS[module] || module;
-
-  // Modal pilihan import (download template / upload file) — modal biasa,
-  // tidak menambah tab apa pun. Tab progres import dirender oleh
-  // ImportProgressHost di level layout, bukan di sini.
-  if (workspace.importOpen) {
-    return (
-      <Overlay onClose={workspace.closeImport}>
-        <ImportPanel module={module} label={moduleLabel} workspace={workspace} />
-      </Overlay>
-    );
-  }
-
-  return null;
+  return <ImportPanel module={module} label={moduleLabel} onStart={onStart} onClose={onClose} />;
 }

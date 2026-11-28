@@ -37,8 +37,6 @@ interface UserRepositoryInterface
 
     public function resolveDefaultActiveRole(User $user): ?string;
 
-    public function hasSellerAccess(User $user): bool;
-
     public function deleteCurrentToken(User $user): void;
 
     public function logoutOtherDevices(User $user): int;

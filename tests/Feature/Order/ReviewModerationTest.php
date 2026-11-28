@@ -130,7 +130,7 @@ class ReviewModerationTest extends TestCase
         $reviewId = $this->createReview($buyer->id, true);
 
         $seller = $this->makeUser(['name' => 'Seller Moderasi User'], ['seller']);
-        $this->givePermission('seller', 'reviews.manage');
+        $this->givePermission('admin', 'reviews.manage');
         $this->withToken($this->tokenFor($seller, 'seller'));
         $this->app['auth']->forgetGuards();
 

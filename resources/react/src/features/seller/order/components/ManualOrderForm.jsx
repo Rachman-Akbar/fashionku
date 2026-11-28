@@ -8,6 +8,7 @@ import { useCustomers } from "@/features/advanced/services/advancedMarketplaceSe
 import { cn, formatPrice } from "@/shared/utils/utils";
 import { inputClassName } from "@/shared/components/form/FormField";
 import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
+import { QuantityInput } from "@/shared/components/form/QuantityInput";
 import { FormActionDock, FormEditorFooter, FormEditorLayout } from "@/shared/components/crud";
 import { FormPageLayout } from "@/shared/components/crud/FormPageLayout";
 import { ImageFilePicker } from "@/shared/components/form/ImageFilePicker";
@@ -346,12 +347,13 @@ export function ManualOrderForm({ open = true, onClose, onSaved }) {
                     />
                     <div className="flex items-center gap-[5px]">
                       <label className="sr-only" htmlFor={undefined}>Qty</label>
-                      <FormattedNumberInput
+                      <QuantityInput
                         min="1"
                         max={line.stock || 999999}
                         value={line.quantity}
                         onChange={(value) => changeLine(line.key, { quantity: Math.max(1, Number(value || 0)) })}
                         className={cn(inputClassName, "text-center font-bold")}
+                        ariaLabel="Jumlah"
                       />
                       {line.variantId ? <p className="w-20 text-right text-[10px] font-bold text-slate-400">stok {line.stock}</p> : null}
                     </div>

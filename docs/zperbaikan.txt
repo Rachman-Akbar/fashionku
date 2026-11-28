@@ -93,3 +93,38 @@ Lakukan perbaikan antara logika user dengan data pelanggan.
     1. User hanya punya 1 pelanggan
     2. User bisa mendaftar dan melengkapi biodata di profile (hanya buyer)
     3. Data pelanggan harus mempunyai user dengan role Buyer. Aatur logika pada saat admin menambahkan data pelanggan agar otomatis membuatkan user dengan role buyer (redirect ke halaman tambah user saja).
+
+Perbaikan pada halaman Upsert Product admin :
+    1.  Variant hapus saja tommbol atau icon di samping SKU. Hapus juga Rumus SKU
+        Opsional: {BRAND}-{NAME:6}-{ATTR}-{SEQ:3}
+        Dipakai tombol Buat SKU di tiap variant.
+    2.  Atur agar aku bisa menambahkan attribut dengan cara melakukan ketik, atur agar search dropwown bisa menampilkan data yang sudah ada dan bisa menambahkan data baru jika tidak ada.
+    3.  Atur agar aku bisa menambahkan satuan dengan cara melakukan ketik, atur agar search dropwown bisa menampilkan data yang sudah ada dan bisa menambahkan data baru jika
+    4.  Atur perhitungan HPP nya adengn benar
+            saat ini ada bug Harga Jual (Saran) dan Margin % (Keliru / Tidak Konsisten)
+                Margin % yang dimasukkan bernilai 0.
+                Namun, pada kolom Harga jual (saran) tertulis 5.460, sedangkan di sebelah kanannya (Saran HPP + margin) tertulis Rp 13.200.
+
+                Kejanggalan:
+                Jika margin 0%, seharusnya Harga Jual (saran) sama dengan HPP yaitu Rp 13.200, bukan Rp 5.460 (angka Rp 5.460 justru lebih kecil dari modal/HPP, yang artinya kalau dijual segitu kamu akan rugi).
+                Angka Rp 5.460 kelihatannya merupakan sisa dari input atau rumus sebelumnya yang belum ter-update dengan benar.
+
+Perbaiki agar UI/UX nya lebih optimal dan user friendly. 
+    1.  Atur saat admin melakukan perubahan seperti hapus, buat, tambah, dll maka otomtis menutup tab atau halaman yang dituju atau modal page. 
+        Lalu otomatis membuka notifikasi (hover open) dengan loading antrean atau proses data yang sedang berlangsung dengan menggunakan sweetalert. 
+        Karena notifikasi bersifat real time maka atur agar menggunakan websocket (udah diterapkan). Jadi setelah melakukan Hapus contohnya membuka modal page maka nanti modal page menutup lalu notifikasi nya hover open
+    2.  Atur agar notifikasi bisa dibuka dan menampilkan data yang gagal di proses. Misal gagal hapus, gagal tambah, gagal edit, dll. 
+        Jika data berhasil maka notifikasi akan hilang otomatis, namun masih mempunyai alert seperti data berhasil disimpan menggunakan sweetalert. 
+        Jika data gagal maka notifikasi tetap ada dan user bisa menekan untuk menuju ke data yang gagal sebelumnya termasuk data baru yang gagal disimpan. 
+
+
+Lakukan perbaikan pada halaman Bahanbaku di admin panel agar form mempunyai design yang sejajar kanan dan kirinya.
+Pada form yang memerlukan relasi antar tale atau mengambil data seperti Ambil kategori, satuan, dll perbaiki agar menggunakan search dropdown secara langsung di form ny dan bisa langsung ketk seperti google search. Saat ini banyak ditempat2 tertentu ada yang seetlah menekan dropdown maka search barnya malah muncul dibawah. lakukan perbaikan agar lebih optimal dan efisien bagi user admin di semua form nya ya kecuali pada header kolom masing2 halaman fitur dan juga dropdown pilih kolom
+
+perbaikan di halaman stock
+    1.  ada bug dimana data tidak berhasil di contohnya ambil stok, minimum, dll hanya blank atau -
+    2.  perbaikan mode tampilan data hanya ada list dan grafik
+    3.  perbaikan aksi kolom :
+        a.  restock / stock opname maka diarahkan ke upsert data stok
+        b.  ubah biaya bahan baku dan product maka diarahkan ke edit data bahan baku atau product
+        c.  riwayat diarahkan ke halaman riwayat bahan baku atau product subtab stok. btw batas stok itu buat apa ya

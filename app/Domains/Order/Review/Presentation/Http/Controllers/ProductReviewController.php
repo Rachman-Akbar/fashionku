@@ -39,11 +39,10 @@ final class ProductReviewController extends Controller
     public function index(Request $request, ProductReviewService $service): JsonResponse
     {
         $isAdmin = $this->hasActiveRole($request, 'admin');
-        $isSeller = $this->hasActiveRole($request, 'seller');
         $rows = $service->paginate(
             $request->only(['product_id', 'rating', 'is_active', 'search']),
             min(100, max(1, (int) $request->query('per_page', 20))),
-            $isAdmin || $isSeller ? null : (string) $request->user()->id
+            $isAdmin ? null : (string) $request->user()->id
         );
 
         return ProductReviewResource::collection($rows)->additional(['success' => true])->response();

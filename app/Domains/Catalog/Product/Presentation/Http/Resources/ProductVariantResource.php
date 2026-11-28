@@ -59,7 +59,7 @@ final class ProductVariantResource extends JsonResource
 
         return (bool) array_filter(
             $abilities,
-            fn (string $ability): bool => in_array($ability, ['active-role:seller', 'active-role:admin'], true),
+            fn (string $ability): bool => $ability === 'active-role:admin',
         );
     }
 }

@@ -171,7 +171,7 @@ export function ProductDetailClient({ slug }) {
         type: "store",
         subject: `Produk: ${product.name}`,
       });
-      const chatPath = isOperatorRole(activeRole) ? "/seller/chat" : "/chat";
+      const chatPath = isOperatorRole(activeRole) ? "/admin/chat" : "/chat";
       const draft = `Halo, saya ingin bertanya tentang produk ${product.name}.`;
       navigate(`${chatPath}?conversation=${encodeURIComponent(conversation.id)}&draft=${encodeURIComponent(draft)}`);
     } catch (error) {

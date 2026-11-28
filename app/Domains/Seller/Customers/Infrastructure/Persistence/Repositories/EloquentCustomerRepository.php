@@ -6,6 +6,7 @@ namespace App\Domains\Seller\Customers\Infrastructure\Persistence\Repositories;
 
 use App\Domains\Identity\User\Domain\Entities\User;
 use App\Domains\Seller\Customers\Application\Services\CustomerCodeGenerator;
+use App\Domains\Seller\Customers\Application\Services\CustomerRecordProvisioner;
 use App\Domains\Seller\Customers\Domain\Repositories\CustomerRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -148,18 +149,7 @@ final class EloquentCustomerRepository implements CustomerRepositoryInterface
                 'is_active' => (bool) ($data['is_active'] ?? true),
             ])->save();
 
-            $roleId = DB::table('roles')
-                ->where('name', 'buyer')
-                ->where('is_active', true)
-                ->whereNull('deleted_at')
-                ->value('id');
-
-            if ($roleId !== null) {
-                DB::table('user_roles')->updateOrInsert(
-                    ['user_id' => $userId, 'role_id' => $roleId],
-                    ['created_at' => now(), 'updated_at' => now()]
-                );
-            }
+            app(CustomerRecordProvisioner::class)->assignBuyerRole($userId);
 
             $code = $data['code'] ?? null;
             if (! $code) {

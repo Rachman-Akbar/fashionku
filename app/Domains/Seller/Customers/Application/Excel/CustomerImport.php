@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Seller\Customers\Application\Excel;
 
 use App\Domains\Identity\User\Domain\Entities\User;
+use App\Domains\Seller\Customers\Application\Services\CustomerRecordProvisioner;
 use App\Domains\Shared\Excel\Application\Exports\BaseExport;
 use App\Domains\Shared\Excel\Application\Imports\BaseImport;
 use App\Domains\Shared\Excel\Application\Templates\BaseTemplateExport;
@@ -180,20 +181,7 @@ class CustomerImport extends BaseImport
      */
     private function assignBuyerRole(string $userId): void
     {
-        $roleId = DB::table('roles')
-            ->where('name', 'buyer')
-            ->where('is_active', true)
-            ->whereNull('deleted_at')
-            ->value('id');
-
-        if ($roleId === null) {
-            return;
-        }
-
-        DB::table('user_roles')->updateOrInsert(
-            ['user_id' => $userId, 'role_id' => $roleId],
-            ['created_at' => now(), 'updated_at' => now()]
-        );
+        app(CustomerRecordProvisioner::class)->assignBuyerRole($userId);
     }
 
     public function collection(Collection $rows): void
@@ -241,7 +229,6 @@ class CustomerImport extends BaseImport
                             array_flip($this->modelInstance()->getFillable())
                         );
                         User::where('id', $userId)->update($userPayload);
-                        $this->upsertCustomerRecord($userId, $customerCode, $customerNotes);
                     } else {
                         // users.email unique + NOT NULL: baris tanpa email tetap
                         // butuh alamat unik agar impor banyak pelanggan tidak
@@ -252,11 +239,12 @@ class CustomerImport extends BaseImport
 
                         $user = User::create($payload);
                         $userId = (string) $user->id;
-
-                        // Data pelanggan wajib mempunyai user dengan role buyer.
-                        $this->assignBuyerRole($userId);
-                        $this->upsertCustomerRecord($userId, $customerCode, $customerNotes);
                     }
+
+                    // Setiap pelanggan hasil impor terhubung dengan user Buyer,
+                    // termasuk ketika email sudah cocok dengan user yang ada.
+                    $this->assignBuyerRole($userId);
+                    $this->upsertCustomerRecord($userId, $customerCode, $customerNotes);
 
                     $this->importedCount++;
                     DB::commit();

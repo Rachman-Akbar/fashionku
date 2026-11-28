@@ -21,6 +21,11 @@ function createItem(input = {}) {
     count: Number.isFinite(input.count) ? input.count : 1,
     expiresAt: input.expiresAt || null,
     briefTotal: Number.isFinite(input.briefTotal) ? input.briefTotal : 0,
+    module: input.module || "",
+    url: input.url || null,
+    referenceId: input.referenceId ?? null,
+    referenceType: input.referenceType || null,
+    read_at: input.read_at || null,
   };
 }
 

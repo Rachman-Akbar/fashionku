@@ -12,6 +12,7 @@ import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { inputClassName } from "@/shared/components/form/FormField";
 import { Input } from "@/shared/components/ui/Input";
 import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
+import { QuantityInput } from "@/shared/components/form/QuantityInput";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { toolbarControlClassName } from "@/shared/components/crud/toolbarControlClassName";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
@@ -19,7 +20,7 @@ import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch"
 import { useEntityEditor } from "@/shared/hooks";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 import { ExcelActionButtons } from "@/shared/excel";
-import { showSuccess, showError, confirmDelete, showLoading, closeLoading, confirmAction } from "@/shared/utils/sweetAlert";
+import { showSuccess, showError, showLoading, closeLoading, confirmAction } from "@/shared/utils/sweetAlert";
 import { MultiImagePicker } from "@/shared/components/form";
 import { DetailTabs } from "@/shared/components/ui/DetailTabs";
 
@@ -49,7 +50,7 @@ function MaterialFormContent({
       <Field label="Kode" hint="Kosongkan agar dibuat otomatis oleh sistem (mis. RM-GULA), atau isi kode manual."><Input value={materialForm?.code || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, code: event.target.value }))} placeholder="Otomatis bila dikosongkan" /></Field>
       <Field label="Nama" required><Input value={materialForm?.name || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, name: event.target.value }))} required /></Field>
       <Field label="Satuan" required hint="Pilih satuan yang sudah ada, atau ketik satuan baru untuk menambah langsung ke daftar."><SearchableSelect value={materialForm?.unit || ""} onChange={(nextValue) => setMaterialForm((current) => ({ ...current, unit: nextValue }))} options={unitOptions} clearable={false} onCreate={createUnit} createLabel={(name) => `Satuan “${name}” belum ada, tambahkan sekarang`} placeholder="Pilih / ketik satuan" searchPlaceholder="Cari atau ketik satuan baru" /></Field>
-      <Field label="Minimum Stok"><FormattedNumberInput min="0" value={materialForm?.minimum_stock || 0} onChange={(value) => setMaterialForm((current) => ({ ...current, minimum_stock: value }))} /></Field>
+      <Field label="Minimum Stok"><QuantityInput min="0" value={materialForm?.minimum_stock || 0} onChange={(value) => setMaterialForm((current) => ({ ...current, minimum_stock: value }))} ariaLabel="Minimum stok" /></Field>
       <Field label="Biaya Rata-rata" hint={materialForm?.id ? "Biaya rata-rata berubah melalui Stock / Restock Bahan Baku agar weighted average dan histori HPP tercatat." : "Biaya awal bahan sebelum transaksi restock pertama."}><FormattedNumberInput decimal min="0" value={materialForm?.average_cost || 0} disabled={Boolean(materialForm?.id)} onChange={(value) => setMaterialForm((current) => ({ ...current, average_cost: value }))} className={materialForm?.id ? "cursor-not-allowed bg-slate-100 text-slate-500" : ""} /></Field>
     </div>
   );
@@ -613,8 +614,6 @@ export default function StockPage() {
 
   const removeMaterial = async () => {
     if (!materialDelete || deleteMaterial.isPending) return;
-    const confirmed = await confirmDelete({ title: "Hapus Bahan Baku", text: `Bahan baku "${materialDelete.name || materialDelete.code}" akan dihapus permanen. Riwayat pergerakan stok tetap tersimpan.` });
-    if (!confirmed.isConfirmed) return;
     const loading = showLoading("Menghapus...", "Bahan baku sedang dihapus");
     try {
       await deleteMaterial.mutateAsync(materialDelete.id);
@@ -762,7 +761,7 @@ export default function StockPage() {
     </ModuleFrame> : null}
 
     <FormModal presentation="modal" open={Boolean(productAdjust)} title="Stock / Restock Produk" onClose={() => { setProductAdjust(null); setProductAdjustImages([]); }} onSubmit={submitProductStock} busy={adjustStock.isPending || (productionQuantity > 0 && productionPreview.some((row) => !row.enough))} submitLabel="Simpan">
-      <Field label="Perubahan Stok" required hint="Positif berarti produksi/restock dan otomatis memakai bahan baku resep. Negatif berarti pengeluaran stok produk."><FormattedNumberInput value={delta} onChange={(value) => setDelta(value)} required /></Field>
+      <Field label="Perubahan Stok" required hint="Positif berarti produksi/restock dan otomatis memakai bahan baku resep. Negatif berarti pengeluaran stok produk."><QuantityInput value={delta} onChange={(value) => setDelta(value)} ariaLabel="Perubahan stok" /></Field>
       <Field label="No. Referensi Stok" hint="Boleh diisi manual, atau kosongkan agar sistem membuat nomor otomatis (mis. STK-MASUK-20260927-001)."><Input value={stockReference} onChange={(event) => setStockReference(event.target.value)} placeholder="Kosongkan untuk nomor otomatis" /></Field>
       <Field label="Bukti Stok (Gambar)" hint="Wajib diisi minimal 1 gambar sebagai bukti restock/penyesuaian. Maksimal 5 gambar.">
         <MultiImagePicker value={productAdjustImages} onChange={setProductAdjustImages} scope="stock/products" maxFiles={5} />
@@ -820,7 +819,7 @@ export default function StockPage() {
     </FormModal>
 
 <FormModal presentation="modal" open={Boolean(materialAdjust)} title="Stock / Restock Bahan Baku" onClose={() => { setMaterialAdjust(null); setMaterialAdjustImages([]); }} onSubmit={submitMaterialStock} busy={adjustMaterial.isPending} submitLabel="Simpan">
-      <Field label="Perubahan Stok" required hint="Positif untuk restock, negatif untuk pemakaian."><FormattedNumberInput decimal step="0.0001" value={delta} onChange={(value) => setDelta(value)} required /></Field>
+      <Field label="Perubahan Stok" required hint="Positif untuk restock, negatif untuk pemakaian."><QuantityInput decimal step="0.0001" value={delta} onChange={(value) => setDelta(value)} ariaLabel="Perubahan stok" /></Field>
       <Field label="Biaya per Satuan" hint="Saat restock, nilai ini dipakai untuk average cost tertimbang dan laporan dampak HPP."><FormattedNumberInput decimal step="0.0001" min="0" value={unitCost} onChange={(value) => setUnitCost(value)} /></Field>
       <Field label="No. Referensi Stok" hint="Boleh diisi manual, atau kosongkan agar sistem membuat nomor otomatis (mis. RM-RSK-20260927-001)."><Input value={stockReference} onChange={(event) => setStockReference(event.target.value)} placeholder="Kosongkan untuk nomor otomatis" /></Field>
       <Field label="Bukti Stok (Gambar)" hint="Wajib diisi minimal 1 gambar sebagai bukti restock/pemakaian. Maksimal 5 gambar.">

@@ -214,6 +214,26 @@ final class ProductController extends Controller
     }
 
     /**
+     * Daftar satuan yang sudah pernah dipakai (produk & bahan baku) untuk
+     * mengisi dropdown "Satuan" yang bisa diketik sekaligus menambah baru.
+     */
+    public function units(): JsonResponse
+    {
+        $productUnits = DB::table('products')->whereNull('deleted_at')->whereNotNull('unit')->where('unit', '!=', '')->distinct()->pluck('unit');
+        $materialUnits = DB::table('raw_materials')->whereNull('deleted_at')->whereNotNull('unit')->where('unit', '!=', '')->distinct()->pluck('unit');
+
+        $units = $productUnits
+            ->merge($materialUnits)
+            ->map(fn ($unit): string => trim((string) $unit))
+            ->filter()
+            ->unique(fn (string $unit): string => mb_strtolower($unit))
+            ->sort()
+            ->values();
+
+        return response()->json(['data' => $units]);
+    }
+
+    /**
      * Membuat SKU custom dari rumus, mis. {BRAND}-{NAME:6}-{ATTR}-{SEQ:3}.
      * Dipakai frontend admin/seller untuk mengisi SKU produk maupun varian.
      */

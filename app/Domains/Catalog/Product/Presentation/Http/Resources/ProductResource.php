@@ -64,6 +64,7 @@ final class ProductResource extends JsonResource
             'sold_count' => $product->soldCount(),
             'description' => $product->description(),
             'brand' => $product->brand(),
+            'unit' => $product->unit(),
             'thumbnail' => $product->thumbnail(),
             'is_active' => $product->isActive(),
             'category_ids' => $product->categoryIds(),

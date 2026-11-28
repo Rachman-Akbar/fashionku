@@ -44,6 +44,19 @@ function PanelHeaderComponent({
     customPanelOpenRef.current = customPanelOpen;
   }, [customPanelOpen]);
 
+  // Saat panel notifikasi kustom (mis. admin) dipakai, buka dropdown otomatis
+  // setiap kali NotificationCenter meminta panel dibuka (mis. aksi CRUD yang
+  // baru dimulai). `panelOpenToken` dipakai agar setiap permintaan membuka
+  // kembali dropdown walau status `open` sebelumnya sudah true.
+  useEffect(() => {
+    if (!notificationPanel) return;
+    if (center.open && center.openMode === "panel") {
+      setCustomPanelOpen(true);
+      customPanelOpenRef.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [center.panelOpenToken, notificationPanel]);
+
   useSaveShortcut();
 
   const handleLogout = async () => {

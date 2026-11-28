@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { usePanelTabs } from "@/shared/layout/tabs/PanelTabsContext";
 
 // Cache hasil import per runId (level modul). Jika komponen di-remount (mis.
 // berpindah menu lalu kembali, atau StrictMode), hasil dipulihkan dari sini
@@ -13,11 +12,11 @@ export function ImportProgressTab({
   importMode, 
   createMissingRelations,
   onComplete,
+  onError,
   onCancel,
-  workspace,
+  onClose,
   runId,
 }) {
-  const tabs = usePanelTabs();
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("preparing");
   const [result, setResult] = useState(null);
@@ -80,20 +79,21 @@ export function ImportProgressTab({
         setStatus("waiting_confirmation");
         addLog(`Relasi belum tersedia: ${missing.slice(0, 6).map((item) => `${item.type}: ${item.name}`).join(", ")}${missing.length > 6 ? ` dan ${missing.length - 6} lainnya` : ""}`, "warning");
         addLog("Menunggu konfirmasi untuk membuat relasi otomatis...", "info");
-        
+        const confirmEvent = runId ? `import-confirm:${runId}` : "import-confirm";
+        const cancelEvent = runId ? `import-cancel:${runId}` : "import-cancel";
         const confirmed = await new Promise((resolve) => {
           const handleConfirm = () => {
-            window.removeEventListener("import-confirm", handleConfirm);
-            window.removeEventListener("import-cancel", handleCancel);
+            window.removeEventListener(confirmEvent, handleConfirm);
+            window.removeEventListener(cancelEvent, handleCancel);
             resolve(true);
           };
           const handleCancel = () => {
-            window.removeEventListener("import-confirm", handleConfirm);
-            window.removeEventListener("import-cancel", handleCancel);
+            window.removeEventListener(confirmEvent, handleConfirm);
+            window.removeEventListener(cancelEvent, handleCancel);
             resolve(false);
           };
-          window.addEventListener("import-confirm", handleConfirm);
-          window.addEventListener("import-cancel", handleCancel);
+          window.addEventListener(confirmEvent, handleConfirm);
+          window.addEventListener(cancelEvent, handleCancel);
         });
         
         if (!confirmed) {
@@ -166,7 +166,7 @@ export function ImportProgressTab({
           error: message,
         });
       }
-      onCancel?.();
+      onError?.(message);
     }
   };
 
@@ -212,12 +212,13 @@ export function ImportProgressTab({
         abortControllerRef.current.abort();
       }
     }
-    onCancel?.();
+    onClose?.();
   };
 
   const isProcessing = ["preparing", "uploading", "processing", "waiting_confirmation"].includes(status);
   const isCompleted = status === "completed";
   const isError = status === "error";
+  const isCancelled = status === "cancelled";
 
   return (
     <div className="overflow-hidden border border-slate-200 bg-white flex flex-col h-full">
@@ -226,9 +227,10 @@ export function ImportProgressTab({
           <span className={`material-symbols-outlined flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
             isError ? "bg-rose-50 text-rose-700" : 
             isCompleted ? "bg-emerald-50 text-emerald-700" : 
+            isCancelled ? "bg-slate-100 text-slate-600" :
             "bg-blue-50 text-blue-700 animate-pulse"
           }`}>
-            {isError ? "error" : isCompleted ? "check_circle" : "cloud_upload"}
+            {isError ? "error" : isCompleted ? "check_circle" : isCancelled ? "cancel" : "cloud_upload"}
           </span>
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">Import Excel</p>
@@ -336,6 +338,13 @@ export function ImportProgressTab({
           </div>
         )}
 
+        {isCancelled && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+            <p className="font-bold text-slate-800">Import dibatalkan</p>
+            <p className="mt-1 text-sm text-slate-600">Tidak ada data yang dilanjutkan untuk diimport.</p>
+          </div>
+        )}
+
         {status === "waiting_confirmation" && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
             <div className="flex items-center gap-3">
@@ -347,14 +356,14 @@ export function ImportProgressTab({
             </div>
             <div className="mt-4 flex gap-3">
               <button 
-                onClick={() => window.dispatchEvent(new Event("import-confirm"))}
+                onClick={() => window.dispatchEvent(new Event(runId ? `import-confirm:${runId}` : "import-confirm"))}
                 className="inline-flex h-10 items-center justify-center gap-[5px] bg-amber-600 px-5 text-sm font-bold text-white hover:bg-amber-700"
               >
                 <span className="material-symbols-outlined text-[18px]">check</span>
                 Lanjutkan
               </button>
               <button 
-                onClick={() => window.dispatchEvent(new Event("import-cancel"))}
+                onClick={() => window.dispatchEvent(new Event(runId ? `import-cancel:${runId}` : "import-cancel"))}
                 className="inline-flex h-10 items-center justify-center gap-[5px] bg-slate-200 px-5 text-sm font-bold text-slate-700 hover:bg-slate-300"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>

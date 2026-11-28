@@ -10,10 +10,9 @@ use Illuminate\Support\Facades\DB;
 /**
  * Role & permission untuk Fashionku (single-store).
  *
- * Dua role bisnis aktif: `admin` (operator tunggal = pemilik toko/penjual)
- * dan `buyer` (pembeli). Role warisan `seller` dinonaktifkan dan seluruh
- * pemiliknya dipindahkan ke `admin` oleh migrasi
- * `2026_11_13_000200_merge_seller_role_into_admin`.
+ * Dua role bisnis aktif: `admin` (operator tunggal) dan `buyer` (pembeli).
+ * Akun seller warisan dipromosikan ke admin oleh migrasi
+ * `2026_11_28_000002_merge_legacy_seller_accounts_into_admin`.
  */
 final class RolePermissionSeeder extends Seeder
 {

@@ -5,7 +5,7 @@ declare(strict_types=1);
 use App\Domains\Shared\Excel\Presentation\Http\Controllers\ExcelController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'active.role:seller,admin'])
+Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'active.role:admin'])
     ->prefix('excel')
     ->name('excel.')
     ->group(function (): void {

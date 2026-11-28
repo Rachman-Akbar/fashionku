@@ -47,7 +47,8 @@ final class ProductMapper
             updatedAt: $model->updated_at?->toDateTimeString(),
             code: $model->code !== null ? (string) $model->code : null,
             createdBy: $model->created_by !== null ? (string) $model->created_by : null,
-            updatedBy: $model->updated_by !== null ? (string) $model->updated_by : null
+            updatedBy: $model->updated_by !== null ? (string) $model->updated_by : null,
+            unit: $model->unit !== null ? (string) $model->unit : null
         );
     }
 
@@ -61,6 +62,7 @@ final class ProductMapper
         $model->slug = $product->slug();
         $model->description = $product->description();
         $model->brand = $product->brand();
+        $model->unit = $product->unit();
         $model->thumbnail = $product->thumbnail();
         $model->is_active = $product->isActive();
 

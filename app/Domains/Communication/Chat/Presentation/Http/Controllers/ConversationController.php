@@ -39,7 +39,7 @@ final class ConversationController extends Controller
     {
         $data = $request->validated();
 
-        if ($this->hasActiveRole($request, 'seller')) {
+        if ($this->hasActiveRole($request, 'admin')) {
             $data['type'] = 'store';
             $data['order_id'] = null;
         }
@@ -104,7 +104,7 @@ final class ConversationController extends Controller
         $validated = $request->validate([
             'subject' => ['required', 'string', 'max:180'],
             'message' => ['required', 'string', 'max:10000'],
-            'target_role' => ['nullable', Rule::in(['seller', 'buyer'])],
+            'target_role' => ['nullable', Rule::in(['admin', 'buyer'])],
             'user_ids' => ['nullable', 'array'],
             'user_ids.*' => ['uuid', 'distinct', 'exists:users,id'],
             'attachments' => ['nullable', 'array', 'max:5'],

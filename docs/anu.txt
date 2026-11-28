@@ -1,18 +1,1 @@
-Category
-    1. List 
-    2. CRUD
-    3. Import/Export
-
-Bahan Baku
-    1. List
-    2. CRUD
-    3. Import/Export
-
-Product
-    1. List 
-    2. CRUD
-        1. Product
-        2. variant
-        3. attribute
-        4. hpp
-    3. Import/Export       
+pengen nambah fitur target dan BEP

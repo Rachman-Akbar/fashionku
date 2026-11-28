@@ -14,6 +14,7 @@ export const sellerProductKeys = {
   list: (params = {}) => ["seller", "products", "list", params],
   categories: ["seller", "products", "categories"],
   attributes: ["seller", "products", "attributes"],
+  units: ["seller", "products", "units"],
 };
 
 function normalizeImage(image = {}) {
@@ -68,6 +69,7 @@ export function normalizeSellerProduct(row = {}) {
     slug: row.slug || "",
     description: row.description || "",
     brand: row.brand || "",
+    unit: row.unit || "",
     categoryId: Number(row.primary_category_id || categoryIds[0] || 0),
     categoryIds,
     sku: row.sku || defaultVariant.sku || "",
@@ -137,6 +139,7 @@ export function serializeSellerProduct(values = {}) {
     name: String(values.name || "").trim(),
     description: String(values.description || "").trim() || null,
     brand: String(values.brand || "").trim() || null,
+    unit: String(values.unit || "").trim() || null,
     primary_category_id: categoryId,
     category_ids: categoryId ? [categoryId] : [],
     thumbnail: String(values.thumbnail || images[0]?.url || "").trim() || null,
@@ -241,6 +244,11 @@ export async function getSellerProductAttributes() {
   }));
 }
 
+export async function getSellerProductUnits() {
+  const response = await apiClient.get("/api/v1/catalog/products/units");
+  return unwrapCollection(response.data).map((unit) => String(unit)).filter(Boolean);
+}
+
 export function useSellerProducts(params = {}) {
   const { isAuthenticated, activeRole } = useAuth();
 
@@ -280,8 +288,13 @@ export function useSellerProductAttributes(options = {}) {
   return useQuery({ queryKey: sellerProductKeys.attributes, queryFn: getSellerProductAttributes, staleTime: 30000, ...options });
 }
 
+export function useSellerProductUnits(options = {}) {
+  return useQuery({ queryKey: sellerProductKeys.units, queryFn: getSellerProductUnits, staleTime: 30000, ...options });
+}
+
 function refreshSellerProductQueries(queryClient) {
   invalidateCatalogQueries("products");
+  queryClient.invalidateQueries({ queryKey: ["advanced", "cost-impacts"] });
   queryClient.invalidateQueries({ queryKey: sellerProductKeys.all });
   queryClient.invalidateQueries({ queryKey: ["admin", "products"] });
   queryClient.invalidateQueries({ queryKey: ["catalog", "products"] });

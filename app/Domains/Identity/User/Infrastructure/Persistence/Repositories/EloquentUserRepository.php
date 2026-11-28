@@ -274,15 +274,14 @@ final class EloquentUserRepository implements UserRepositoryInterface
         return $roles[0] ?? null;
     }
 
-    public function hasSellerAccess(User $user): bool
-    {
-        // Single-store: admin adalah seller/operator yang sama.
-        return $user->is_active && ($user->hasRole('seller') || $user->hasRole('admin'));
-    }
-
     public function assignRoleByName(User $user, string $role): void
     {
         $roleName = Str::lower(trim($role));
+
+        if (! in_array($roleName, ['admin', 'buyer'], true)) {
+            throw new InvalidArgumentException("Role {$roleName} tidak didukung.");
+        }
+
         $roleId = DB::table('roles')
             ->where('name', $roleName)
             ->where('is_active', true)
@@ -365,6 +364,7 @@ final class EloquentUserRepository implements UserRepositoryInterface
     {
         return DB::table('roles')
             ->whereIn('id', array_map('intval', $roleIds))
+            ->whereIn('name', ['admin', 'buyer'])
             ->where('is_active', true)
             ->whereNull('deleted_at')
             ->pluck('id')

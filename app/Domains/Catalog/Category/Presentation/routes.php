@@ -6,7 +6,7 @@ use App\Domains\Catalog\Category\Presentation\Http\Controllers\CategoryControlle
 use App\Domains\Catalog\Category\Presentation\Http\Controllers\RelationQuickCreateController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('relations')->middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:seller,admin'])->group(function () {
+Route::prefix('relations')->middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:admin'])->group(function () {
     Route::post('categories/quick-create', [RelationQuickCreateController::class, 'category']);
 });
 
@@ -21,7 +21,7 @@ Route::middleware('cache.headers:public;max_age=60;etag')
         Route::get('{id}', [CategoryController::class, 'show'])->whereNumber('id')->name('show');
     });
 
-Route::prefix('categories')->middleware(['auth:sanctum', 'active.user', 'verified.email', 'active.role:seller'])->group(function () {
+Route::prefix('categories')->middleware(['auth:sanctum', 'active.user', 'verified.email', 'active.role:admin'])->group(function () {
     Route::get('manage', [CategoryController::class, 'manage'])->name('categories.manage');
     Route::post('/', [CategoryController::class, 'store'])->name('categories.store');
     Route::put('{id}', [CategoryController::class, 'update'])->whereNumber('id')->name('categories.update');

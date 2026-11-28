@@ -37,7 +37,7 @@ JSON CREATE
 
     Switch Role
         {
-        "role": "seller",
+        "role": "admin",
         "device_name": "Laptop-Asus"
         }
 

@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { SellerPanelShell } from "@/features/seller/dashboard/components/SellerPanelShell";
 import { useTableSearch } from "@/core/hooks/useTableSearch";
 import { EntityToolbar } from "@/shared/components/crud/EntityToolbar";
 import { ListPageFrame } from "@/shared/components/crud/ListPageFrame";
@@ -23,10 +21,8 @@ import { getPromotionError, useDeleteSellerPromotion, useSellerPromotions, useUp
 import { ExcelActionButtons } from "@/shared/excel";
 
 export default function SellerPromotionPage() {
-  // /admin/promotions = tampilan admin, /seller/promotions = tampilan operator toko.
   // Promosi tidak memakai approval: simpan = langsung tayang.
-  const location = useLocation();
-  const portal = location.pathname.startsWith("/admin") ? "admin" : "seller";
+  const portal = "admin";
   const [viewMode, setViewMode] = useViewMode("promotions");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const editor = useEntityEditor();
@@ -110,7 +106,7 @@ export default function SellerPromotionPage() {
   const toggleActive = (row, isActive) => activeToggle.toggle(row, isActive);
 
   return (
-    <SellerPanelShell>
+    <>
       {editor.isListActive ? (
         <ListPageFrame
           toolbar={(
@@ -206,7 +202,7 @@ export default function SellerPromotionPage() {
       <PromotionFormDialog
         open={editor.open}
         entity={editor.entity}
-        portal="seller"
+        portal="admin"
         onDelete={(entity) => setDeleteTarget(entity)}
         onClose={editor.close}
         onSaved={() => {
@@ -217,6 +213,6 @@ export default function SellerPromotionPage() {
         }}
       />
       <ConfirmDialog open={Boolean(deleteTarget)} title="Hapus Promosi" message={`Promosi “${deleteTarget?.name || ""}” akan dihapus.`} pending={deleteMutation.isPending} onClose={() => setDeleteTarget(null)} onConfirm={remove} />
-    </SellerPanelShell>
+    </>
   );
 }

@@ -29,7 +29,7 @@ class OrderCompletionIncomeTest extends TestCase
             ['name' => 'finance.manage'],
             ['description' => 'Mengelola keuangan', 'is_active' => true],
         );
-        Role::query()->firstWhere('name', 'seller')?->permissions()->syncWithoutDetaching([$permission->id]);
+        Role::query()->firstWhere('name', 'admin')?->permissions()->syncWithoutDetaching([$permission->id]);
 
         return $seller;
     }

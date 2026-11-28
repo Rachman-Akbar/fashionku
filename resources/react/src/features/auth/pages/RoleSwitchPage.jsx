@@ -30,9 +30,15 @@ export default function RoleSwitchPage() {
     started.current = true;
 
     const query = new URLSearchParams(location.search);
-    const targetRole = normalizeRole(query.get("role") || "seller");
-    const defaultRedirect = targetRole === "admin" ? "/admin" : "/seller";
-    const redirect = query.get("redirect") || defaultRedirect;
+    const requestedRole = normalizeRole(query.get("role") || "buyer");
+    const targetRole = requestedRole === "seller" ? "admin" : requestedRole;
+    if (!["admin", "buyer"].includes(targetRole)) {
+      navigate("/", { replace: true });
+      return;
+    }
+    const defaultRedirect = targetRole === "admin" ? "/admin" : "/";
+    const requestedRedirect = query.get("redirect") || defaultRedirect;
+    const redirect = requestedRedirect.replace(/^\/seller(?=\/|$)/, "/admin");
 
     const prepareSession = async () => {
       let currentSession = null;
@@ -63,8 +69,8 @@ export default function RoleSwitchPage() {
       }
 
       try {
-        const targetLabel = targetRole === "seller" ? "Penjual" : targetRole.charAt(0).toUpperCase() + targetRole.slice(1);
-        const confirmed = await confirmRoleSwitch(targetLabel, redirect === "/seller" ? "Panel Penjual" : "panel peran tersebut");
+        const targetLabel = targetRole.charAt(0).toUpperCase() + targetRole.slice(1);
+        const confirmed = await confirmRoleSwitch(targetLabel, targetRole === "admin" ? "Panel Admin" : "panel peran tersebut");
 
         if (!confirmed) {
           if (window.opener) {

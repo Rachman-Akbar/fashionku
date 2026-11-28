@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { useTheme } from "@/shared/theme/ThemeProvider";
@@ -14,7 +14,9 @@ import { FocusModeContext, useFocusModeValue } from "@/shared/layout/FocusModeCo
 import PageTransitionLoader from "@/shared/layout/PageTransitionLoader";
 import { AdminThemeControl } from "@/features/admin/layout/AdminThemeControl";
 import { useAdminNotifications } from "@/features/admin/notification/useAdminNotifications";
+import { AdminActionTrackerProvider, useAdminActionTrackerContext } from "@/features/admin/notification/AdminActionTrackerContext";
 import { AdminNotificationPanel } from "@/features/admin/notification/AdminNotificationPanel";
+import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
 import { cn } from "@/shared/utils/utils";
 
 export const ADMIN_NAV_ITEMS = [
@@ -46,16 +48,87 @@ export const ADMIN_NAV_ITEMS = [
   { href: "/admin/planner", label: "Jadwal", icon: "event_note", group: "Jadwal", bottom: true },
 ];
 
-export default function AdminShell({ children }) {
+function AdminShellInner({ children }) {
   const { user } = useAuth();
   const { pathname } = useLocation();
   const { resolvedMode, palette } = useTheme();
   const isChatRoute = pathname === "/admin/chat";
-  const { badges } = usePanelBadges("/admin/chat");
+  const { badges, lowStock, financeDue, scheduleDue, hppNew } = usePanelBadges("/admin/chat");
   const notifications = useAdminNotifications();
+  const actionTracker = useAdminActionTrackerContext();
+  const center = useNotificationCenter();
   const focusable = pathname.startsWith("/admin/planner") || pathname.startsWith("/admin/chat");
   const [isFocus, setIsFocus] = useState(false);
+  const [dismissedAlerts, setDismissedAlerts] = useState(() => new Set());
   const focusValue = useFocusModeValue(isFocus, setIsFocus);
+
+  // Peringatan (badge) yang juga ditampilkan sebagai item notifikasi. Item ini
+  // diturunkan dari data badge sehingga muncul lagi setiap kali notifikasi di-
+  // refresh, tetapi bisa dikosongkan lewat "Kosongkan" tanpa mengganggu badge
+  // (alert) di sidebar.
+  const alertItems = useMemo(() => {
+    const now = new Date().toISOString();
+    const items = [];
+    if (lowStock > 0) items.push({ id: "alert:stock", alert: true, module: "stock", type: "warning", title: "Stok menipis", message: `${lowStock} produk perlu restock.`, url: "/admin/stock", read_at: null, created_at: now });
+    if (financeDue > 0) items.push({ id: "alert:finance", alert: true, module: "payments", type: "warning", title: "Jatuh tempo terdekat", message: `${financeDue} tagihan jatuh tempo dalam 3 hari.`, url: "/admin/cashflow", read_at: null, created_at: now });
+    if (scheduleDue > 0) items.push({ id: "alert:schedule", alert: true, module: "general", type: "warning", title: "Jadwal mendekati", message: `${scheduleDue} jadwal belum selesai dalam 3 hari.`, url: "/admin/planner", read_at: null, created_at: now });
+    if (hppNew > 0) items.push({ id: "alert:hpp", alert: true, module: "hpp", type: "warning", title: "Data HPP baru", message: `${hppNew} perubahan HPP baru.`, url: "/admin/hpp-report", read_at: null, created_at: now });
+    return items;
+  }, [lowStock, financeDue, scheduleDue, hppNew]);
+
+  const visibleAlertItems = useMemo(
+    () => alertItems.filter((item) => !dismissedAlerts.has(item.id)),
+    [alertItems, dismissedAlerts],
+  );
+
+  // Gabungkan antrean aksi live (dari useAdminActionTracker via NotificationCenter)
+  // dengan notifikasi server (Reverb). Item live dipetakan ke bentuk yang dipakai
+  // AdminNotificationPanel agar proses CRUD yang sedang berjalan langsung tampil
+  // di dropdown, lalu otomatis hilang saat sukses atau menetap saat gagal.
+  const liveItems = center.items.map((item) => ({
+    id: item.id,
+    module: item.module || "general",
+    type: item.type,
+    title: item.title,
+    message: item.message,
+    status: item.status,
+    progress: item.progress ?? undefined,
+    read_at: item.read_at || (item.status === "processing" ? null : new Date().toISOString()),
+    url: item.url || null,
+    created_at: item.createdAt,
+    onAction: item.onAction || null,
+    onSecondaryAction: item.onSecondaryAction || null,
+    live: true,
+  }));
+  const liveIds = new Set(liveItems.map((item) => String(item.id)));
+  const alertIds = new Set(alertItems.map((item) => item.id));
+  const mergedItems = [
+    ...visibleAlertItems,
+    ...liveItems,
+    ...notifications.items.filter((item) => !liveIds.has(String(item.id))),
+  ];
+
+  const handleDeleteNotification = (id) => {
+    if (alertIds.has(id)) {
+      setDismissedAlerts((current) => new Set(current).add(id));
+      return;
+    }
+    if (liveIds.has(String(id))) {
+      actionTracker.dismiss(id);
+      return;
+    }
+    notifications.deleteNotification(id);
+  };
+
+  const handleMarkRead = (id) => {
+    if (alertIds.has(id) || liveIds.has(String(id))) return;
+    notifications.markRead(id);
+  };
+
+  const handleRefresh = () => {
+    setDismissedAlerts(new Set());
+    notifications.refresh();
+  };
 
   useEffect(() => {
     if (!focusable) setIsFocus(false);
@@ -96,19 +169,18 @@ export default function AdminShell({ children }) {
               notificationConnected={notifications.connected}
               notificationPanel={({ close }) => (
                 <AdminNotificationPanel
-                  items={notifications.items}
+                  items={mergedItems}
                   loading={notifications.loading}
                   refreshing={notifications.refreshing}
                   connected={notifications.connected}
                   error={notifications.error}
                   onClose={close}
-                  onRefresh={notifications.refresh}
-                  onMarkRead={notifications.markRead}
-                  onMarkAllRead={notifications.markAllRead}
-                  onDelete={notifications.deleteNotification}
+                  onRefresh={handleRefresh}
+                  onMarkRead={handleMarkRead}
+                  onDelete={handleDeleteNotification}
                 />
               )}
-              onNotificationOpen={(open) => { if (open) notifications.refresh(); }}
+              onNotificationOpen={(open) => { if (open) handleRefresh(); }}
               mobileNavigation={<PanelMobileNavigation items={ADMIN_NAV_ITEMS} badges={badges} activeClassName="bg-[var(--color-primary-soft)] text-[var(--color-primary-strong)]" />}
               modeHeader={<AdminThemeControl />}
             />}
@@ -130,6 +202,14 @@ export default function AdminShell({ children }) {
       </div>
       </FocusModeContext.Provider>
     </PanelTabsProvider>
+  );
+}
+
+export default function AdminShell({ children }) {
+  return (
+    <AdminActionTrackerProvider>
+      <AdminShellInner children={children} />
+    </AdminActionTrackerProvider>
   );
 }
 

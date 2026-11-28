@@ -254,18 +254,9 @@ final class LoginWithFirebaseUseCase
         $role = strtolower(trim($requestedRole)) ?: 'buyer';
         $user->loadMissing('roles:id,name');
 
-        $roleAllowed = $user->hasRole($role)
-            || ($role === 'seller' && $user->hasRole('admin'));
-
-        if (! $roleAllowed) {
+        if (! in_array($role, ['buyer', 'admin'], true) || ! $user->hasRole($role)) {
             throw ValidationException::withMessages([
                 'role' => ["Akun Google ini tidak memiliki akses {$role}."],
-            ]);
-        }
-
-        if ($role === 'seller' && ! $this->userRepository->hasSellerAccess($user)) {
-            throw ValidationException::withMessages([
-                'role' => ['Akses seller belum aktif atau toko belum tersedia.'],
             ]);
         }
 

@@ -25,15 +25,8 @@ final class SwitchRoleUseCase
         $targetRole = strtolower(trim($targetRole));
         $user->loadMissing('roles:id,name');
 
-        $roleAllowed = $user->hasRole($targetRole)
-            || ($targetRole === 'seller' && $user->hasRole('admin'));
-
-        if (! $roleAllowed) {
+        if (! in_array($targetRole, ['buyer', 'admin'], true) || ! $user->hasRole($targetRole)) {
             throw new AccessDeniedHttpException("Anda tidak memiliki hak akses sebagai {$targetRole}.");
-        }
-
-        if ($targetRole === 'seller' && ! $this->userRepository->hasSellerAccess($user)) {
-            throw new AccessDeniedHttpException('Akses seller belum aktif.');
         }
 
         // Kebijakan sesi tunggal: beralih role menerbitkan token baru dan

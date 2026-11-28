@@ -1,11 +1,9 @@
-import { memo, useState } from "react";
+import { memo } from "react";
 import { FormField, inputClassName } from "@/shared/components/form/FormField";
 import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { createClientId } from "@/core/utils/clientId";
 import { toTitleCase } from "@/shared/utils/textFormatter";
-import { generateSellerSku } from "@/features/seller/product/services/sellerProductService";
-import { toastError } from "@/shared/utils/userFeedback";
 
 function emptyValue() {
   return { clientId: createClientId("attribute-value"), attributeId: "", value: "" };
@@ -15,14 +13,9 @@ function emptyVariant() {
   return { clientId: createClientId("variant"), id: null, name: "", sku: "", price: "", stock: 0, values: [] };
 }
 
-const SKU_PATTERN_HINT = "Token: {NAME} {BRAND} {CATEGORY} {ATTR} {DATE} {SEQ}. Kosongkan rumus untuk memakai pengaturan SKU global.";
-
 const compactInputClass = `${inputClassName} h-10`;
 
-export const ProductVariantFields = memo(function ProductVariantFields({ variants, attributes, onChange, onCreateAttribute, creatingAttribute = false, skuContext = {} }) {
-  const [skuPattern, setSkuPattern] = useState("");
-  const [generating, setGenerating] = useState(null);
-
+export const ProductVariantFields = memo(function ProductVariantFields({ variants, attributes, onChange, onCreateAttribute, creatingAttribute = false }) {
   const updateVariant = (index, field, value) => {
     onChange(variants.map((variant, variantIndex) => variantIndex === index ? { ...variant, [field]: value } : variant));
   };
@@ -52,26 +45,6 @@ export const ProductVariantFields = memo(function ProductVariantFields({ variant
 
   const removeValue = (variantIndex, valueIndex) => {
     onChange(variants.map((variant, index) => index === variantIndex ? { ...variant, values: variant.values.filter((_, itemIndex) => itemIndex !== valueIndex) } : variant));
-  };
-
-  const generateSku = async (index, variant, key) => {
-    setGenerating(key);
-    try {
-      const sku = await generateSellerSku({
-        pattern: skuPattern || "",
-        name: skuContext.name || variant.name || "",
-        brand: skuContext.brand || "",
-        category: skuContext.category || "",
-        attributes: (variant.values || []).map((item) => item.value),
-        variantId: variant.id,
-      });
-
-      if (sku) updateVariant(index, "sku", sku);
-    } catch (error) {
-      toastError("SKU gagal dibuat", error?.message || "Rumus SKU tidak valid.");
-    } finally {
-      setGenerating(null);
-    }
   };
 
   const attributeOptions = attributes.map((attribute) => ({
@@ -106,19 +79,6 @@ export const ProductVariantFields = memo(function ProductVariantFields({ variant
         </div>
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-2 rounded-[10px] bg-slate-50 px-3 py-2 ring-1 ring-inset ring-slate-200">
-            <label htmlFor="variant-sku-pattern" className="shrink-0 text-[11px] font-extrabold uppercase tracking-wide text-slate-500">Rumus SKU</label>
-            <input
-              id="variant-sku-pattern"
-              value={skuPattern}
-              onChange={(event) => setSkuPattern(event.target.value)}
-              className="h-8 min-w-[220px] flex-1 rounded-[8px] border border-slate-200 bg-white px-2.5 text-xs text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-              placeholder="Opsional: {BRAND}-{NAME:6}-{ATTR}-{SEQ:3}"
-              title={SKU_PATTERN_HINT}
-            />
-            <span className="text-[11px] text-slate-400">Dipakai tombol <strong className="font-bold text-slate-500">Buat SKU</strong> di tiap variant.</span>
-          </div>
-
           <div className="space-y-2.5">
             {variants.map((variant, index) => {
               const key = variant.id || variant.clientId || index;
@@ -150,19 +110,7 @@ export const ProductVariantFields = memo(function ProductVariantFields({ variant
                     </FormField>
 
                     <FormField label="SKU">
-                      <div className="flex gap-1.5">
-                        <input value={variant.sku} onChange={(event) => updateVariant(index, "sku", event.target.value)} className={compactInputClass} placeholder="Kosongkan untuk otomatis" />
-                        <button
-                          type="button"
-                          onClick={() => generateSku(index, variant, key)}
-                          disabled={generating === key}
-                          title="Buat SKU dari rumus di atas"
-                          aria-label={`Buat SKU variant ${variant.name || index + 1}`}
-                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60"
-                        >
-                          <span className={`material-symbols-outlined text-[18px] ${generating === key ? "animate-spin" : ""}`}>autoFixHigh</span>
-                        </button>
-                      </div>
+                      <input value={variant.sku} onChange={(event) => updateVariant(index, "sku", event.target.value)} className={compactInputClass} placeholder="Kosongkan untuk otomatis" />
                     </FormField>
 
                     <FormField label="Harga" required>
@@ -190,11 +138,12 @@ export const ProductVariantFields = memo(function ProductVariantFields({ variant
                               value={item.attributeId}
                               onChange={(nextValue) => updateValue(index, valueIndex, "attributeId", nextValue)}
                               options={attributeOptions}
-                              placeholder="Pilih atribut"
-                              searchPlaceholder="Cari atribut"
+                              placeholder="Pilih / ketik atribut"
+                              searchPlaceholder="Cari atau ketik atribut baru"
+                              emptyText="Atribut belum ada, ketik untuk menambah"
                               onCreate={onCreateAttribute}
                               creating={creatingAttribute}
-                              createLabel={(name) => `Data tidak ditemukan, tambahkan “${name}” sebagai atribut baru`}
+                              createLabel={(name) => `Atribut “${name}” belum ada, tambahkan sekarang`}
                               buttonClassName="h-10 rounded-[8px]"
                             />
                             <input value={item.value} onChange={(event) => updateValue(index, valueIndex, "value", event.target.value)} className={`${inputClassName} h-10 rounded-[8px]`} placeholder="Contoh: Merah, XL, 128 GB" aria-label="Nilai attribute" />

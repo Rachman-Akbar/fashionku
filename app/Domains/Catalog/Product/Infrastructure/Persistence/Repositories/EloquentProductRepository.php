@@ -254,6 +254,7 @@ final class EloquentProductRepository implements ProductRepositoryInterface
             $model->slug = $product->slug();
             $model->description = $product->description();
             $model->brand = $product->brand();
+            $model->unit = $product->unit();
             $model->thumbnail = $product->thumbnail();
             $model->is_active = $product->isActive();
         }

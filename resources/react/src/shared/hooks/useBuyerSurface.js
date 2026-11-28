@@ -1,8 +1,7 @@
 import { useLocation } from "react-router-dom";
 
-const PANEL_PREFIXES = ["/admin", "/seller"];
-
-/** Apakah path ini bagian dari toko (bukan panel admin/seller)? */
+const PANEL_PREFIXES = ["/admin"];
+/** Apakah path ini bagian dari panel admin (bukan permukaan buyer)? */
 export function isBuyerSurfacePath(pathname = "") {
   return !PANEL_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
@@ -10,7 +9,7 @@ export function isBuyerSurfacePath(pathname = "") {
 }
 
 /**
- * Panel admin/seller tidak membutuhkan data keranjang & wishlist.
+ * Panel admin tidak membutuhkan data keranjang & wishlist.
  *
  * Tanpa pembatas ini, provider global tetap memanggil `/order/carts` dan
  * `/order/wishlist` setiap panel dibuka. Di server dev yang single-thread

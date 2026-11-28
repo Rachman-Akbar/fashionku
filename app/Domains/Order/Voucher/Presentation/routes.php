@@ -19,8 +19,8 @@ Route::prefix('vouchers')->name('vouchers.')->group(function (): void {
             Route::delete('/{id}', [VoucherController::class, 'destroy'])->whereNumber('id')->name('destroy');
         });
 
-    // Portal seller: marketplace internal, pengelolaan voucher yang sama.
-    Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'active.role:seller'])
+    // Legacy API namespace retained for existing clients; operator role is admin.
+    Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'active.role:admin'])
         ->prefix('seller')
         ->name('seller.')
         ->group(function (): void {

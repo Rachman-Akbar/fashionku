@@ -134,7 +134,7 @@ final class AuthController extends Controller
         $validated = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
-            'role' => ['nullable', 'string', 'in:buyer,seller,admin'],
+            'role' => ['nullable', 'string', 'in:buyer,admin'],
             'device_name' => ['nullable', 'string', 'max:100'],
         ]);
 
@@ -181,7 +181,7 @@ final class AuthController extends Controller
     public function firebaseLogin(Request $request, LoginWithFirebaseUseCase $useCase): JsonResponse
     {
         $validated = $request->validate([
-            'role' => ['nullable', 'string', 'in:buyer,seller,admin'],
+            'role' => ['nullable', 'string', 'in:buyer'],
             'device_name' => ['nullable', 'string', 'max:100'],
         ]);
         $firebaseUser = $request->attributes->get('firebase_user');
@@ -450,7 +450,7 @@ final class AuthController extends Controller
     public function switchRole(Request $request, SwitchRoleUseCase $useCase): JsonResponse
     {
         $validated = $request->validate([
-            'role' => ['required', 'string', 'in:buyer,seller,admin'],
+            'role' => ['required', 'string', 'in:buyer,admin'],
             'device_name' => ['nullable', 'string', 'max:100'],
         ]);
 

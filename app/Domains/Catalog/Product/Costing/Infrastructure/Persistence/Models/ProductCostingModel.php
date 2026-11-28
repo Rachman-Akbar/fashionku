@@ -11,9 +11,9 @@ final class ProductCostingModel extends Model
 {
     protected $table = 'product_costings';
 
-    protected $fillable = ['product_id', 'material_cost', 'labor_cost', 'overhead_cost', 'other_cost', 'hpp', 'margin_percent', 'suggested_price', 'selling_price'];
+    protected $fillable = ['product_id', 'material_cost', 'labor_cost', 'overhead_cost', 'other_cost', 'yield_quantity', 'hpp', 'margin_percent', 'suggested_price', 'selling_price'];
 
-    protected $casts = ['material_cost' => 'decimal:4', 'labor_cost' => 'decimal:4', 'overhead_cost' => 'decimal:4', 'other_cost' => 'decimal:4', 'hpp' => 'decimal:4', 'margin_percent' => 'decimal:4', 'suggested_price' => 'decimal:2', 'selling_price' => 'decimal:2'];
+    protected $casts = ['material_cost' => 'decimal:4', 'labor_cost' => 'decimal:4', 'overhead_cost' => 'decimal:4', 'other_cost' => 'decimal:4', 'yield_quantity' => 'decimal:4', 'hpp' => 'decimal:4', 'margin_percent' => 'decimal:4', 'suggested_price' => 'decimal:2', 'selling_price' => 'decimal:2'];
 
     public function product()
     {

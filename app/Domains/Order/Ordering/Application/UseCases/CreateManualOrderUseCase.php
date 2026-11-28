@@ -12,6 +12,7 @@ use App\Domains\Order\Ordering\Domain\Entities\SubOrder;
 use App\Domains\Order\Ordering\Domain\Repositories\OrderRepositoryInterface;
 use App\Domains\Order\Payment\Domain\Entities\Payment;
 use App\Domains\Order\Payment\Domain\Repositories\PaymentRepositoryInterface;
+use App\Domains\Seller\Customers\Application\Services\CustomerRecordProvisioner;
 use App\Domains\Seller\Stock\Application\Services\StockMovementService;
 use App\Domains\Shared\Codes\Application\Services\CodePatternService;
 use App\Domains\Shared\Settings\Application\Services\AppSettingService;
@@ -239,63 +240,44 @@ final class CreateManualOrderUseCase
      */
     private function resolveCustomerUserId(array $customer): array
     {
-        // If customer_id is provided, use that existing user and fetch their profile
+        $email = strtolower(trim((string) ($customer['email'] ?? '')));
+        $user = null;
+
+        // Pelanggan yang sudah terdaftar selalu dipakai ulang, sehingga 1 user
+        // tidak pernah berujung pada 2 baris/akun pelanggan.
         if (isset($customer['id']) && $customer['id'] !== '') {
-            $user = DB::table('users')
-                ->where('id', $customer['id'])
-                ->whereNull('deleted_at')
-                ->first(['id', 'name', 'email', 'phone']);
-
-            if ($user) {
-                $sellerCustomer = DB::table('seller_customers')
-                    ->where('user_id', $user->id)
-                    ->whereNull('deleted_at')
-                    ->first(['address', 'phone as customer_phone']);
-
-                $userId = (string) $user->id;
-                $resolvedCustomer = [
-                    'name' => $user->name,
-                    'phone' => $sellerCustomer?->customer_phone ?? $user->phone ?? '',
-                    'email' => $user->email,
-                    'address' => $sellerCustomer?->address ?? '',
-                ];
-                return [$userId, $resolvedCustomer];
-            }
+            $user = $this->findUserById((string) $customer['id']);
         }
 
-        $email = strtolower(trim((string) ($customer['email'] ?? '')));
+        if ($user === null && $email !== '') {
+            $user = $this->findUserByEmail($email);
+        }
 
-        if ($email !== '') {
-            $user = DB::table('users')
-                ->where('email', $email)
-                ->whereNull('deleted_at')
-                ->first(['id', 'name', 'email', 'phone']);
+        if ($user !== null) {
+            $userId = (string) $user->id;
+            $stored = $this->storedContact($userId);
 
-            if ($user) {
-                $sellerCustomer = DB::table('seller_customers')
-                    ->where('user_id', $user->id)
-                    ->whereNull('deleted_at')
-                    ->first(['address', 'phone as customer_phone']);
+            // Buyer selalu mempunyai tepat satu baris data pelanggan.
+            app(CustomerRecordProvisioner::class)->ensureForBuyerIfEligible($userId, (string) $user->name);
 
-                $userId = (string) $user->id;
-                $resolvedCustomer = [
-                    'name' => $user->name,
-                    'phone' => $sellerCustomer?->customer_phone ?? $user->phone ?? '',
-                    'email' => $user->email,
-                    'address' => $sellerCustomer?->address ?? '',
-                ];
-                return [$userId, $resolvedCustomer];
-            }
+            return [$userId, [
+                'name' => trim((string) $user->name) !== '' ? trim((string) $user->name) : $stored['name'],
+                'phone' => $stored['phone'] !== '' ? $stored['phone'] : trim((string) ($customer['phone'] ?? '')),
+                'email' => $email !== '' ? $email : (string) $user->email,
+                'address' => $stored['address'] !== '' ? $stored['address'] : trim((string) ($customer['address'] ?? '')),
+            ]];
         }
 
         $candidateEmail = $email !== '' ? $email : 'guest-'.Str::lower(Str::random(12)).'@manual.order';
 
         $userId = (string) Str::uuid();
         $userName = trim((string) ($customer['name'] ?? ''));
+        $userName = $userName !== '' ? $userName : 'Pelanggan Umum';
+
         DB::table('users')->insert([
             'id' => $userId,
             'email' => $candidateEmail,
-            'name' => $userName !== '' ? $userName : 'Pelanggan Umum',
+            'name' => $userName,
             'password' => null,
             'is_email_verified' => false,
             'is_active' => true,
@@ -316,13 +298,57 @@ final class CreateManualOrderUseCase
             );
         }
 
+        // Buyer baru langsung mempunyai baris data pelanggannya.
+        app(CustomerRecordProvisioner::class)->ensureForBuyer($userId, $userName);
+
         $resolvedCustomer = [
-            'name' => $userName !== '' ? $userName : 'Pelanggan Umum',
+            'name' => $userName,
             'phone' => trim((string) ($customer['phone'] ?? '')),
             'email' => $candidateEmail,
             'address' => trim((string) ($customer['address'] ?? '')),
         ];
 
         return [$userId, $resolvedCustomer];
+    }
+
+    private function findUserById(string $userId): ?object
+    {
+        if (trim($userId) === '') {
+            return null;
+        }
+
+        return DB::table('users')
+            ->where('id', $userId)
+            ->whereNull('deleted_at')
+            ->first(['id', 'name', 'email']);
+    }
+
+    private function findUserByEmail(string $email): ?object
+    {
+        return DB::table('users')
+            ->where('email', $email)
+            ->whereNull('deleted_at')
+            ->first(['id', 'name', 'email']);
+    }
+
+    /**
+     * Tabel `users` dan `seller_customers` tidak menyimpan telepon/alamat,
+     * jadi kontak diambil dari alamat utama pembeli bila ada.
+     *
+     * @return array{name: string, phone: string, address: string}
+     */
+    private function storedContact(string $userId): array
+    {
+        $address = DB::table('addresses')
+            ->where('user_id', $userId)
+            ->orderByDesc('is_primary')
+            ->orderByDesc('id')
+            ->first(['phone_number', 'full_address']);
+
+        return [
+            'name' => '',
+            'phone' => trim((string) ($address->phone_number ?? '')),
+            'address' => trim((string) ($address->full_address ?? '')),
+        ];
     }
 }

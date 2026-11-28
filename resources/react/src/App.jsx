@@ -4,10 +4,8 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import AppLayout from "@/shared/layout/AppLayout";
 import BuyerLayout from "@/shared/layout/BuyerLayout";
 import AuthLayout from "@/features/auth/AuthLayout";
-import SellerLayout from "@/features/seller/SellerLayout";
 import ProfileLayout from "@/features/profile/ProfileLayout";
 import ProtectedRoute from "@/features/auth/routes/ProtectedRoute";
-import SellerStoreGuard from "@/features/auth/routes/SellerStoreGuard";
 import GuestRoute from "@/features/auth/routes/GuestRoute";
 import ErrorBoundary from "@/shared/components/feedback/ErrorBoundary";
 
@@ -26,12 +24,9 @@ const ForgotPasswordPage = lazyWithRetry(() => import("@/features/auth/pages/For
 const ResetPasswordPage = lazyWithRetry(() => import("@/features/auth/pages/ResetPasswordPage"));
 const RoleSwitchPage = lazyWithRetry(() => import("@/features/auth/pages/RoleSwitchPage"));
 const GoogleRedirectHandler = lazyWithRetry(() => import("@/features/auth/pages/GoogleRedirectHandler"));
-const SellerDashboardPage = lazyWithRetry(() => import("@/features/seller/dashboard/pages/SellerDashboardPage"));
 const SellerProductsPage = lazyWithRetry(() => import("@/features/seller/product/pages/SellerProductsPage"));
 const SellerVoucherPage = lazyWithRetry(() => import("@/features/seller/voucher/pages/SellerVoucherPage"));
 const SellerPromotionPage = lazyWithRetry(() => import("@/features/seller/promotion/pages/SellerPromotionPage"));
-const SellerStorePage = lazyWithRetry(() => import("@/features/seller/store/pages/SellerStorePage"));
-const SellerOrdersPage = lazyWithRetry(() => import("@/features/seller/order/pages/SellerOrdersPage"));
 const AdminDashboardPage = lazyWithRetry(() => import("@/features/admin/pages/AdminDashboardPage"));
 const AdminOrdersPage = lazyWithRetry(() => import("@/features/admin/order/pages/AdminOrdersPage"));
 const AdminStoreSettingsPage = lazyWithRetry(() => import("@/features/admin/store/pages/AdminStoreSettingsPage"));
@@ -159,30 +154,11 @@ function renderAccountRoutes() {
   );
 }
 
-function renderSellerRoutes() {
-  return (
-    <Route element={<ProtectedRoute roles={["seller", "admin"]} />}>
-      <Route element={<SellerStoreGuard />}>
-        <Route element={<SellerLayout />}>
-          <Route path="/seller" element={<SellerDashboardPage />} />
-          <Route path="/seller/products" element={<SellerProductsPage />} />
-          <Route path="/seller/stock" element={<StockPage />} />
-          <Route path="/seller/hpp-report" element={<HppReportPage />} />
-          <Route path="/seller/vouchers" element={<SellerVoucherPage />} />
-          <Route path="/seller/promotions" element={<SellerPromotionPage />} />
-          <Route path="/seller/orders" element={<SellerOrdersPage />} />
-          <Route path="/seller/customers" element={<CustomersPage />} />
-          <Route path="/seller/cashflow" element={<FinancePage mode="cashflow" />} />
-          <Route path="/seller/receivables-payables" element={<FinancePage mode="receivables" />} />
-          <Route path="/seller/reviews" element={<ReviewsPage />} />
-          <Route path="/seller/help" element={<HelpPage />} />
-          <Route path="/seller/chat" element={<RealtimeChatPage />} />
-          <Route path="/seller/store" element={<SellerStorePage />} />
-          <Route path="/seller/code-settings" element={<CodePatternSettingsPage />} />
-        </Route>
-      </Route>
-    </Route>
-  );
+function LegacySellerRedirect() {
+  const { pathname, search, hash } = useLocation();
+  const adminPath = pathname.replace(/^\/seller(?=\/|$)/, "/admin");
+
+  return <Navigate to={`${adminPath}${search}${hash}`} replace />;
 }
 
 function renderAdminRoutes() {
@@ -235,7 +211,7 @@ export default function App() {
             {renderBuyerRoutes()}
             {renderAuthenticationRoutes()}
             {renderAccountRoutes()}
-            {renderSellerRoutes()}
+            <Route path="/seller/*" element={<LegacySellerRedirect />} />
             {renderAdminRoutes()}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

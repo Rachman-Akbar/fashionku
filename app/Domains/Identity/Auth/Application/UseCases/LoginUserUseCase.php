@@ -229,19 +229,9 @@ final class LoginUserUseCase
         $role = strtolower(trim($requestedRole)) ?: 'buyer';
         $user->loadMissing('roles:id,name');
 
-        // Admin adalah superset seller pada marketplace single-store.
-        $roleAllowed = $user->hasRole($role)
-            || ($role === 'seller' && $user->hasRole('admin'));
-
-        if (! $roleAllowed) {
+        if (! in_array($role, ['buyer', 'admin'], true) || ! $user->hasRole($role)) {
             throw ValidationException::withMessages([
                 'role' => ["Akun ini tidak memiliki akses {$role}."],
-            ]);
-        }
-
-        if ($role === 'seller' && ! $this->userRepository->hasSellerAccess($user)) {
-            throw ValidationException::withMessages([
-                'role' => ['Akses seller belum aktif atau toko belum tersedia.'],
             ]);
         }
 

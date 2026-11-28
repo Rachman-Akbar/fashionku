@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Catalog\Product\Costing\Infrastructure\Persistence\Models;
 
 use App\Domains\Catalog\Product\Infrastructure\Persistence\Models\ProductModel;
+use App\Domains\Catalog\Product\Infrastructure\Persistence\Models\ProductVariantModel;
 use App\Domains\Seller\Inventory\Infrastructure\Persistence\Models\RawMaterialCostHistoryModel;
 use App\Domains\Seller\Inventory\Infrastructure\Persistence\Models\RawMaterialModel;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,7 @@ final class ProductCostingImpactModel extends Model
 {
     protected $table = 'product_costing_impacts';
 
-    protected $fillable = ['product_id', 'raw_material_id', 'raw_material_cost_history_id', 'old_material_cost', 'new_material_cost', 'old_hpp', 'new_hpp', 'hpp_change_amount', 'hpp_change_percent', 'old_suggested_price', 'new_suggested_price', 'trigger_type', 'occurred_at'];
+    protected $fillable = ['product_id', 'product_variant_id', 'raw_material_id', 'raw_material_cost_history_id', 'old_material_cost', 'new_material_cost', 'old_hpp', 'new_hpp', 'hpp_change_amount', 'hpp_change_percent', 'old_suggested_price', 'new_suggested_price', 'old_selling_price', 'new_selling_price', 'trigger_type', 'occurred_at'];
 
     protected $casts = [
         'old_material_cost' => 'decimal:4',
@@ -24,6 +25,8 @@ final class ProductCostingImpactModel extends Model
         'hpp_change_percent' => 'decimal:4',
         'old_suggested_price' => 'decimal:2',
         'new_suggested_price' => 'decimal:2',
+        'old_selling_price' => 'decimal:2',
+        'new_selling_price' => 'decimal:2',
         'occurred_at' => 'datetime',
     ];
 
@@ -40,5 +43,10 @@ final class ProductCostingImpactModel extends Model
     public function costHistory()
     {
         return $this->belongsTo(RawMaterialCostHistoryModel::class, 'raw_material_cost_history_id');
+    }
+
+    public function variant()
+    {
+        return $this->belongsTo(ProductVariantModel::class, 'product_variant_id');
     }
 }

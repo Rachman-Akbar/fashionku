@@ -27,13 +27,12 @@ class SellerCustomerTest extends TestCase
         parent::setUp();
 
         $this->seller = $this->actingAsSeller();
-        $this->makeRole('buyer');
         $this->grantSellerPermissions(['orders.view']);
     }
 
     private function grantSellerPermissions(array $names): void
     {
-        $roleId = DB::table('roles')->where('name', 'seller')->whereNull('deleted_at')->value('id');
+        $roleId = DB::table('roles')->where('name', 'admin')->whereNull('deleted_at')->value('id');
         $now = now();
 
         foreach ($names as $name) {
@@ -166,9 +165,9 @@ class SellerCustomerTest extends TestCase
         ])->assertStatus(422);
     }
 
-    public function test_admin_cannot_mutate_customers(): void
+    public function test_buyer_cannot_mutate_customers(): void
     {
-        $this->actAsAdmin();
+        $this->actingAsRole('buyer');
 
         $this->postJson('/api/v1/seller/customers', [
             'name' => 'Admin Coba',
@@ -178,9 +177,4 @@ class SellerCustomerTest extends TestCase
         $this->deleteJson('/api/v1/seller/customers/does-not-matter')->assertStatus(403);
     }
 
-    private function actAsAdmin(): void
-    {
-        $admin = $this->actingAsRole('admin');
-        $this->assertNotNull($admin);
-    }
 }

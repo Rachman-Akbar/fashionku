@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { FormField, inputClassName } from "@/shared/components/form/FormField";
-import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
+import { QuantityInput } from "@/shared/components/form/QuantityInput";
 import { toTitleCase } from "@/shared/utils/textFormatter";
 
 function formatNumber(value) {
@@ -54,13 +54,13 @@ export const ProductStockFields = memo(function ProductStockFields({
   const stockField = (label, row, error) => (
     <FormField label={label} error={error}>
       {isNew ? (
-        <FormattedNumberInput
+        <QuantityInput
           min="0"
           value={row.stock ?? 0}
           onChange={(value) => (row.isSimple ? updateSimple("stock", value) : updateVariant(row.index, "stock", value))}
           className={compactInput}
           title="Stok awal saat produk dibuat"
-          aria-label={`${label} ${row.name || "produk"}`}
+          ariaLabel={`${label} ${row.name || "produk"}`}
         />
       ) : (
         <button
@@ -78,26 +78,26 @@ export const ProductStockFields = memo(function ProductStockFields({
 
   const minStockField = (row, error) => (
     <FormField label="Minimal stok" error={error}>
-      <FormattedNumberInput
+      <QuantityInput
         min="0"
         value={row.minStock || 0}
         onChange={(value) => (row.isSimple ? updateSimple("minStock", value) : updateVariant(row.index, "minStock", value))}
         className={compactInput}
         title="Batas stok minimum untuk pengingat restock"
-        aria-label={`Minimal stok ${row.name || "produk"}`}
+        ariaLabel={`Minimal stok ${row.name || "produk"}`}
       />
     </FormField>
   );
 
   const maxOrderField = (row, error) => (
     <FormField label="Batas order" error={error}>
-      <FormattedNumberInput
+      <QuantityInput
         min="1"
         value={row.maxOrderQty ?? 999999}
         onChange={(value) => (row.isSimple ? updateSimple("maxOrderQty", value) : updateVariant(row.index, "maxOrderQty", value))}
         className={compactInput}
         title="Maksimal jumlah item dalam satu transaksi"
-        aria-label={`Batas order ${row.name || "produk"}`}
+        ariaLabel={`Batas order ${row.name || "produk"}`}
       />
     </FormField>
   );

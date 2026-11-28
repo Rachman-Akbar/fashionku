@@ -45,7 +45,7 @@ final class TicketService
 
         $rows = DB::table('orders')
             ->when(
-                ! in_array($role, ['admin', 'seller'], true),
+                $role !== 'admin',
                 fn ($query) => $query->where('orders.user_id', $userId)
             )
             ->select([
@@ -82,7 +82,7 @@ final class TicketService
             if ($orderId !== null) {
                 $orderQuery = DB::table('orders')->where('orders.id', $orderId);
 
-                if ($role !== 'admin' && $role !== 'seller') {
+                if ($role !== 'admin') {
                     $orderQuery->where('orders.user_id', $ticketUserId);
                 }
 

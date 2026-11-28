@@ -58,6 +58,7 @@ final class StoreUserRequest extends FormRequest
             'role_ids.*' => [
                 'integer',
                 Rule::exists('roles', 'id')->where(fn ($query) => $query
+                    ->whereIn('name', self::ROLE_NAMES)
                     ->where('is_active', true)
                     ->whereNull('deleted_at')),
             ],

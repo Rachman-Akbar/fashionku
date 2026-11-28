@@ -156,14 +156,12 @@ class TicketAssignmentTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors('assigned_to');
     }
 
-    public function test_admin_in_seller_panel_can_assign(): void
+    public function test_admin_can_assign(): void
     {
         $ticket = $this->makeTicket();
 
-        // Panel /seller/help memakai token active-role:seller walau user-nya admin
-        // (single-store), jadi penugasan tetap harus diizinkan.
         $admin = $this->makeUser(['name' => 'Admin Panel Seller'], ['admin']);
-        $this->withToken($this->tokenFor($admin, 'seller'));
+        $this->withToken($this->tokenFor($admin, 'admin'));
 
         $assignee = $this->makeUser(['name' => 'Admin Penanggung Jawab'], ['admin']);
 

@@ -41,6 +41,7 @@ final class CreateProductUseCase
                 slug: (string) ($data['slug'] ?? Str::slug($name)),
                 description: $data['description'] ?? null,
                 brand: $data['brand'] ?? null,
+                unit: $this->nullableUnit($data['unit'] ?? null),
                 thumbnail: $data['thumbnail'] ?? null,
                 isActive: (bool) ($data['is_active'] ?? true),
                 categoryIds: array_map('intval', $data['category_ids'] ?? [])
@@ -147,6 +148,16 @@ final class CreateProductUseCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+    }
+
+    /**
+     * Satuan disimpan sebagai teks bebas: string kosong dianggap "tanpa satuan".
+     */
+    private function nullableUnit(mixed $value): ?string
+    {
+        $unit = trim((string) $value);
+
+        return $unit !== '' ? mb_substr($unit, 0, 30) : null;
     }
 
     private function resolveSku(array $payload): string

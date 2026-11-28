@@ -160,6 +160,7 @@ function CartTab({
   onToggleItem,
   onDecrease,
   onIncrease,
+  onSetQuantity,
   onRemove,
   syncingVariantIds,
   onClear,
@@ -206,6 +207,7 @@ function CartTab({
                 onToggle={onToggleItem}
                 onDecrease={onDecrease}
                 onIncrease={onIncrease}
+                onSetQuantity={onSetQuantity}
                 onRemove={onRemove}
                 syncing={syncingVariantIds.includes(Number(item.variantId))}
               />
@@ -567,6 +569,7 @@ export default function CartPage() {
   const handleToggleItem = (itemKey) => setSelectedKeys((current) => current.includes(itemKey) ? current.filter((key) => key !== itemKey) : [...current, itemKey]);
   const handleDecrease = (item) => { const q = Math.max(1, Number(item.quantity || 1) - 1); if (q !== item.quantity) updateQty(item.productId, item.variantId, q); };
   const handleIncrease = (item) => { const q = Math.min(Number(item.stock || Infinity), Math.max(1, Number(item.quantity || 1)) + 1); if (q !== item.quantity) updateQty(item.productId, item.variantId, q); };
+  const handleSetQuantity = (item, q) => { const next = Math.max(1, Math.min(Number(item.stock || Infinity), Math.floor(Number(q) || 1))); if (next !== Number(item.quantity || 0)) updateQty(item.productId, item.variantId, next); };
 
   if (selectedOrderId) {
     return <Navigate to={`/orders/${encodeURIComponent(selectedOrderId)}`} replace />;
@@ -599,6 +602,7 @@ export default function CartPage() {
                 onToggleItem={handleToggleItem}
                 onDecrease={handleDecrease}
                 onIncrease={handleIncrease}
+                onSetQuantity={handleSetQuantity}
                 onRemove={(item) => removeItem(item.productId, item.variantId)}
                 syncingVariantIds={syncingVariantIds}
                 onClear={clearCart}

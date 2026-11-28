@@ -18,6 +18,8 @@ trait InteractsAsUser
 {
     private function makeRole(string $name): Role
     {
+        $name = $name === 'seller' ? 'admin' : $name;
+
         return Role::query()->firstOrCreate(
             ['name' => $name],
             ['description' => $name, 'is_active' => true],
@@ -42,6 +44,8 @@ trait InteractsAsUser
 
     private function tokenFor(User $user, string $activeRole): string
     {
+        $activeRole = $activeRole === 'seller' ? 'admin' : $activeRole;
+
         return $user->createToken('test', [
             'access-api',
             "active-role:{$activeRole}",
@@ -59,11 +63,9 @@ trait InteractsAsUser
         return $user;
     }
 
-    /**
-     * Create a seller and authenticate as them.
-     */
+    /** Legacy helper name; the former seller operator is now an admin. */
     private function actingAsSeller(array $userAttributes = []): User
     {
-        return $this->actingAsRole('seller', $userAttributes);
+        return $this->actingAsRole('admin', $userAttributes);
     }
 }

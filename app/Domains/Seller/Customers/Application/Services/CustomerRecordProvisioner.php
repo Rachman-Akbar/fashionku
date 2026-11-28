@@ -59,4 +59,68 @@ final class CustomerRecordProvisioner
 
         return true;
     }
+
+    public function assignBuyerRole(string $userId): void
+    {
+        $roleId = DB::table('roles')
+            ->where('name', 'buyer')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->value('id');
+
+        if ($roleId === null) {
+            $roleId = DB::table('roles')->where('name', 'buyer')->value('id');
+
+            if ($roleId !== null) {
+                DB::table('roles')->where('id', $roleId)->update([
+                    'is_active' => true,
+                    'deleted_at' => null,
+                    'updated_at' => now(),
+                ]);
+            } else {
+                $roleId = DB::table('roles')->insertGetId([
+                    'name' => 'buyer',
+                    'description' => 'Role buyer',
+                    'is_active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+
+        DB::table('user_roles')->updateOrInsert(
+            ['user_id' => $userId, 'role_id' => $roleId],
+            ['created_at' => now(), 'updated_at' => now()]
+        );
+    }
+
+    /**
+     * Sama dengan ensureForBuyer(), tetapi hanya membuat baris bila user
+     * benar-benar memegang role buyer. Dipakai pada jalur yang tidak tahu
+     * peran user (mis. resolusi pelanggan pada order manual), supaya data
+     * pelanggan tidak pernah menunjuk user non-buyer.
+     */
+    public function ensureForBuyerIfEligible(string $userId, ?string $name = null): bool
+    {
+        if ($userId === '' || ! $this->isBuyer($userId)) {
+            return false;
+        }
+
+        return $this->ensureForBuyer($userId, $name);
+    }
+
+    private function isBuyer(string $userId): bool
+    {
+        return DB::table('user_roles')
+            ->where('user_id', $userId)
+            ->whereIn(
+                'role_id',
+                DB::table('roles')
+                    ->where('name', 'buyer')
+                    ->where('is_active', true)
+                    ->whereNull('deleted_at')
+                    ->select('id')
+            )
+            ->exists();
+    }
 }

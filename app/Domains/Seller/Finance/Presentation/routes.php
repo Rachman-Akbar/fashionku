@@ -7,7 +7,7 @@ use App\Domains\Seller\Finance\Presentation\Http\Controllers\HutangPiutangContro
 use App\Domains\Seller\Finance\Presentation\Http\Controllers\SellerFinanceDashboardController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:seller,admin', 'permission:finance.manage'])
+Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:admin', 'permission:finance.manage'])
     ->prefix('finance')
     ->group(function (): void {
         // Dashboard

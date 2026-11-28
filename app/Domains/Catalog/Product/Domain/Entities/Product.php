@@ -26,7 +26,8 @@ final class Product
         private readonly ?string $updatedAt = null,
         private readonly ?string $code = null,
         private readonly ?string $createdBy = null,
-        private readonly ?string $updatedBy = null
+        private readonly ?string $updatedBy = null,
+        private readonly ?string $unit = null
     ) {}
 
     public function id(): ?int
@@ -72,6 +73,11 @@ final class Product
     public function brand(): ?string
     {
         return $this->brand;
+    }
+
+    public function unit(): ?string
+    {
+        return $this->unit;
     }
 
     public function thumbnail(): ?string

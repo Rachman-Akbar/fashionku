@@ -10,6 +10,7 @@ use App\Domains\Identity\Auth\Infrastructure\Mail\EmailVerificationMail;
 use App\Domains\Identity\User\Domain\Entities\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Tests\Support\InteractsAsUser;
@@ -68,6 +69,8 @@ class RegisterWithOtpTest extends TestCase
         $this->assertNotNull($user);
         $this->assertTrue($user->is_email_verified);
         $this->assertTrue($user->hasRole('buyer'));
+        $this->assertDatabaseHas('seller_customers', ['user_id' => $user->id]);
+        $this->assertSame(1, DB::table('seller_customers')->where('user_id', $user->id)->count());
     }
 
     public function test_registration_with_otp_rejects_wrong_code(): void

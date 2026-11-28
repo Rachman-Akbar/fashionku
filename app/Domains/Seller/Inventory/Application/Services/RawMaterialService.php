@@ -44,6 +44,7 @@ final class RawMaterialService
         return ProductCostingImpactModel::query()
             ->with([
                 'product:id,name,slug',
+                'variant:id,name,sku',
                 'material:id,code,name,unit',
                 'costHistory:id,old_average_cost,new_average_cost,direction,reference_type,reference_number,occurred_at',
             ])

@@ -76,6 +76,7 @@ final class UpdateProductRequest extends FormRequest
             'slug' => ['nullable', 'string', 'max:255', Rule::unique('products', 'slug')->ignore($id)],
             'description' => ['nullable', 'string'],
             'brand' => ['nullable', 'string', 'max:255'],
+            'unit' => ['nullable', 'string', 'max:30'],
             'thumbnail' => ['nullable', 'string', 'max:2048'],
             'is_active' => ['nullable', 'boolean'],
             'category_ids' => ['nullable', 'array'],

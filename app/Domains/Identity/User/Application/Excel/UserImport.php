@@ -143,26 +143,30 @@ class UserImport extends BaseImport
                     }
 
                     // Handle role assignment
-                    if ($roleName) {
-                        $roleName = strtolower(trim($roleName));
-                        $role = Role::whereRaw('LOWER(TRIM(name)) = ?', [$roleName])->first();
+                    $roleName = strtolower(trim((string) ($roleName ?: 'buyer')));
+                    $roleName = $roleName === 'seller' ? 'admin' : $roleName;
 
-                        if (! $role && config('excel.import.create_missing_roles', true)) {
-                            $role = Role::create([
-                                'name' => $roleName,
-                                'guard_name' => 'web',
-                                'is_active' => true,
-                                'created_by' => auth()->id(),
-                                'updated_by' => auth()->id(),
-                            ]);
-                        }
+                    if (! in_array($roleName, ['admin', 'buyer'], true)) {
+                        throw new \InvalidArgumentException("Role {$roleName} tidak didukung; gunakan admin atau buyer.");
+                    }
 
-                        if ($role) {
-                            DB::table('user_roles')->updateOrInsert(
-                                ['user_id' => $userId, 'role_id' => $role->id],
-                                ['created_at' => now(), 'updated_at' => now()]
-                            );
-                        }
+                    $role = Role::whereRaw('LOWER(TRIM(name)) = ?', [$roleName])->first();
+
+                    if (! $role && config('excel.import.create_missing_roles', true)) {
+                        $role = Role::create([
+                            'name' => $roleName,
+                            'guard_name' => 'web',
+                            'is_active' => true,
+                            'created_by' => auth()->id(),
+                            'updated_by' => auth()->id(),
+                        ]);
+                    }
+
+                    if ($role) {
+                        DB::table('user_roles')->updateOrInsert(
+                            ['user_id' => $userId, 'role_id' => $role->id],
+                            ['created_at' => now(), 'updated_at' => now()]
+                        );
                     }
 
                     $this->importedCount++;

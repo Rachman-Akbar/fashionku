@@ -3,19 +3,25 @@ import { advancedError, useProductCosting, useRawMaterials, useSaveProductCostin
 import { Button } from "@/shared/components/ui/Button";
 import { FormField, inputClassName } from "@/shared/components/form/FormField";
 import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
+import { QuantityInput } from "@/shared/components/form/QuantityInput";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { useFormDirty } from "@/shared/hooks/useFormDirty";
+import { computeCostingTotals } from "@/features/seller/product/utils/costingMath";
 import { toTitleCase } from "@/shared/utils/textFormatter";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
 
-const DEFAULT_COSTING = { materials: [], labor_cost: 0, overhead_cost: 0, other_cost: 0, margin_percent: 30, selling_price: 0, apply_to_variants: false };
+const DEFAULT_COSTING = { materials: [], labor_cost: 0, overhead_cost: 0, other_cost: 0, yield_quantity: 1, margin_percent: 30, apply_to_variants: false };
 
-const COSTING_NUMERIC_KEYS = ["quantity", "labor_cost", "overhead_cost", "other_cost", "margin_percent", "selling_price"];
+const COSTING_NUMERIC_KEYS = ["quantity", "labor_cost", "overhead_cost", "other_cost", "yield_quantity", "margin_percent"];
 
 const compactInput = `${inputClassName} h-10`;
 
 function money(value) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value || 0));
+}
+
+function percent(value, digits = 2) {
+  return new Intl.NumberFormat("id-ID", { maximumFractionDigits: digits }).format(Number(value || 0));
 }
 
 function qty(value) {
@@ -46,7 +52,7 @@ function Readout({ label, value, tone = "" }) {
   );
 }
 
-export const ProductCostingFields = forwardRef(function ProductCostingFields({ productId, value, onChange, onDirtyChange, onCreateRawMaterial, draftCosting = null, onStateChange, variants = [], mode = "simple", simplePrice = 0, simpleSku = "", onApplyPrice }, ref) {
+export const ProductCostingFields = forwardRef(function ProductCostingFields({ productId, value, onChange, onDirtyChange, onCreateRawMaterial, draftCosting = null, onStateChange, variants = [], mode = "simple", simplePrice = 0, simpleSku = "", unitLabel = "", onApplyPrice }, ref) {
   const createMode = !productId && typeof onChange === "function";
   const materialsQuery = useRawMaterials({ per_page: 100 });
   const costingQuery = useProductCosting(productId, Boolean(productId));
@@ -63,8 +69,8 @@ export const ProductCostingFields = forwardRef(function ProductCostingFields({ p
       labor_cost: data.costing?.labor_cost || 0,
       overhead_cost: data.costing?.overhead_cost || 0,
       other_cost: data.costing?.other_cost || 0,
+      yield_quantity: Number(data.costing?.yield_quantity) > 0 ? Number(data.costing.yield_quantity) : 1,
       margin_percent: data.costing?.margin_percent || 30,
-      selling_price: data.costing?.selling_price || 0,
       apply_to_variants: false,
     };
     // Draft dari tab editor (kalau ada) dipulihkan di atas data server supaya
@@ -97,13 +103,20 @@ export const ProductCostingFields = forwardRef(function ProductCostingFields({ p
     const material = materialOptions.find((item) => Number(item.id) === Number(row.raw_material_id));
     return sum + Number(row.quantity || 0) * Number(material?.average_cost || 0);
   }, 0), [activeForm.materials, materialOptions]);
-  const hpp = materialCost + Number(activeForm.labor_cost || 0) + Number(activeForm.overhead_cost || 0) + Number(activeForm.other_cost || 0);
-  const suggested = hpp * (1 + Number(activeForm.margin_percent || 0) / 100);
+  const totals = useMemo(
+    () => computeCostingTotals({
+      materialCost,
+      laborCost: activeForm.labor_cost,
+      overheadCost: activeForm.overhead_cost,
+      otherCost: activeForm.other_cost,
+      marginPercent: activeForm.margin_percent,
+      yieldQuantity: activeForm.yield_quantity,
+    }),
+    [materialCost, activeForm.labor_cost, activeForm.margin_percent, activeForm.other_cost, activeForm.overhead_cost, activeForm.yield_quantity],
+  );
+  const { hpp, marginPercent, suggestedWhole, profitPerUnit, batchCost, yieldQuantity } = totals;
   const applyToAll = Boolean(activeForm.apply_to_variants);
-  const sellingValue = Number(activeForm.selling_price || 0);
-  // Harga di tab HPP hanyalah saran. Harga jual baru berubah saat opsi
-  // "jadikan harga saran sebagai harga jual" dicentang.
-  const effectiveSellingPrice = sellingValue > 0 ? sellingValue : Math.round(suggested);
+  const effectiveSellingPrice = suggestedWhole;
 
   useEffect(() => {
     if (createMode) return;
@@ -154,20 +167,14 @@ export const ProductCostingFields = forwardRef(function ProductCostingFields({ p
   );
 
   function toggleApplyPrice(checked) {
-    const suggestedWhole = Math.round(suggested);
-    const currentSelling = Number(activeForm.selling_price || 0);
-    const nextSelling = currentSelling > 0 ? currentSelling : suggestedWhole;
+    const nextSelling = suggestedWhole;
 
     if (checked && nextSelling <= 0) {
-      toastError("Harga jual belum ada", "Isi biaya resep/margin HPP atau harga jual saran terlebih dahulu.");
+      toastError("Harga jual belum ada", "Isi biaya resep/margin HPP terlebih dahulu.");
       return;
     }
 
-    updateForm((current) => ({
-      ...current,
-      apply_to_variants: checked,
-      selling_price: checked ? (Number(current.selling_price || 0) || suggestedWhole) : current.selling_price,
-    }));
+    updateForm((current) => ({ ...current, apply_to_variants: checked }));
 
     if (checked) onApplyPrice?.(nextSelling);
   }
@@ -175,7 +182,7 @@ export const ProductCostingFields = forwardRef(function ProductCostingFields({ p
   function hasContent(current) {
     const hasMaterials = (current.materials || []).some((row) => String(row.raw_material_id || "").trim() !== "");
     const hasVariableCost = [current.labor_cost, current.overhead_cost, current.other_cost].some((value) => Number(value || 0) > 0);
-    return hasMaterials || hasVariableCost || String(current.selling_price || "").trim() !== "";
+    return hasMaterials || hasVariableCost;
   }
 
   useImperativeHandle(ref, () => ({
@@ -193,7 +200,7 @@ export const ProductCostingFields = forwardRef(function ProductCostingFields({ p
         return false;
       }
       try {
-        await save.mutateAsync({ productId, values: { ...activeForm, materials: rows, selling_price: Number(activeForm.selling_price || suggested) } });
+        await save.mutateAsync({ productId, values: { ...activeForm, materials: rows, yield_quantity: yieldQuantity, selling_price: suggestedWhole } });
         toastSuccess("HPP dan harga jual tersimpan", "HPP dan harga jual berhasil disimpan menggunakan biaya bahan baku terbaru dari database.");
         costingQuery.refetch();
         return true;
@@ -202,7 +209,7 @@ export const ProductCostingFields = forwardRef(function ProductCostingFields({ p
         return false;
       }
     },
-  }), [activeForm, costingQuery, createMode, hasLoadedCosting, productId, save, suggested]);
+  }), [activeForm, costingQuery, createMode, hasLoadedCosting, productId, save, suggestedWhole, yieldQuantity]);
 
   if (!productId && !createMode) return <div className="rounded-[8px] border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Simpan produk terlebih dahulu. Setelah produk memiliki ID, tab HPP dapat digunakan.</div>;
 
@@ -280,7 +287,7 @@ export const ProductCostingFields = forwardRef(function ProductCostingFields({ p
         <SectionHeader
           icon="layers"
           title="Resep Bahan Baku"
-          description="Biaya satuan dikunci dari average cost bahan baku aktual. Satu bahan hanya bisa dipilih sekali; memilih bahan yang sama akan menambah quantity-nya."
+          description="Jumlah bahan di bawah adalah untuk SATU kali produksi. Biaya satuan dikunci dari average cost bahan baku aktual; satu bahan hanya bisa dipilih sekali, memilih bahan yang sama akan menambah quantity-nya."
           action={(
             <>
               <Button type="button" size="sm" variant="outline" onClick={() => onCreateRawMaterial?.()}>Bahan Baru</Button>
@@ -291,10 +298,11 @@ export const ProductCostingFields = forwardRef(function ProductCostingFields({ p
 
 
         <div className="mt-2.5">
-          <div className="hidden gap-1.5 px-2.5 pb-1 text-[11px] font-extrabold uppercase tracking-wide text-slate-400 sm:grid sm:grid-cols-[minmax(0,1fr)_110px_130px_130px_56px]">
+          <div className="hidden gap-1.5 px-2.5 pb-1 text-[11px] font-extrabold uppercase tracking-wide text-slate-400 sm:grid sm:grid-cols-[minmax(0,1fr)_128px_116px_116px_116px_48px]">
             <span>Bahan Baku</span>
             <span className="text-right">Jumlah</span>
-            <span>Biaya Satuan</span>
+            <span className="text-right">Biaya Satuan</span>
+            <span className="text-right">Total</span>
             <span>Stok</span>
             <span className="sr-only">Aksi</span>
           </div>
@@ -302,8 +310,9 @@ export const ProductCostingFields = forwardRef(function ProductCostingFields({ p
           <div className="space-y-1.5">
             {activeForm.materials.map((row, index) => {
               const material = materialOptions.find((item) => Number(item.id) === Number(row.raw_material_id));
+              const rowTotal = Number(row.quantity || 0) * Number(material?.average_cost || 0);
               return (
-                <div key={`${row.raw_material_id}-${index}`} className="grid gap-1.5 rounded-[8px] border border-slate-100 bg-slate-50/60 p-2 sm:grid-cols-[minmax(0,1fr)_110px_130px_130px_56px] sm:items-center">
+                <div key={`${row.raw_material_id}-${index}`} className="grid gap-1.5 rounded-[8px] border border-slate-100 bg-slate-50/60 p-2 sm:grid-cols-[minmax(0,1fr)_128px_116px_116px_116px_48px] sm:items-center">
                   <SearchableSelect
                     value={row.raw_material_id}
                     onChange={(nextValue) => selectMaterial(index, nextValue)}
@@ -314,8 +323,11 @@ export const ProductCostingFields = forwardRef(function ProductCostingFields({ p
                     buttonClassName="h-10"
                     clearable
                   />
-                  <FormattedNumberInput decimal step="0.0001" min="0.0001" value={row.quantity} onChange={(value) => updateMaterial(index, "quantity", value)} className={compactInput} aria-label="Jumlah pemakaian" />
-                  <div className="flex h-10 items-center rounded-[8px] border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700">{money(material?.average_cost || 0)}</div>
+                  <QuantityInput decimal step="0.0001" min="0.0001" value={row.quantity} onChange={(value) => updateMaterial(index, "quantity", value)} className={compactInput} ariaLabel="Jumlah pemakaian" />
+                  <div className="flex h-10 items-center justify-end rounded-[8px] border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700">{money(material?.average_cost || 0)}</div>
+                  <div className={`flex h-10 items-center justify-end rounded-[8px] border px-3 text-xs font-extrabold ${rowTotal > 0 ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-white text-slate-400"}`} title="Jumlah x biaya satuan">
+                    {money(rowTotal)}
+                  </div>
                   <div className="flex h-10 items-center rounded-[8px] border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-500">Stok {qty(material?.stock || 0)} {material?.unit || ""}</div>
                   <button
                     type="button"
@@ -333,6 +345,18 @@ export const ProductCostingFields = forwardRef(function ProductCostingFields({ p
               <p className="border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500">Belum ada bahan baku pada resep. Klik “Tambah Bahan” untuk memilih bahan, atau “Bahan Baru” untuk membuat bahan baku baru.</p>
             ) : null}
           </div>
+
+          {activeForm.materials.length ? (
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-[8px] border border-emerald-200 bg-emerald-50 px-3 py-2">
+              <span className="text-[11px] font-extrabold uppercase tracking-wide text-emerald-700">
+                Total biaya bahan untuk 1x produksi · {activeForm.materials.length} bahan
+              </span>
+              <span className="flex items-center gap-3">
+                <span className="text-[11px] font-bold text-emerald-700">Hasil jadi {percent(yieldQuantity)} {unitLabel}</span>
+                <span className="text-sm font-extrabold text-emerald-800">{money(materialCost)}</span>
+              </span>
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -355,13 +379,30 @@ export const ProductCostingFields = forwardRef(function ProductCostingFields({ p
         </div>
 
         <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-          <Readout label="Biaya Bahan" value={money(materialCost)} />
-          <Readout label="Modal / HPP" value={money(hpp)} />
-          <FormField label="Harga jual (saran)">
-            <FormattedNumberInput min="0" value={activeForm.selling_price} onChange={(value) => updateForm((current) => ({ ...current, selling_price: value }))} className={compactInput} placeholder={String(Math.round(suggested))} />
+          <FormField label="Hasil jadi per produksi" hint="Berapa unit yang dihasilkan dari satu kali produksi dengan resep ini.">
+            <div className="flex items-center gap-1.5">
+              <QuantityInput decimal step="0.0001" min="0.0001" value={activeForm.yield_quantity} onChange={(value) => updateForm((current) => ({ ...current, yield_quantity: value }))} className={compactInput} wrapperClassName="min-w-0 flex-1" ariaLabel="Hasil jadi" placeholder="1" />
+              {unitLabel ? <span className="shrink-0 text-xs font-extrabold text-slate-500">{unitLabel}</span> : null}
+            </div>
           </FormField>
-          <Readout label="Saran HPP + margin" value={money(suggested)} tone="text-emerald-700" />
+          <Readout label="Biaya Bahan" value={money(materialCost)} />
+          <Readout label={`Total biaya 1x produksi`} value={money(batchCost)} />
+          <Readout label={`HPP per unit (÷ ${percent(yieldQuantity)} hasil jadi)`} value={money(hpp)} tone="text-slate-900" />
         </div>
+
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-[8px] border border-teal-200 bg-teal-50 px-3 py-2">
+          <span className="text-[11px] font-extrabold uppercase tracking-wide text-teal-700">
+            Harga jual (saran) · margin {percent(marginPercent)}%
+          </span>
+          <span className="flex items-center gap-3">
+            <span className="text-xs font-bold text-teal-700">Laba per unit {money(profitPerUnit)}</span>
+            <span className="text-sm font-extrabold text-teal-800">{money(suggestedWhole)}</span>
+          </span>
+        </div>
+
+        <p className="mt-1.5 text-[11px] font-semibold text-slate-500">
+          Satu kali produksi mengeluarkan {money(batchCost)} dan menghasilkan {percent(yieldQuantity)} unit, jadi HPP per unit = {money(batchCost)} ÷ {percent(yieldQuantity)} = {money(hpp)}. Harga jual (saran) = HPP × (1 + margin {percent(marginPercent)}%) = {money(hpp)} × {percent(1 + marginPercent / 100, 2)} = {money(suggestedWhole)}.
+        </p>
 
         <label className="mt-2.5 flex items-start gap-2 rounded-[8px] border border-slate-200 bg-slate-50 p-2.5">
           <input type="checkbox" checked={applyToAll} onChange={(event) => toggleApplyPrice(event.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />

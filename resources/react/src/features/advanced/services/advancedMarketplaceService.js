@@ -95,8 +95,8 @@ function useMutationHelper(mutationFn, key) {
 
 export function useManageableProducts(params = {}) {
   const { activeRole } = useAuth();
-  const path = activeRole === "admin" ? "/api/v1/catalog/admin/products" : "/api/v1/catalog/seller/products";
-  return useQuery({ queryKey: [...advancedKeys.products, activeRole, params], queryFn: () => getList(path, params), enabled: ["admin", "seller"].includes(activeRole) });
+  const path = "/api/v1/catalog/admin/products";
+  return useQuery({ queryKey: [...advancedKeys.products, activeRole, params], queryFn: () => getList(path, params), enabled: activeRole === "admin" });
 }
 
 export function useReviews(params = {}) {
@@ -182,7 +182,17 @@ export function useRawMaterials(params = {}) {
 }
 
 export function useSaveRawMaterial() {
-  return useMutationHelper(({ id, values }) => id ? put(`/api/v1/seller/inventory/materials/${id}`, values) : post("/api/v1/seller/inventory/materials", values), advancedKeys.materials);
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, values }) => id ? put(`/api/v1/seller/inventory/materials/${id}`, values) : post("/api/v1/seller/inventory/materials", values),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: advancedKeys.materials }),
+        queryClient.invalidateQueries({ queryKey: advancedKeys.costImpacts }),
+        queryClient.invalidateQueries({ queryKey: advancedKeys.productCosting }),
+      ]);
+    },
+  });
 }
 
 export function useDeleteRawMaterial() {
@@ -209,7 +219,11 @@ export function useRawMaterialMovements(params = {}) {
 }
 
 export function useRawMaterialCostImpacts(params = {}) {
-  return useQuery({ queryKey: [...advancedKeys.costImpacts, params], queryFn: () => getList("/api/v1/seller/inventory/cost-impacts", params) });
+  return useInfiniteList({
+    queryKey: advancedKeys.costImpacts,
+    queryFn: (queryParams) => getList("/api/v1/seller/inventory/cost-impacts", queryParams),
+    params,
+  });
 }
 
 export function useProductCosting(productId, enabled = true) {
@@ -228,6 +242,7 @@ export function useSaveProductCosting() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: [...advancedKeys.productCosting, scope, variables.productId] }),
         queryClient.invalidateQueries({ queryKey: advancedKeys.products }),
+        queryClient.invalidateQueries({ queryKey: advancedKeys.costImpacts }),
       ]);
     },
   });

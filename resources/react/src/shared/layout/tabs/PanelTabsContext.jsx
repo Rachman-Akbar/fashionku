@@ -370,6 +370,22 @@ export function PanelTabsProvider({ children, items = [] }) {
     }
   }, [activeChildByParent, activeParent, childrenByParent, confirmDirtyTabs]);
 
+  const updateTab = useCallback((tabId, updates = {}) => {
+    if (!tabId) return;
+    setChildrenByParent((current) => {
+      let found = false;
+      const next = {};
+      Object.entries(current).forEach(([parentId, childTabs]) => {
+        next[parentId] = childTabs.map((tab) => {
+          if (tab.id !== tabId) return tab;
+          found = true;
+          return { ...tab, ...updates, id: tab.id, parentId: tab.parentId };
+        });
+      });
+      return found ? next : current;
+    });
+  }, []);
+
   const closeActiveTab = useCallback(() => {
     if (activeTab?.closable) closeTab(activeTab.id);
     else if (activeParent) activateTab(`${activeParent.id}:list`);
@@ -442,6 +458,7 @@ export function PanelTabsProvider({ children, items = [] }) {
 
     return withDrafts;
   }, [childrenByParent, dirtyTabIds]);
+  const allTabs = useMemo(() => Object.values(childrenByParent).flat(), [childrenByParent]);
 
   const value = useMemo(() => ({
     items,
@@ -452,12 +469,14 @@ export function PanelTabsProvider({ children, items = [] }) {
     activateParent,
     closeParent,
     tabs,
+    allTabs,
     activeTab,
     activeTabId,
     activateTab,
     openCreateTab,
     openEditTab,
     openOperationTab,
+    updateTab,
     closeTab,
     closeActiveTab,
     closeAllChildren,
@@ -470,7 +489,7 @@ export function PanelTabsProvider({ children, items = [] }) {
     markTabClean,
     dirtyTabIds: dirtyTabIdsWithDrafts,
     navigate,
-  }), [activateParent, activateTab, activeParent, activeParentId, activeTab, activeTabId, closeActiveTab, closeAllChildren, closeAllParents, closeParent, closeTab, dirtyTabIdsWithDrafts, items, listRevisionByParent, markListDirty, markTabClean, navigate, openCreateTab, openEditTab, openList, openOperationTab, openParent, parentTabs, setTabDirty, setTabDraft, tabs]);
+  }), [activateParent, activateTab, activeParent, activeParentId, activeTab, activeTabId, allTabs, closeActiveTab, closeAllChildren, closeAllParents, closeParent, closeTab, dirtyTabIdsWithDrafts, items, listRevisionByParent, markListDirty, markTabClean, navigate, openCreateTab, openEditTab, openList, openOperationTab, openParent, parentTabs, setTabDirty, setTabDraft, tabs, updateTab]);
 
   return <PanelTabsContext.Provider value={value}>{children}</PanelTabsContext.Provider>;
 }

@@ -1,90 +1,89 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef } from "react";
+import Swal from "sweetalert2";
+import "sweetalert2/dist/sweetalert2.min.css";
 import { isDeleteConfirmSkipped, setDeleteConfirmSkipped } from "@/shared/utils/skipConfirm";
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[char]));
+}
+
+/**
+ * Dialog konfirmasi (mis. hapus) berbasis SweetAlert2. Menutup seketika saat
+ * tombol konfirmasi ditekan (tidak menunggu proses async) agar tidak kalah
+ * cepat dengan panel notifikasi. Opsi "jangan tanyakan lagi hari ini" tetap
+ * didukung. `children`/`pending` tetap diterima demi kompatibilitas pemanggil
+ * lama, tetapi diabaikan.
+ */
 export const ConfirmDialog = memo(function ConfirmDialog({
   open,
   title = "Konfirmasi",
   message,
   confirmLabel = "Hapus",
-  pending = false,
+  confirmTone = "danger",
+  snoozeable = true,
   onConfirm,
   onClose,
-  snoozeable = true,
-  children,
-  confirmTone = "danger",
 }) {
-  const [dontAskToday, setDontAskToday] = useState(false);
-  const autoFired = useRef(false);
+  const activeRef = useRef(false);
+  const confirmRef = useRef(onConfirm);
+  const closeRef = useRef(onClose);
+  confirmRef.current = onConfirm;
+  closeRef.current = onClose;
 
   useEffect(() => {
     if (!open) {
-      autoFired.current = false;
-      return undefined;
-    }
-
-    if (snoozeable && isDeleteConfirmSkipped()) {
-      if (!autoFired.current) {
-        autoFired.current = true;
-        onConfirm?.();
+      if (activeRef.current) {
+        activeRef.current = false;
+        Swal.close();
       }
       return undefined;
     }
 
-    const handler = (event) => {
-      if (event.key === "Escape" && !pending) onClose?.();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose, onConfirm, open, pending, snoozeable]);
+    if (activeRef.current) return undefined;
 
-  if (!open) return null;
-  if (snoozeable && isDeleteConfirmSkipped()) return null;
+    if (snoozeable && isDeleteConfirmSkipped()) {
+      confirmRef.current?.();
+      closeRef.current?.();
+      return undefined;
+    }
 
-  const handleConfirm = () => {
-    if (snoozeable && dontAskToday) setDeleteConfirmSkipped(true);
-    onConfirm?.();
-  };
+    activeRef.current = true;
+    const confirmColor = confirmTone === "neutral" ? "#0f172a" : "#dc2626";
+    const safeMessage = escapeHtml(message || "");
+    const html = snoozeable
+      ? `${safeMessage}<label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12px;font-weight:600;color:#64748b;cursor:pointer"><input id="ziip-snooze-confirm" type="checkbox" style="width:16px;height:16px;accent-color:#dc2626">Jangan tanyakan lagi hari ini</label>`
+      : safeMessage;
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-[10px] bg-white p-6 shadow-2xl">
-        <h2 className="text-lg font-extrabold text-slate-950">{title}</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">{message}</p>
-        {children ? <div className="mt-3">{children}</div> : null}
-        {snoozeable ? (
-          <label className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-[10px] bg-slate-50 px-3 py-2.5">
-            <input
-              type="checkbox"
-              checked={dontAskToday}
-              onChange={(event) => setDontAskToday(event.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-red-600"
-            />
-            <span className="text-xs leading-5 text-slate-600">
-              Jangan tanyakan lagi hari ini
-            </span>
-          </label>
-        ) : null}
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            disabled={pending}
-            onClick={onClose}
-            className="h-10 rounded-[10px] border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:border-slate-300 disabled:opacity-60"
-          >
-            Batal
-          </button>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={handleConfirm}
-            className={confirmTone === "neutral"
-              ? "h-10 rounded-[10px] bg-slate-900 px-4 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60"
-              : "h-10 rounded-[10px] bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-60"}
-          >
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+    Swal.fire({
+      title,
+      html,
+      icon: confirmTone === "neutral" ? "question" : "warning",
+      showCancelButton: true,
+      confirmButtonText: confirmLabel,
+      cancelButtonText: "Batal",
+      confirmButtonColor: confirmColor,
+      cancelButtonColor: "#64748b",
+      reverseButtons: true,
+      allowOutsideClick: false,
+      preConfirm: () => ({ snooze: Boolean(document.getElementById("ziip-snooze-confirm")?.checked) }),
+    }).then((result) => {
+      activeRef.current = false;
+      if (result.isConfirmed) {
+        if (snoozeable && result.value?.snooze) setDeleteConfirmSkipped(true);
+        confirmRef.current?.();
+      } else {
+        closeRef.current?.();
+      }
+    });
+
+    return undefined;
+  }, [open, title, message, confirmLabel, confirmTone, snoozeable]);
+
+  return null;
 });

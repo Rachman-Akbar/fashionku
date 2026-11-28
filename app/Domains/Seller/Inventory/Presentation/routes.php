@@ -5,7 +5,7 @@ declare(strict_types=1);
 use App\Domains\Seller\Inventory\Presentation\Http\Controllers\RawMaterialController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:seller,admin', 'permission:stock.manage'])
+Route::middleware(['auth:sanctum', 'active.user', 'verified.email', 'role:admin', 'permission:stock.manage'])
     ->prefix('inventory')
     ->group(function (): void {
         Route::get('materials', [RawMaterialController::class, 'index']);

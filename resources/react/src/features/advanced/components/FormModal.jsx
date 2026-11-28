@@ -16,9 +16,9 @@ export function FormModal({ open, title, subtitle, children, onClose, onSubmit, 
   );
 }
 
-export function Field({ label, children, hint, required = false, error = "" }) {
+export function Field({ label, children, hint, required = false, error = "", className = "" }) {
   return (
-    <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+    <label className={`grid min-w-0 gap-1.5 text-sm font-bold text-slate-700 ${className}`}>
       <span>{label}{required ? <span className="ml-1 text-red-500">*</span> : null}</span>
       {children}
       {error ? <span className="text-xs font-semibold text-red-600">{error}</span> : hint ? <span className="text-xs font-normal text-slate-500">{hint}</span> : null}

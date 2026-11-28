@@ -1,4 +1,5 @@
 import { useDeferredValue, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useCustomers, useUpdateCustomer } from "@/features/advanced/services/advancedMarketplaceService";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
 import { useAuth } from "@/features/auth/context/AuthContext";
@@ -27,6 +28,7 @@ function formatDate(value) {
 
 export default function CustomersPage() {
   const [viewMode, setViewMode] = useViewMode("customers");
+  const navigate = useNavigate();
   const { activeRole } = useAuth();
   const admin = activeRole === "admin";
   const [query, setQuery] = useState("");
@@ -126,7 +128,7 @@ export default function CustomersPage() {
         onQueryChange={setQuery}
         onRefresh={() => listQuery.refetch()}
         bulkActions={[]}
-        onCreate={admin ? undefined : editor.create}
+        onCreate={admin ? () => navigate("/admin/users", { state: { createBuyer: true } }) : editor.create}
         createLabel="Tambah Pelanggan"
         totalCount={total.totalCount}
         totalLabel={total.totalLabel}

@@ -25,6 +25,7 @@ import {
   useSellerProductAttributes,
   useSellerProductCategories,
   useSellerProductStockMovements,
+  useSellerProductUnits,
   useUpdateSellerProduct,
 } from "@/features/seller/product/services/sellerProductService";
 import { advancedError, useSaveProductCosting } from "@/features/advanced/services/advancedMarketplaceService";
@@ -36,6 +37,7 @@ function createInitialValues(product) {
     return {
       name: "",
       brand: "",
+      unit: "",
       description: "",
       categoryId: "",
       isActive: true,
@@ -49,13 +51,14 @@ function createInitialValues(product) {
       thumbnail: "",
       images: [],
       variants: [{ clientId: createClientId("variant"), id: null, name: "", sku: "", price: "", stock: 0, poStock: 0, maxOrderQty: 999999, minStock: 0, values: [] }],
-      costing: { materials: [], labor_cost: 0, overhead_cost: 0, other_cost: 0, margin_percent: 30, selling_price: 0, apply_to_variants: false },
+      costing: { materials: [], labor_cost: 0, overhead_cost: 0, other_cost: 0, margin_percent: 30, apply_to_variants: false },
     };
   }
 
   return {
     name: product.name,
     brand: product.brand,
+    unit: product.unit || "",
     description: product.description,
     categoryId: product.categoryId || "",
     isActive: product.isActive,
@@ -83,7 +86,11 @@ function createInitialValues(product) {
   };
 }
 
-const NUMERIC_FIELD_KEYS = ["price", "stock", "poStock", "maxOrderQty", "minStock", "quantity", "labor_cost", "overhead_cost", "other_cost", "margin_percent", "selling_price"];
+// Satuan yang umum dipakai; admin tetap bisa mengetik satuan lain dan satuan
+// itu ikut tersimpan sebagai saran untuk produk berikutnya.
+const DEFAULT_PRODUCT_UNITS = ["pcs", "unit", "buah", "set", "lusin", "pack", "box", "dus", "kg", "gram", "liter", "ml", "meter", "cm"];
+
+const NUMERIC_FIELD_KEYS = ["price", "stock", "poStock", "maxOrderQty", "minStock", "quantity", "labor_cost", "overhead_cost", "other_cost", "margin_percent"];
 
 function getCategoryDepth(category) {
   if (Number.isFinite(Number(category?.depth))) return Number(category.depth);
@@ -141,6 +148,7 @@ export function SellerProductEditor({
   const [errors, setErrors] = useState({});
   const [pristine, setPristine] = useState(() => createInitialValues(product));
   const [costingDirty, setCostingDirty] = useState(false);
+  const [extraUnits, setExtraUnits] = useState([]);
   const dirty = useFormDirty(pristine, values, { volatileKeys: ["clientId"], numericKeys: NUMERIC_FIELD_KEYS });
   const formDirty = dirty || costingDirty;
   useTabDirtyGuard(formDirty);
@@ -159,6 +167,7 @@ export function SellerProductEditor({
   const quickCreateAttributeMutation = useQuickCreateProductAttribute();
   const categoriesQuery = useSellerProductCategories({ enabled: categories === null });
   const attributesQuery = useSellerProductAttributes({ enabled: attributes === null });
+  const unitsQuery = useSellerProductUnits();
   const stockMovementsQuery = useSellerProductStockMovements(product?.id, { enabled: Boolean(open && product?.id) });
   const categoryOptions = categories || categoriesQuery.data || [];
   const attributeOptions = attributes || attributesQuery.data || [];
@@ -262,6 +271,36 @@ export function SellerProductEditor({
     () => categoryOptions.find((category) => category.id === Number(values.categoryId)) || null,
     [categoryOptions, values.categoryId],
   );
+
+  const unitOptions = useMemo(() => {
+    const seen = new Set();
+    const options = [];
+    const feed = (value) => {
+      const unit = String(value || "").trim();
+      const key = unit.toLowerCase();
+      if (unit && !seen.has(key)) {
+        seen.add(key);
+        options.push({ value: unit, label: unit });
+      }
+    };
+
+    DEFAULT_PRODUCT_UNITS.forEach(feed);
+    (unitsQuery.data || []).forEach(feed);
+    extraUnits.forEach(feed);
+    feed(values.unit);
+
+    return options;
+  }, [extraUnits, unitsQuery.data, values.unit]);
+
+  const createUnit = (name) => {
+    const unit = String(name || "").trim();
+    if (!unit) return null;
+
+    setExtraUnits((current) => (current.some((item) => item.toLowerCase() === unit.toLowerCase()) ? current : [...current, unit]));
+    setField("unit", unit);
+
+    return { value: unit, label: unit };
+  };
 
   const quickCreateAttribute = async (name) => {
     try {
@@ -416,8 +455,11 @@ export function SellerProductEditor({
               labor_cost: Number(values.costing.labor_cost || 0),
               overhead_cost: Number(values.costing.overhead_cost || 0),
               other_cost: Number(values.costing.other_cost || 0),
+              yield_quantity: Number(values.costing.yield_quantity || 1),
               margin_percent: Number(values.costing.margin_percent || 0),
-              selling_price: String(values.costing.selling_price || "").trim() !== "" ? Number(values.costing.selling_price) : null,
+              // Harga jual saran tidak dikirim: server selalu menghitung
+              // HPP x (1 + margin) agar tidak ada harga basi yang tersimpan.
+              selling_price: null,
               apply_to_variants: Boolean(values.costing.apply_to_variants),
             },
           });
@@ -446,7 +488,7 @@ export function SellerProductEditor({
   function hasCosting(costing) {
     const hasMaterials = (costing.materials || []).some((row) => String(row.raw_material_id || "").trim() !== "");
     const hasVariableCost = [costing.labor_cost, costing.overhead_cost, costing.other_cost].some((value) => Number(value || 0) > 0);
-    return hasMaterials || hasVariableCost || String(costing.selling_price || "").trim() !== "";
+    return hasMaterials || hasVariableCost || Boolean(costing.apply_to_variants);
   }
 
   if (!open) return null;
@@ -490,6 +532,20 @@ export function SellerProductEditor({
 
                   <FormField label="Brand">
                     <input value={values.brand} onChange={(event) => setField("brand", event.target.value)} className={inputClassName} />
+                  </FormField>
+
+                  <FormField label="Satuan" hint="Pilih satuan yang sudah ada, atau ketik satuan baru untuk menambah langsung ke daftar.">
+                    <SearchableSelect
+                      value={values.unit}
+                      onChange={(nextValue) => setField("unit", nextValue)}
+                      options={unitOptions}
+                      clearable
+                      onCreate={createUnit}
+                      createLabel={(name) => `Satuan “${name}” belum ada, tambahkan sekarang`}
+                      placeholder="Pilih / ketik satuan"
+                      searchPlaceholder="Cari atau ketik satuan baru"
+                      emptyText="Satuan belum ada, ketik untuk menambah"
+                    />
                   </FormField>
 
                   <FormField label="Kategori" error={errors.categoryId} hint="Hanya kategori level 3 yang bisa dipilih untuk produk." required>
@@ -587,7 +643,7 @@ export function SellerProductEditor({
 
               {values.mode === "variant" ? (
                 <div>
-                  <ProductVariantFields variants={values.variants} attributes={attributeOptions} onChange={(variants) => setField("variants", variants)} onCreateAttribute={quickCreateAttribute} creatingAttribute={quickCreateAttributeMutation.isPending} skuContext={{ name: values.name, brand: values.brand, category: selectedCategory?.pathNames?.join("-") || selectedCategory?.rawName || "" }} />
+                  <ProductVariantFields variants={values.variants} attributes={attributeOptions} onChange={(variants) => setField("variants", variants)} onCreateAttribute={quickCreateAttribute} creatingAttribute={quickCreateAttributeMutation.isPending} />
                   {errors.variants ? <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">{errors.variants}</p> : null}
                 </div>
               ) : (
@@ -651,6 +707,7 @@ export function SellerProductEditor({
                   mode={values.mode}
                   simplePrice={values.price}
                   simpleSku={values.sku}
+                  unitLabel={values.unit || ""}
                   onApplyPrice={applyCostingPrice}
                 />
               ) : (
@@ -663,6 +720,7 @@ export function SellerProductEditor({
                   mode={values.mode}
                   simplePrice={values.price}
                   simpleSku={values.sku}
+                  unitLabel={values.unit || ""}
                   onApplyPrice={applyCostingPrice}
                 />
               )}

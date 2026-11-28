@@ -16,7 +16,7 @@ import { buildDatabaseColumns } from "@/shared/utils/tableData";
 import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
-import { inputClassName } from "@/shared/components/form/FormField";
+import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { toolbarControlClassName } from "@/shared/components/crud/toolbarControlClassName";
 import { useColumnFilterAutoLoad, useEntityEditor, useRefreshOnListActivation } from "@/shared/hooks";
 import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
@@ -31,6 +31,10 @@ const initialForm = {
   priority: "normal",
   order_id: "",
 };
+
+const HELP_CATEGORIES = ["order", "payment", "product", "store", "account", "technical", "other"];
+const HELP_PRIORITIES = ["low", "normal", "high", "urgent"];
+const HELP_STATUSES = ["open", "in_progress", "resolved", "closed"];
 
 function optionLabel(order) {
   const status = order?.status ? ` · ${order.status}` : "";
@@ -226,14 +230,22 @@ export default function HelpPage() {
           <Field label="User ID"><Input value={contextUser?.id || user?.id || ""} disabled /></Field>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Kategori"><select value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} className={inputClassName}>{["order", "payment", "product", "store", "account", "technical", "other"].map((item) => <option key={item}>{item}</option>)}</select></Field>
-          <Field label="Prioritas"><select value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))} className={inputClassName}>{["low", "normal", "high", "urgent"].map((item) => <option key={item}>{item}</option>)}</select></Field>
+          <Field label="Kategori">
+            <SearchableSelect value={form.category} onChange={(nextValue) => setForm((current) => ({ ...current, category: nextValue }))} options={HELP_CATEGORIES.map((item) => ({ value: item, label: item }))} placeholder="Pilih kategori" searchPlaceholder="Cari kategori" clearable={false} />
+          </Field>
+          <Field label="Prioritas">
+            <SearchableSelect value={form.priority} onChange={(nextValue) => setForm((current) => ({ ...current, priority: nextValue }))} options={HELP_PRIORITIES.map((item) => ({ value: item, label: item }))} placeholder="Pilih prioritas" searchPlaceholder="Cari prioritas" clearable={false} />
+          </Field>
         </div>
         <Field label="Pesanan Terkait" hint="Opsional. Hanya pesanan yang dapat diakses akun aktif yang ditampilkan.">
-          <select value={form.order_id} onChange={(event) => changeOrder(event.target.value)} className={inputClassName}>
-            <option value="">Tidak terkait pesanan</option>
-            {orders.map((order) => <option key={order.id} value={order.id}>{optionLabel(order)}</option>)}
-          </select>
+          <SearchableSelect
+            value={form.order_id}
+            onChange={changeOrder}
+            options={orders.map((order) => ({ value: String(order.id), label: optionLabel(order) }))}
+            placeholder="Tidak terkait pesanan"
+            searchPlaceholder="Cari nomor pesanan"
+            emptyText="Pesanan tidak ditemukan"
+          />
         </Field>
         <Field label="Subjek" required><Input value={form.subject} onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))} required /></Field>
         <Field label="Keluhan" required><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="min-h-32 w-full border border-slate-300 p-3 text-sm" required /></Field>
@@ -254,7 +266,35 @@ export default function HelpPage() {
                   <label className="grid gap-1.5 text-sm font-bold text-slate-700"><span>Prioritas</span><Input value={ticket?.priority || "-"} disabled /></label>
                 </div>
                 <label className="grid gap-1.5 text-sm font-bold text-slate-700"><span>Keluhan</span><textarea value={ticket?.description || ""} readOnly rows={4} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none" /></label>
-                {admin ? <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-bold">Status</span><select value={ticket?.status || "open"} onChange={(event) => updateStatus(event.target.value)} className={inputClassName}>{["open", "in_progress", "resolved", "closed"].map((item) => <option key={item}>{item}</option>)}</select><span className="ml-2 text-sm font-bold">Ditugaskan</span><select value={ticket?.assigned_to || ""} onChange={(event) => assignTicket(event.target.value)} disabled={statusMutation.isPending || usersQuery.isLoading} className={inputClassName}><option value="">Belum ditugaskan</option>{assignees.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}{ticket?.assigned_to && !assignees.some((item) => item.id === ticket.assigned_to) ? <option value={ticket.assigned_to}>{ticket.assigned_name || "Admin lain"}</option> : null}</select><Button type="button" variant="outline" size="sm" onClick={() => assignTicket(user?.id || "")} disabled={statusMutation.isPending || !user?.id || ticket?.assigned_to === user?.id}>Tugaskan ke saya</Button></div> : null}
+                {admin ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-bold">Status</span>
+                    <SearchableSelect
+                      value={ticket?.status || "open"}
+                      onChange={updateStatus}
+                      options={HELP_STATUSES.map((item) => ({ value: item, label: item }))}
+                      placeholder="Pilih status"
+                      searchPlaceholder="Cari status"
+                      clearable={false}
+                      buttonClassName="h-10 min-w-[140px]"
+                    />
+                    <span className="ml-2 text-sm font-bold">Ditugaskan</span>
+                    <SearchableSelect
+                      value={ticket?.assigned_to || ""}
+                      onChange={assignTicket}
+                      options={[
+                        ...(ticket?.assigned_to && !assignees.some((item) => String(item.id) === String(ticket.assigned_to)) ? [{ value: String(ticket.assigned_to), label: ticket.assigned_name || "Admin lain" }] : []),
+                        ...assignees.map((item) => ({ value: String(item.id), label: item.name })),
+                      ]}
+                      disabled={statusMutation.isPending || usersQuery.isLoading}
+                      placeholder="Belum ditugaskan"
+                      searchPlaceholder="Cari admin"
+                      emptyText="Admin tidak ditemukan"
+                      buttonClassName="h-10 min-w-[180px]"
+                    />
+                    <Button type="button" variant="outline" size="sm" onClick={() => assignTicket(user?.id || "")} disabled={statusMutation.isPending || !user?.id || ticket?.assigned_to === user?.id}>Tugaskan ke saya</Button>
+                  </div>
+                ) : null}
                 <div className="space-y-3">{(ticket?.messages || []).map((item) => <div key={item.id} className="border border-slate-200 p-3"><div className="flex justify-between text-xs font-bold text-slate-500"><span>{item.user_name || "User"}</span><span>{item.created_at ? new Date(item.created_at).toLocaleString("id-ID") : ""}</span></div><p className="mt-2 whitespace-pre-wrap text-sm text-slate-800">{item.message}</p></div>)}</div>
                 <form onSubmit={sendReply} className="space-y-2"><textarea value={reply} onChange={(event) => setReply(event.target.value)} className="min-h-24 w-full border border-slate-300 p-3 text-sm" placeholder="Tulis balasan" required /><div className="flex justify-end"><Button type="submit" disabled={replyMutation.isPending}>Kirim Balasan</Button></div></form>
               </>

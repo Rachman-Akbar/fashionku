@@ -2,10 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ActionIconButton } from "@/shared/components/crud/ActionIconButton";
 import { useNotificationCenter } from "@/shared/notifications/NotificationCenterContext";
-// Import langsung ke modul tujuan (bukan lewat barrel ./index) supaya tidak
-// terjadi circular dependency: barrel mengekspor ExcelActionButtons, jadi
-// mengimpor barrel dari file ini membuat Rollup memecah chunk bermasalah.
-import { ExcelImportExportModal } from "./ExcelImportExportModal";
 import { useExcelWorkspace } from "./useExcelWorkspace";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { toastError, toastSuccess } from "@/shared/utils/userFeedback";
@@ -189,11 +185,6 @@ export function ExcelActionButtons({
         </div>,
         document.body,
       ) : null}
-      <ExcelImportExportModal
-        workspace={workspace}
-        module={module}
-        label={label}
-      />
       {deleteConfirm && (
         <ConfirmDialog
           open

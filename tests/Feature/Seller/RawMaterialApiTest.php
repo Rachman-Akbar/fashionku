@@ -28,7 +28,7 @@ class RawMaterialApiTest extends TestCase
 
     private function grantPermission(string $name): void
     {
-        $roleId = DB::table('roles')->where('name', 'seller')->value('id');
+        $roleId = DB::table('roles')->where('name', 'admin')->value('id');
         $now = now();
 
         $permissionId = DB::table('permissions')->insertGetId([

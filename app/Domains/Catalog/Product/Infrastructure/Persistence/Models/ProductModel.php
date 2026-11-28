@@ -29,6 +29,7 @@ final class ProductModel extends Model
         'slug',
         'description',
         'brand',
+        'unit',
         'thumbnail',
         'is_active',
         'created_by',

@@ -14,6 +14,7 @@ import { useListTotalCount } from "@/shared/hooks/useListTotalCount";
 import { Field, FormModal } from "@/features/advanced/components/FormModal";
 import { Input } from "@/shared/components/ui/Input";
 import { FormattedNumberInput } from "@/shared/components/form/FormattedNumberInput";
+import { QuantityInput } from "@/shared/components/form/QuantityInput";
 import { ConfirmDialog } from "@/shared/components/crud/ConfirmDialog";
 import { SearchableSelect } from "@/shared/components/form/SearchableSelect";
 import { InlineActiveSwitch } from "@/shared/components/form/InlineActiveSwitch";
@@ -301,20 +302,20 @@ export default function BahanBakuPage() {
       </ModuleFrame> : null}
 
       <FormModal presentation="page" open={Boolean(materialForm)} title={materialForm?.id ? "Edit Bahan Baku" : "Data Baru Bahan Baku"} onClose={() => { setMaterialForm(null); setMaterialInitial(null); }} onSubmit={submitMaterial} busy={saveMaterial.isPending} dirty={materialDirty} submitLabel="Simpan" onDelete={materialForm?.id ? () => { setMaterialDelete(materialForm); setMaterialForm(null); setMaterialInitial(null); } : undefined} extraActions={materialForm?.id ? [{ icon: "add_box", label: "Stock / Restock", tone: "teal", onClick: () => { const row = materialForm; setMaterialForm(null); setMaterialInitial(null); editor.close(); openStock(row); } }] : []}>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:auto-rows-fr md:grid-cols-2 md:items-stretch">
           <Field label="Kode" hint="Kosongkan agar dibuat otomatis oleh sistem (mis. RM-GULA), atau isi kode manual."><Input value={materialForm?.code || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, code: event.target.value }))} placeholder="Otomatis bila dikosongkan" /></Field>
           <Field label="Nama" required><Input value={materialForm?.name || ""} onChange={(event) => setMaterialForm((current) => ({ ...current, name: event.target.value }))} required /></Field>
           <Field label="Satuan" required hint="Pilih satuan yang sudah ada, atau ketik satuan baru untuk menambah langsung ke daftar."><SearchableSelect value={materialForm?.unit || ""} onChange={(nextValue) => setMaterialForm((current) => ({ ...current, unit: nextValue }))} options={unitOptions} clearable={false} onCreate={createUnit} createLabel={(name) => `Satuan “${name}” belum ada, tambahkan sekarang`} placeholder="Pilih / ketik satuan" searchPlaceholder="Cari atau ketik satuan baru" /></Field>
-          <Field label="Minimum Stok"><FormattedNumberInput min="0" value={materialForm?.minimum_stock || 0} onChange={(value) => setMaterialForm((current) => ({ ...current, minimum_stock: value }))} /></Field>
+          <Field label="Minimum Stok"><QuantityInput min="0" value={materialForm?.minimum_stock || 0} onChange={(value) => setMaterialForm((current) => ({ ...current, minimum_stock: value }))} ariaLabel="Minimum stok" /></Field>
           <Field label="Biaya Rata-rata" hint={materialForm?.id ? "Biaya rata-rata berubah melalui Stock / Restock Bahan Baku." : "Biaya awal bahan sebelum transaksi restock pertama."}><FormattedNumberInput decimal min="0" value={materialForm?.average_cost || 0} disabled={Boolean(materialForm?.id)} onChange={(value) => setMaterialForm((current) => ({ ...current, average_cost: value }))} className={materialForm?.id ? "cursor-not-allowed bg-slate-100 text-slate-500" : ""} /></Field>
-          <Field label="Gambar" hint="Unggah gambar bahan baku (maks. 5 MB)." md:col-span-2>
+          <Field label="Gambar" hint="Unggah gambar bahan baku (maks. 5 MB).">
             <ImageFilePicker value={materialForm?.image || ""} onChange={(url) => setMaterialForm((current) => ({ ...current, image: url }))} scope="materials" />
           </Field>
         </div>
       </FormModal>
 
       <FormModal presentation="modal" open={Boolean(materialAdjust)} title="Stock / Restock Bahan Baku" onClose={() => setMaterialAdjust(null)} onSubmit={submitMaterialStock} busy={adjustMaterial.isPending} dirty={stockDirty} submitLabel="Simpan">
-        <Field label="Perubahan Stok" required hint="Positif untuk restock, negatif untuk pemakaian."><FormattedNumberInput decimal step="0.0001" value={delta} onChange={(value) => setDelta(value)} required /></Field>
+        <Field label="Perubahan Stok" required hint="Positif untuk restock, negatif untuk pemakaian."><QuantityInput decimal step="0.0001" value={delta} onChange={(value) => setDelta(value)} ariaLabel="Perubahan stok" /></Field>
         <Field label="Biaya per Satuan" hint="Saat restock, nilai ini dipakai untuk average cost tertimbang."><FormattedNumberInput decimal step="0.0001" min="0" value={unitCost} onChange={(value) => setUnitCost(value)} /></Field>
         <Field label="No. Referensi Stok" hint="Boleh diisi manual, atau kosongkan agar sistem membuat nomor otomatis."><Input value={stockReference} onChange={(event) => setStockReference(event.target.value)} placeholder="Kosongkan untuk nomor otomatis" /></Field>
       </FormModal>

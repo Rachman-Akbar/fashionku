@@ -34,14 +34,9 @@ final class EnsureUserHasRole
         $activeRole = is_string($activeRoleAbility)
             ? substr($activeRoleAbility, strlen('active-role:'))
             : null;
-        $isAdmin = $user->hasRole('admin');
-        $authorized = $allowedRoles->contains(function (string $role) use ($user, $activeRole, $isAdmin): bool {
-            if ($activeRole !== $role) {
-                return false;
-            }
-
-            return $user->hasRole($role) || ($role === 'seller' && $isAdmin);
-        });
+        $authorized = $allowedRoles->contains(
+            fn (string $role): bool => $activeRole === $role && $user->hasRole($role)
+        );
 
         if (! $authorized) {
             return response()->json(['message' => 'Insufficient active role access.'], 403);

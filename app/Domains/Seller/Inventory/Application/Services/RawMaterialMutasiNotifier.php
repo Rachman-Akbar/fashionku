@@ -70,7 +70,7 @@ final class RawMaterialMutasiNotifier
         $conversation = ConversationModel::query()->create([
             'type' => 'system',
             'subject' => 'Notifikasi Bahan Baku',
-            'target_role' => 'seller',
+            'target_role' => 'admin',
             'is_active' => true,
         ]);
 

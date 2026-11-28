@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domains\Catalog\Product\Application\UseCases\Product;
 
+use App\Domains\Catalog\Product\Costing\Infrastructure\Persistence\Models\ProductCostingImpactModel;
+use App\Domains\Catalog\Product\Costing\Infrastructure\Persistence\Models\ProductCostingModel;
 use App\Domains\Catalog\Product\Domain\Entities\Product;
 use App\Domains\Catalog\Product\Domain\Entities\ProductVariant;
 use App\Domains\Catalog\Product\Domain\Repositories\ProductAttributeValueRepositoryInterface;
@@ -45,6 +47,7 @@ final class UpdateProductUseCase
                 slug: (string) ($data['slug'] ?? $current->slug()),
                 description: array_key_exists('description', $data) ? $data['description'] : $current->description(),
                 brand: array_key_exists('brand', $data) ? $data['brand'] : $current->brand(),
+                unit: array_key_exists('unit', $data) ? $this->nullableUnit($data['unit']) : $current->unit(),
                 thumbnail: array_key_exists('thumbnail', $data) ? $data['thumbnail'] : $current->thumbnail(),
                 isActive: array_key_exists('is_active', $data) ? (bool) $data['is_active'] : $current->isActive(),
                 categoryIds: array_key_exists('category_ids', $data)
@@ -64,6 +67,7 @@ final class UpdateProductUseCase
             }
 
             if (array_key_exists('variants', $data) && is_array($data['variants'])) {
+                $costing = ProductCostingModel::query()->where('product_id', $product->id())->first();
                 $currentVariants = collect($current->variants())->keyBy(
                     fn (ProductVariant $variant): int => (int) $variant->id()
                 );
@@ -122,6 +126,34 @@ final class UpdateProductUseCase
                     $savedId = (int) $saved->id();
                     $retainedIds[] = $savedId;
 
+                    $oldSellingPrice = $oldVariant
+                        ? ($oldVariant->priceSale() ?? $oldVariant->price())
+                        : null;
+                    $newSellingPrice = $saved->priceSale() ?? $saved->price();
+
+                    if ($oldVariant && abs($newSellingPrice - $oldSellingPrice) >= 0.01) {
+                        $hpp = (float) ($costing?->hpp ?? 0);
+                        $materialCost = (float) ($costing?->material_cost ?? 0);
+                        $suggestedPrice = (float) ($costing?->suggested_price ?? 0);
+
+                        ProductCostingImpactModel::query()->create([
+                            'product_id' => $product->id(),
+                            'product_variant_id' => $savedId,
+                            'old_material_cost' => $materialCost,
+                            'new_material_cost' => $materialCost,
+                            'old_hpp' => $hpp,
+                            'new_hpp' => $hpp,
+                            'hpp_change_amount' => 0,
+                            'hpp_change_percent' => 0,
+                            'old_suggested_price' => $suggestedPrice,
+                            'new_suggested_price' => $suggestedPrice,
+                            'old_selling_price' => $oldSellingPrice,
+                            'new_selling_price' => $newSellingPrice,
+                            'trigger_type' => 'product_price_change',
+                            'occurred_at' => now(),
+                        ]);
+                    }
+
                     if (array_key_exists('values', $variantData)) {
                         $this->variants->replaceValues($savedId, $variantData['values'] ?? []);
                     }
@@ -150,6 +182,16 @@ final class UpdateProductUseCase
 
             return $this->products->findById((int) $product->id(), true);
         });
+    }
+
+    /**
+     * Satuan disimpan sebagai teks bebas: string kosong dianggap "tanpa satuan".
+     */
+    private function nullableUnit(mixed $value): ?string
+    {
+        $unit = trim((string) $value);
+
+        return $unit !== '' ? mb_substr($unit, 0, 30) : null;
     }
 
     private function generateSku(array $payload): string

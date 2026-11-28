@@ -29,19 +29,8 @@ trait ResolvesActiveRole
         return $this->activeRole($request) === strtolower(trim($role));
     }
 
-    /**
-     * Apakah sesi ini operator toko? Panel seller dilayani role admin
-     * (single-store), jadi active-role seller juga dianggap operator
-     * selama user benar-benar punya role admin.
-     */
     private function hasOperatorRole(Request $request): bool
     {
-        $role = $this->activeRole($request);
-
-        if ($role === 'admin') {
-            return true;
-        }
-
-        return $role === 'seller' && (bool) $request->user()?->hasRole('admin');
+        return $this->hasActiveRole($request, 'admin');
     }
 }

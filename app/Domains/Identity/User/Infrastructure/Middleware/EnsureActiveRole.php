@@ -4,17 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domains\Identity\User\Infrastructure\Middleware;
 
-use App\Domains\Identity\User\Domain\Repositories\UserRepositoryInterface;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 final class EnsureActiveRole
 {
-    public function __construct(
-        private readonly UserRepositoryInterface $users,
-    ) {}
-
     public function handle(Request $request, Closure $next, string $role): Response
     {
         $role = strtolower(trim($role));
@@ -28,10 +23,7 @@ final class EnsureActiveRole
             return response()->json(['message' => 'Akun tidak memiliki akses aktif.'], 403);
         }
 
-        $isAdmin = $user->hasRole('admin');
-        $roleSatisfied = $user->hasRole($role) || ($role === 'seller' && $isAdmin);
-
-        if (! $roleSatisfied) {
+        if (! $user->hasRole($role)) {
             return response()->json([
                 'message' => "Forbidden. Anda tidak memiliki role {$role} aktif.",
             ], 403);
@@ -43,20 +35,11 @@ final class EnsureActiveRole
             return response()->json(['message' => 'Missing access token.'], 401);
         }
 
-        // Admin adalah superset seller pada marketplace single-store. Token
-        // admin boleh mengakses route seller tanpa perlu role seller terpisah.
         $abilities = $token->abilities ?? [];
-        $abilitySatisfied = in_array("active-role:{$role}", $abilities, true)
-            || ($role === 'seller' && in_array('active-role:admin', $abilities, true));
-
-        if (! $abilitySatisfied) {
+        if (! in_array("active-role:{$role}", $abilities, true)) {
             return response()->json([
                 'message' => "Active role must be {$role}.",
             ], 403);
-        }
-
-        if ($role === 'seller' && ! $this->users->hasSellerAccess($user)) {
-            return response()->json(['message' => 'Seller access is not active.'], 403);
         }
 
         $request->attributes->set('active_role', $role);

@@ -723,6 +723,11 @@ final class StockMovementService
             return;
         }
 
+        // Resep ditulis untuk satu kali produksi; kalau satu kali produksi
+        // menghasilkan lebih dari satu unit (yield), pemakaian bahan dibagi
+        // hasil jadi sehingga tetap sebanding dengan jumlah unit yang dibuat.
+        $yieldQuantity = max(0.0001, (float) (DB::table('product_costings')->where('product_id', $productId)->value('yield_quantity') ?? 1));
+
         $lockedMaterials = [];
         $materialIds = $recipe
             ->filter(fn (object $row): bool => $row->deleted_at === null && (bool) $row->is_active)
@@ -747,7 +752,7 @@ final class StockMovementService
                 throw new InvalidArgumentException('Bahan baku untuk pembentukan produk tidak ditemukan.');
             }
 
-            $required = (float) $row->quantity * $producedQuantity;
+            $required = (float) $row->quantity * $producedQuantity / $yieldQuantity;
             if ((float) $material->stock + 0.0000001 < $required) {
                 throw new InvalidArgumentException('Stok bahan baku '.$material->code.' - '.$material->name.' tidak mencukupi. Dibutuhkan '.rtrim(rtrim(number_format($required, 4, '.', ''), '0'), '.').' '.$material->unit.'.');
             }

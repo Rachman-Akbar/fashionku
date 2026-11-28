@@ -101,9 +101,8 @@ class OrderingController extends Controller
 
     public function storeManual(CreateManualOrderRequest $request): JsonResponse
     {
-        // Single-store: operator toko adalah admin (role seller digabung ke admin).
-        if (! in_array($this->activeRole($request), ['seller', 'admin'], true)) {
-            throw new AccessDeniedHttpException('Hanya seller yang dapat membuat order manual.');
+        if ($this->activeRole($request) !== 'admin') {
+            throw new AccessDeniedHttpException('Hanya admin yang dapat membuat order manual.');
         }
 
         $data = $request->validated();
@@ -145,8 +144,8 @@ class OrderingController extends Controller
     public function index(Request $request): JsonResponse
     {
         $role = $this->activeRole($request);
-        if ($role !== 'admin' && $role !== 'seller') {
-            throw new AccessDeniedHttpException('Hanya seller yang dapat melihat seluruh pesanan.');
+        if ($role !== 'admin') {
+            throw new AccessDeniedHttpException('Hanya admin yang dapat melihat seluruh pesanan.');
         }
 
         $orders = $this->getOrdersUseCase->execute(
@@ -244,7 +243,7 @@ class OrderingController extends Controller
         $role = $this->activeRole($request);
         $this->cancelOrderUseCase->execute($id);
 
-        if ($role === 'admin') {
+        if ($role === 'seller') {
             $this->statusNotifier->notifyStatus($id, 'cancelled', $request->input('reason'), 'admin');
         }
 
@@ -254,8 +253,8 @@ class OrderingController extends Controller
     public function destroy(Request $request, int $id): JsonResponse
     {
         $role = $this->activeRole($request);
-        if ($role !== 'seller' && $role !== 'admin') {
-            throw new AccessDeniedHttpException('Hanya seller atau admin yang dapat menghapus pesanan.');
+        if ($role !== 'admin') {
+            throw new AccessDeniedHttpException('Hanya admin yang dapat menghapus pesanan.');
         }
 
         $subOrder = SubOrderModel::query()->with('parentOrder')->find($id);
@@ -265,8 +264,8 @@ class OrderingController extends Controller
 
         $parent = $subOrder->parentOrder;
         // Order marketplace tidak boleh dihapus paksa: batalkan lewat status.
-        if (in_array($role, ['seller', 'admin'], true) && $parent && ! $this->isManualOrder($parent)) {
-            throw new AccessDeniedHttpException('Order marketplace tidak dapat dihapus oleh seller. Batalkan pesanan melalui status.');
+        if ($parent && ! $this->isManualOrder($parent)) {
+            throw new AccessDeniedHttpException('Order marketplace tidak dapat dihapus oleh admin. Batalkan pesanan melalui status.');
         }
         if ($parent && in_array(strtolower((string) $parent->payment_status), ['paid', 'success'], true)) {
             throw new AccessDeniedHttpException('Pesanan yang sudah lunas tidak dapat dihapus.');
@@ -319,11 +318,11 @@ class OrderingController extends Controller
             return response()->json(['success' => true, 'message' => 'Pesanan berhasil dikonfirmasi diterima.']);
         }
 
-        if (! in_array($role, ['admin', 'seller'], true)) {
-            throw new AccessDeniedHttpException('Hanya seller atau admin yang dapat memperbarui status.');
+        if ($role !== 'admin') {
+            throw new AccessDeniedHttpException('Hanya admin yang dapat memperbarui status.');
         }
 
-        if ($role === 'seller') {
+        if ($role === 'admin') {
             $result = DB::transaction(function () use ($id, $validated): array {
                 $subOrder = SubOrderModel::query()
                     ->where('id', $id)
@@ -442,8 +441,8 @@ class OrderingController extends Controller
 
         $role = $this->activeRole($request);
 
-        if (! in_array($role, ['seller', 'admin'], true)) {
-            throw new AccessDeniedHttpException('Hanya seller atau admin yang dapat mengubah detail pesanan.');
+        if ($role !== 'admin') {
+            throw new AccessDeniedHttpException('Hanya admin yang dapat mengubah detail pesanan.');
         }
 
         $subOrder = SubOrderModel::query()->with('parentOrder')->find($id);
@@ -461,7 +460,7 @@ class OrderingController extends Controller
         $editedItems = $validated['items'] ?? null;
         $isManual = $this->isManualOrder($parent);
 
-        // Order yang masuk lewat marketplace tidak boleh diubah admin/seller;
+        // Order yang masuk lewat marketplace tidak boleh diubah admin;
         // perubahan hanya lewat aksi status agar data penjualan tidak direkayasa.
         if (! $isManual) {
             throw new AccessDeniedHttpException('Order marketplace tidak dapat diedit. Gunakan aksi ubah status, tolak, atau batalkan.');

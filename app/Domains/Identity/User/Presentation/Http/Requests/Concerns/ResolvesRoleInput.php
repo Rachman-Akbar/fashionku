@@ -18,7 +18,7 @@ use Illuminate\Support\Str;
 trait ResolvesRoleInput
 {
     /** @var array<int, string> */
-    public const ROLE_NAMES = ['buyer', 'seller', 'admin'];
+    public const ROLE_NAMES = ['buyer', 'admin'];
 
     /**
      * @param  bool  $defaultToBuyer  isi role buyer bila request tidak menyebut role sama sekali

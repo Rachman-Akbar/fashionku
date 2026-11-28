@@ -6,7 +6,7 @@ import { cn } from "@/shared/utils/utils";
 const CONNECTION_ERROR_STATES = ["disconnected", "failed", "error", "not_configured", "unauthenticated"];
 
 export function connectionLabel(status, scope = "buyer") {
-  if (status === "connected") return scope === "seller" ? "Terhubung" : "Terhubung dengan Admin";
+  if (status === "connected") return scope === "buyer" ? "Terhubung dengan Admin" : "Terhubung";
   return "Menunggu";
 }
 
@@ -82,7 +82,7 @@ function ChatHeader({ conversation, currentUserId, role, connectionStatus, onTog
           <h2 className="truncate font-extrabold text-slate-950">{name}</h2>
           <p className="mt-0.5 flex min-w-0 items-center gap-1 truncate text-xs font-semibold text-slate-500">
             <span className={cn("inline-block h-1.5 w-1.5 shrink-0 rounded-full", online ? "bg-emerald-500" : "bg-amber-500")} />
-            <span className="truncate">{subtitle ? `${subtitle} · ${connectionLabel(connectionStatus, role === "buyer" ? "buyer" : "seller")}` : connectionLabel(connectionStatus, role === "buyer" ? "buyer" : "seller")}</span>
+            <span className="truncate">{subtitle ? `${subtitle} · ${connectionLabel(connectionStatus, role === "buyer" ? "buyer" : "admin")}` : connectionLabel(connectionStatus, role === "buyer" ? "buyer" : "admin")}</span>
           </p>
         </div>
       </div>

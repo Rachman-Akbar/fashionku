@@ -7,6 +7,7 @@ namespace Tests\Feature\Auth;
 use App\Domains\Identity\Auth\Infrastructure\Mail\EmailVerificationMail;
 use App\Domains\Identity\User\Domain\Entities\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Tests\Support\InteractsAsUser;
 use Tests\TestCase;
@@ -34,6 +35,25 @@ class AuthTest extends TestCase
         $user = User::query()->where('email', 'reg@example.com')->first();
         $this->assertNotNull($user);
         $this->assertTrue($user->hasRole('buyer'));
+        $this->assertDatabaseHas('seller_customers', ['user_id' => $user->id]);
+        $this->assertSame(1, DB::table('seller_customers')->where('user_id', $user->id)->count());
+    }
+
+    public function test_admin_created_buyer_gets_exactly_one_customer_record(): void
+    {
+        $this->actingAsRole('admin');
+
+        $this->postJson('/api/v1/identity/users', [
+            'name' => 'Admin Added Buyer',
+            'email' => 'admin-added-buyer@example.com',
+            'role' => 'buyer',
+        ])->assertCreated();
+
+        $user = User::query()->where('email', 'admin-added-buyer@example.com')->firstOrFail();
+
+        $this->assertTrue($user->hasRole('buyer'));
+        $this->assertDatabaseHas('seller_customers', ['user_id' => $user->id]);
+        $this->assertSame(1, DB::table('seller_customers')->where('user_id', $user->id)->count());
     }
 
     public function test_register_requires_unique_email(): void
